@@ -1,0 +1,5 @@
+from app.models.profile import Profile
+from app.models.user_sport import UserSport
+from app.models.match import Match, MatchPlayer
+from app.models.waiting_list import WaitingList
+from app.models.match_leave import MatchLeave

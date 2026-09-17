@@ -2,15 +2,15 @@ import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config
 
 sys.path.append(os.getcwd())
 
 from app.core.config import settings
 from app.db.session import Base
+from sqlalchemy import pool
+import app.models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -33,7 +33,16 @@ target_metadata = Base.metadata
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+def include_object(object, name, type_, reflected, compare_to):
+    # Skip standard migrations/DDL checks for the external 'profiles' table
+    if (
+        type_ == "foreign_key_constraint"
+        and reflected
+        and object.name == "profiles_id_fkey"
+    ):
+        return False
 
+    return True
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -74,7 +83,10 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=False,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
