@@ -1,3 +1,4 @@
+from app.api.v1.profiles import router as profiles_router
 from fastapi import FastAPI, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -6,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import get_db
 
 app = FastAPI(title="SportMate API")
+app.include_router(profiles_router)
 
 @app.get("/health")
 def health():
