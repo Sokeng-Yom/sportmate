@@ -3,3 +3,5 @@ from app.models.user_sport import UserSport
 from app.models.match import Match, MatchPlayer
 from app.models.waiting_list import WaitingList
 from app.models.match_leave import MatchLeave
+from app.models.venue import Venue, Court
+from app.models.booking import Booking
