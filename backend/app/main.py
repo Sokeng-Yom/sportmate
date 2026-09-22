@@ -18,7 +18,16 @@ from app.core.exceptions import (
     validation_exception_handler,
     unhandled_exception_handler,
 )
-app = FastAPI(title="SportMate API")
+app = FastAPI(
+    title="SportMate API",
+    description=(
+        "Business logic and secure API layer for SportMate. "
+        "Authentication is handled by Supabase Auth; every protected endpoint "
+        "expects a Supabase access token in the Authorization header "
+        "(`Authorization: Bearer <token>`)."
+    ),
+    version="0.1.0",
+)
 app.include_router(profiles_router)
 app.include_router(admin_router)
 app.include_router(venues_router)
