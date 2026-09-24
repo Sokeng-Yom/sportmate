@@ -9,6 +9,8 @@ from app.db.session import get_db
 from app.models.match import Match
 from app.schemas.match import MatchCreate, MatchRead, MatchDetailRead, PaginatedMatches
 
+from sqlalchemy import select, func as sa_func
+from app.models.match import MatchPlayer
 router = APIRouter(prefix="/api/v1/matches", tags=["matches"])
 
 
@@ -64,4 +66,79 @@ def get_match(match_id: UUID, user: dict = Depends(get_current_user), db: Sessio
     )
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
+    return match
+
+@router.post("/{match_id}/join", response_model=MatchDetailRead, summary="Join a match")
+def join_match(match_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    with db.begin_nested():
+        match = (
+            db.query(Match)
+            .filter(Match.id == match_id)
+            .with_for_update()
+            .first()
+        )
+        if not match:
+            raise HTTPException(status_code=404, detail="Match not found")
+
+        if match.status not in (MatchStatus.OPEN,):
+            raise HTTPException(status_code=400, detail=f"Cannot join a match with status {match.status}")
+
+        already_joined = db.query(MatchPlayer).filter(
+            MatchPlayer.match_id == match_id, MatchPlayer.user_id == user["sub"]
+        ).first()
+        if already_joined:
+            raise HTTPException(status_code=400, detail="You have already joined this match")
+
+        current_count = db.query(sa_func.count()).select_from(MatchPlayer).filter(
+            MatchPlayer.match_id == match_id
+        ).scalar()
+
+        if current_count >= match.players_needed:
+            raise HTTPException(status_code=400, detail="Match is full")
+
+        db.add(MatchPlayer(id=uuid.uuid4(), match_id=match_id, user_id=user["sub"]))
+
+        if current_count + 1 >= match.players_needed:
+            match.status = MatchStatus.FULL
+
+    db.commit()
+    db.refresh(match)
+    return match
+
+
+@router.post("/{match_id}/leave", response_model=MatchDetailRead, summary="Leave a match")
+def leave_match(match_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    entry = db.query(MatchPlayer).filter(
+        MatchPlayer.match_id == match_id, MatchPlayer.user_id == user["sub"]
+    ).first()
+    if not entry:
+        raise HTTPException(status_code=400, detail="You are not part of this match")
+
+    db.delete(entry)
+
+    # If the match was FULL and now has an open slot, reopen it
+    if match.status == MatchStatus.FULL:
+        match.status = MatchStatus.OPEN
+
+    db.commit()
+    db.refresh(match)
+    return match
+
+
+@router.patch("/{match_id}/cancel", response_model=MatchDetailRead, summary="Cancel a match (creator only)")
+def cancel_match(match_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if str(match.created_by) != user["sub"]:
+        raise HTTPException(status_code=403, detail="Only the match creator can cancel it")
+
+    match.status = MatchStatus.CANCELLED
+    db.commit()
+    db.refresh(match)
     return match
