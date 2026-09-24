@@ -11,6 +11,14 @@ from app.schemas.match import MatchCreate, MatchRead, MatchDetailRead, Paginated
 
 from sqlalchemy import select, func as sa_func
 from app.models.match import MatchPlayer
+
+from datetime import date as date_type
+
+from app.models.user_sport import UserSport
+from app.models.match_leave import MatchLeave
+from app.schemas.match import RecommendedMatch
+from app.services.matchmaking import compute_match_score
+
 router = APIRouter(prefix="/api/v1/matches", tags=["matches"])
 
 
@@ -142,3 +150,59 @@ def cancel_match(match_id: UUID, user: dict = Depends(get_current_user), db: Ses
     db.commit()
     db.refresh(match)
     return match
+
+@router.get("/recommended", response_model=list[RecommendedMatch], summary="Get ranked, scored match recommendations")
+def recommended_matches(
+    sport: str | None = None,
+    date: date_type | None = None,
+    location: str | None = None,
+    min_score: float = 0.0,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user_id = user["sub"]
+
+    # Player's own sports/skill levels
+    user_sport_rows = db.query(UserSport).filter(UserSport.user_id == user_id).all()
+    user_sport_names = [s.sport for s in user_sport_rows]
+    skill_by_sport = {s.sport.lower(): s.skill_level for s in user_sport_rows}
+
+    # Player's own leave history, for the reliability factor
+    leaves = db.query(MatchLeave).filter(MatchLeave.user_id == user_id).all()
+    total_leaves = len(leaves)
+    critical_leaves = sum(1 for l in leaves if l.risk_level == "CRITICAL")
+
+    # Candidate matches: OPEN only, not created by this user, not already joined
+    already_joined_ids = {
+        row.match_id for row in db.query(MatchPlayer).filter(MatchPlayer.user_id == user_id).all()
+    }
+    query = db.query(Match).filter(Match.status == "OPEN", Match.created_by != user_id)
+    if sport:
+        query = query.filter(Match.sport == sport)
+    if location:
+        query = query.filter(Match.location.ilike(f"%{location}%"))
+
+    candidates = [m for m in query.all() if m.id not in already_joined_ids]
+
+    scored = []
+    for match in candidates:
+        user_skill_for_this_sport = skill_by_sport.get(match.sport.lower())
+        score = compute_match_score(
+            user_sports=user_sport_names,
+            user_skill_level=user_skill_for_this_sport,
+            critical_leave_count=critical_leaves,
+            total_leave_count=total_leaves,
+            match_sport=match.sport,
+            match_skill_level=match.skill_level,
+            match_date=match.date,
+            match_location=match.location,
+            preferred_date=date,
+            preferred_location=location,
+        )
+        if score >= min_score:
+            match_dict = MatchRead.model_validate(match).model_dump()
+            match_dict["score"] = score
+            scored.append(match_dict)
+
+    scored.sort(key=lambda m: m["score"], reverse=True)
+    return scored
