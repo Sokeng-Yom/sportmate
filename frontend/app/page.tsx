@@ -6,6 +6,7 @@ import {
   ShieldCheck, Activity, BicepsFlexed, Shield, Lock, Bell
 } from "lucide-react";
 import { motion } from "framer-motion";
+import Navbar from "./components/Navbar";
 
 export default function LandingPage() {
   return (
@@ -26,7 +27,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col justify-center items-center text-center">
+      <section id="home" className="pt-40 pb-20 px-6 max-w-7xl mx-auto flex flex-col justify-center items-center text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -77,7 +78,7 @@ export default function LandingPage() {
       </section>
 
       {/* Features Grid */}
-      <section className="py-24 max-w-7xl mx-auto px-6">
+      <section id="features" className="py-24 max-w-7xl mx-auto px-6">
         <h2 className="text-3xl font-extrabold mb-12 text-center">Everything you need</h2>
         <div className="grid md:grid-cols-3 gap-6">
           {[

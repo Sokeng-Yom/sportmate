@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowRight, UserCircle2, Building2 } from "lucide-react";
+import { ArrowRight, UserCircle2, Building2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -22,6 +22,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
     const router = useRouter();
     const [selectedRole, setSelectedRole] = useState<"PLAYER" | "VENUE_OWNER">("PLAYER");
+    const [showPassword, setShowPassword] = useState(false);
 
     const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -39,11 +40,7 @@ export default function LoginPage() {
         // Mock login logic
         localStorage.setItem("mock_session_role", data.role);
 
-        if (data.role === "VENUE_OWNER") {
-            router.push("/venue/dashboard");
-        } else {
-            router.push("/player/dashboard");
-        }
+        router.push("/player/dashboard");
     };
 
     return (
@@ -75,8 +72,8 @@ export default function LoginPage() {
                                 type="button"
                                 onClick={() => handleRoleChange("PLAYER")}
                                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 transition-all ${selectedRole === "PLAYER"
-                                        ? "border-brand bg-brand/5 text-brand shadow-brand/10 shadow-sm"
-                                        : "border-gray-100 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-gray-300"
+                                    ? "border-brand bg-brand/5 text-brand shadow-brand/10 shadow-sm"
+                                    : "border-gray-100 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-gray-300"
                                     }`}
                             >
                                 <UserCircle2 size={18} />
@@ -87,8 +84,8 @@ export default function LoginPage() {
                                 type="button"
                                 onClick={() => handleRoleChange("VENUE_OWNER")}
                                 className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 transition-all ${selectedRole === "VENUE_OWNER"
-                                        ? "border-brand bg-brand/5 text-brand shadow-brand/10 shadow-sm"
-                                        : "border-gray-100 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-gray-300"
+                                    ? "border-brand bg-brand/5 text-brand shadow-brand/10 shadow-sm"
+                                    : "border-gray-100 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-gray-300"
                                     }`}
                             >
                                 <Building2 size={18} />
@@ -114,12 +111,21 @@ export default function LoginPage() {
                             <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Password</label>
                             <a href="#" className="text-xs font-semibold text-brand hover:underline">Forgot?</a>
                         </div>
-                        <input
-                            {...register("password")}
-                            type="password"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
-                            placeholder="••••••••"
-                        />
+                        <div className="relative">
+                            <input
+                                {...register("password")}
+                                type={showPassword ? "text" : "password"}
+                                className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
+                                placeholder="••••••••"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
+                        </div>
                         {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>}
                     </div>
 

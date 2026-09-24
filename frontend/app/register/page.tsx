@@ -43,11 +43,7 @@ export default function RegisterPage() {
         // Simulate setting mock session/cookie
         localStorage.setItem("mock_session_role", selectedRole);
 
-        if (selectedRole === "PLAYER") {
-            router.push("/player/onboarding");
-        } else {
-            router.push("/venue/register");
-        }
+        router.push("/player/dashboard");
     };
 
     return (
@@ -155,8 +151,8 @@ export default function RegisterPage() {
                                 <button
                                     onClick={() => handleRoleSelect("PLAYER")}
                                     className={`flex flex-col text-left p-6 rounded-2xl border-2 transition-all ${selectedRole === "PLAYER"
-                                            ? "border-brand bg-brand/5 shadow-brand/10 shadow-lg"
-                                            : "border-gray-100 hover:border-gray-300 dark:border-slate-800 dark:hover:border-slate-600 bg-white dark:bg-slate-900"
+                                        ? "border-brand bg-brand/5 shadow-brand/10 shadow-lg"
+                                        : "border-gray-100 hover:border-gray-300 dark:border-slate-800 dark:hover:border-slate-600 bg-white dark:bg-slate-900"
                                         }`}
                                 >
                                     <div className={`w-12 h-12 rounded-xl mb-4 flex items-center justify-center ${selectedRole === "PLAYER" ? "bg-brand text-white" : "bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}`}>
@@ -170,8 +166,8 @@ export default function RegisterPage() {
                                 <button
                                     onClick={() => handleRoleSelect("VENUE_OWNER")}
                                     className={`flex flex-col text-left p-6 rounded-2xl border-2 transition-all ${selectedRole === "VENUE_OWNER"
-                                            ? "border-brand bg-brand/5 shadow-brand/10 shadow-lg"
-                                            : "border-gray-100 hover:border-gray-300 dark:border-slate-800 dark:hover:border-slate-600 bg-white dark:bg-slate-900"
+                                        ? "border-brand bg-brand/5 shadow-brand/10 shadow-lg"
+                                        : "border-gray-100 hover:border-gray-300 dark:border-slate-800 dark:hover:border-slate-600 bg-white dark:bg-slate-900"
                                         }`}
                                 >
                                     <div className={`w-12 h-12 rounded-xl mb-4 flex items-center justify-center ${selectedRole === "VENUE_OWNER" ? "bg-brand text-white" : "bg-gray-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"}`}>
