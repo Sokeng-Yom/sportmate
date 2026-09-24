@@ -17,15 +17,15 @@ class UserSportCreate(BaseModel):
 
     @field_validator("sport")
     @classmethod
-    def validate_sport_not_empty(cls, v: str) -> str:
-        if not v.strip():
+    def validate_sport(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
             raise ValueError("sport must not be empty")
-        return v.strip()
+        return v.title()
 
 
 class UserSportRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-
     id: UUID
     user_id: UUID
     sport: str
