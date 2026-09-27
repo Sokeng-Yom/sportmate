@@ -16,8 +16,8 @@ class MatchCreate(BaseModel):
     @field_validator("players_needed")
     @classmethod
     def validate_players_needed(cls, v: int) -> int:
-        if v < 2:
-            raise ValueError("players_needed must be at least 2")
+        if v < 1:
+            raise ValueError("players_needed must be at least 1")
         return v
 
     @field_validator("skill_level")

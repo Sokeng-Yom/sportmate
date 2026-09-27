@@ -1,5 +1,7 @@
 import uuid
+from sqlalchemy import select, func
 from uuid import UUID
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
@@ -9,7 +11,6 @@ from app.db.session import get_db
 from app.models.match import Match
 from app.schemas.match import MatchCreate, MatchRead, MatchDetailRead, PaginatedMatches
 
-from sqlalchemy import select, func as sa_func
 from app.models.match import MatchPlayer
 
 from datetime import date as date_type
@@ -18,6 +19,10 @@ from app.models.user_sport import UserSport
 from app.models.match_leave import MatchLeave
 from app.schemas.match import RecommendedMatch
 from app.services.matchmaking import compute_match_score
+
+from app.models.profile import Profile
+from app.services.leave_risk import hours_remaining, classify_risk, CRITICAL_RESTRICTION_DAYS, RISK_CRITICAL
+from app.models.waiting_list import WaitingList
 
 router = APIRouter(prefix="/api/v1/matches", tags=["matches"])
 
@@ -78,6 +83,12 @@ def get_match(match_id: UUID, user: dict = Depends(get_current_user), db: Sessio
 
 @router.post("/{match_id}/join", response_model=MatchDetailRead, summary="Join a match")
 def join_match(match_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
+    if profile and profile.restricted_until and profile.restricted_until > datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=403,
+            detail=f"You are restricted from joining matches until {profile.restricted_until.isoformat()}",
+        )
     with db.begin_nested():
         match = (
             db.query(Match)
@@ -97,7 +108,7 @@ def join_match(match_id: UUID, user: dict = Depends(get_current_user), db: Sessi
         if already_joined:
             raise HTTPException(status_code=400, detail="You have already joined this match")
 
-        current_count = db.query(sa_func.count()).select_from(MatchPlayer).filter(
+        current_count = db.query(func.count()).select_from(MatchPlayer).filter(
             MatchPlayer.match_id == match_id
         ).scalar()
 
@@ -126,16 +137,31 @@ def leave_match(match_id: UUID, user: dict = Depends(get_current_user), db: Sess
     if not entry:
         raise HTTPException(status_code=400, detail="You are not part of this match")
 
+    hours_left = hours_remaining(match.date, match.time)
+    risk_level = classify_risk(hours_left)
+
+    db.add(MatchLeave(
+        id=uuid.uuid4(),
+        match_id=match_id,
+        user_id=user["sub"],
+        hours_before_match=hours_left,
+        risk_level=risk_level,
+    ))
+
+    if risk_level == RISK_CRITICAL:
+        profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
+        if profile:
+            profile.restricted_until = datetime.now(timezone.utc) + timedelta(days=CRITICAL_RESTRICTION_DAYS)
+
     db.delete(entry)
 
-    # If the match was FULL and now has an open slot, reopen it
     if match.status == MatchStatus.FULL:
         match.status = MatchStatus.OPEN
+        _notify_next_waiting_list_entry(db, match_id)
 
     db.commit()
     db.refresh(match)
     return match
-
 
 @router.patch("/{match_id}/cancel", response_model=MatchDetailRead, summary="Cancel a match (creator only)")
 def cancel_match(match_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -206,3 +232,70 @@ def recommended_matches(
 
     scored.sort(key=lambda m: m["score"], reverse=True)
     return scored
+
+def _notify_next_waiting_list_entry(db: Session, match_id: UUID):
+    next_entry = (
+        db.query(WaitingList)
+        .filter(WaitingList.match_id == match_id, WaitingList.status == "WAITING")
+        .order_by(WaitingList.position.asc())
+        .first()
+    )
+    if next_entry:
+        next_entry.status = "NOTIFIED"
+        next_entry.notified_at = datetime.now(timezone.utc)
+        next_entry.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+
+
+@router.post("/{match_id}/waiting-list", status_code=201, summary="Join a full match's waiting list")
+def join_waiting_list(match_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    match = db.query(Match).filter(Match.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if match.status != MatchStatus.FULL:
+        raise HTTPException(status_code=400, detail="Match is not full; join directly instead")
+
+    existing = db.query(WaitingList).filter(
+        WaitingList.match_id == match_id, WaitingList.user_id == user["sub"]
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Already on the waiting list for this match")
+
+    max_position = db.query(func.max(WaitingList.position)).filter(WaitingList.match_id == match_id).scalar() or 0
+
+    entry = WaitingList(
+        id=uuid.uuid4(),
+        match_id=match_id,
+        user_id=user["sub"],
+        position=max_position + 1,
+        status="WAITING",
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return {"id": entry.id, "position": entry.position, "status": entry.status}
+
+
+@router.post("/waiting-list/{entry_id}/accept", summary="Accept a waiting-list slot")
+def accept_waiting_list_entry(entry_id: UUID, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    entry = db.query(WaitingList).filter(WaitingList.id == entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Waiting list entry not found")
+    if str(entry.user_id) != user["sub"]:
+        raise HTTPException(status_code=403, detail="This waiting list entry does not belong to you")
+    if entry.status != "NOTIFIED":
+        raise HTTPException(status_code=400, detail=f"Cannot accept an entry with status {entry.status}")
+    if entry.expires_at and entry.expires_at < datetime.now(timezone.utc):
+        entry.status = "EXPIRED"
+        db.commit()
+        raise HTTPException(status_code=400, detail="This offer has expired")
+
+    entry.status = "ACCEPTED"
+    db.add(MatchPlayer(id=uuid.uuid4(), match_id=entry.match_id, user_id=entry.user_id))
+
+    match = db.query(Match).filter(Match.id == entry.match_id).first()
+    current_count = db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == entry.match_id).scalar()
+    if current_count >= match.players_needed:
+        match.status = MatchStatus.FULL
+
+    db.commit()
+    return {"status": "joined"}

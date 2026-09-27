@@ -110,3 +110,59 @@ def test_only_creator_can_cancel(client, auth_headers_for):
     assert response.json()["status"] == "CANCELLED"
 
 
+
+
+def test_critical_leave_restricts_user(client, auth_headers_for, db_session):
+    from datetime import datetime, timezone, timedelta
+    from app.models.profile import Profile
+
+    creator = auth_headers_for("PLAYER")
+    joiner_headers = auth_headers_for("PLAYER")
+
+    # Create a match starting in 1 hour -> leaving now is CRITICAL
+    near_future = datetime.utcnow() + timedelta(hours=1)
+    match_response = client.post(
+        "/api/v1/matches",
+        json={
+            "sport": "Badminton", "location": "Phnom Penh",
+            "date": near_future.date().isoformat(),
+            "time": near_future.time().isoformat(),
+            "players_needed": 2, "skill_level": "BEGINNER",
+        },
+        headers=creator,
+    )
+    match_id = match_response.json()["id"]
+
+    client.post(f"/api/v1/matches/{match_id}/join", headers=joiner_headers)
+    client.post(f"/api/v1/matches/{match_id}/leave", headers=joiner_headers)
+
+    # Extract the joiner's user id from their token to check the profile
+    import jwt as pyjwt
+    token = joiner_headers["Authorization"].split(" ")[1]
+    decoded = pyjwt.decode(token, options={"verify_signature": False})
+    joiner_id = decoded["sub"]
+
+    profile = db_session.query(Profile).filter(Profile.id == joiner_id).first()
+    assert profile.restricted_until is not None
+    assert profile.restricted_until > datetime.now(timezone.utc)
+
+
+def test_restricted_user_cannot_join(client, auth_headers_for, db_session):
+    from datetime import datetime, timezone, timedelta
+    from app.models.profile import Profile
+
+    restricted_headers = auth_headers_for("PLAYER")
+    import jwt as pyjwt
+    token = restricted_headers["Authorization"].split(" ")[1]
+    decoded = pyjwt.decode(token, options={"verify_signature": False})
+    user_id = decoded["sub"]
+
+    profile = db_session.query(Profile).filter(Profile.id == user_id).first()
+    profile.restricted_until = datetime.now(timezone.utc) + timedelta(days=3)
+    db_session.commit()
+
+    creator = auth_headers_for("PLAYER")
+    match_id = create_test_match(client, creator, players_needed=2)
+
+    response = client.post(f"/api/v1/matches/{match_id}/join", headers=restricted_headers)
+    assert response.status_code == 403
