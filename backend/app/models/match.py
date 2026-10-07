@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, Date, Time, ForeignKey, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
-
+from sqlalchemy.orm import relationship
 from app.db.session import Base
 
 
@@ -20,6 +20,7 @@ class Match(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
+    players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")
 
 class MatchPlayer(Base):
     __tablename__ = "match_players"
@@ -28,3 +29,5 @@ class MatchPlayer(Base):
     match_id = Column(UUID(as_uuid=True), ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
     joined_at = Column(DateTime, server_default=func.now())
+
+    match = relationship("Match", back_populates="players")

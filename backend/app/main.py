@@ -1,11 +1,16 @@
 from app.api.v1.profiles import router as profiles_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.venues import router as venues_router
+from app.api.v1.sports import router as sports_router
+from app.api.v1.matches import router as matches_router
+from app.db.session import SessionLocal
+from app.services.waiting_list_expiry import expire_stale_waiting_list_entries
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.session import get_db
 
@@ -31,6 +36,8 @@ app = FastAPI(
 app.include_router(profiles_router)
 app.include_router(admin_router)
 app.include_router(venues_router)
+app.include_router(sports_router)
+app.include_router(matches_router)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -58,6 +65,28 @@ def health():
 def health_db(db: Session = Depends(get_db)):
     result = db.execute(text("SELECT 1")).scalar()
     return {"db_status": "ok", "result": result}
+def run_expiry_check():
+    db = SessionLocal()
+    try:
+        expired = expire_stale_waiting_list_entries(db)
+        if expired:
+            logger.info("Expired %d stale waiting list entries", expired)
+    finally:
+        db.close()
+
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(run_expiry_check, "interval", minutes=1)
+
+
+@app.on_event("startup")
+def start_scheduler():
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_scheduler():
+    scheduler.shutdown()
 
 app.add_middleware(
        CORSMiddleware,
