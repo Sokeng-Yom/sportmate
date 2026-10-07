@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { Bell, User } from "lucide-react";
+import { VenueOwnerDataProvider } from "../venue-owner/context/VenueOwnerContext";
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -66,7 +68,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
             {/* Main Content Area */}
             <main className="w-full">
-                {children}
+                <Suspense fallback={null}>
+                    <VenueOwnerDataProvider>
+                        {children}
+                    </VenueOwnerDataProvider>
+                </Suspense>
             </main>
         </div>
     );

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     Globe, MapPin, Calendar, DollarSign, Users, BarChart2,
-    PenLine, Search, Info, CheckCircle2
+    PenLine, Info, CheckCircle2, Footprints, ShieldCheck
 } from "lucide-react";
+import { useVenueOwnerData } from "../../venue-owner/context/VenueOwnerContext";
 
 const SPORTS = [
     "Tennis", "Basketball", "Running", "Badminton", "Football",
@@ -20,11 +21,16 @@ const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
 
 export default function HostPage() {
     const router = useRouter();
+    const { venues, courts, addBooking, addHostedGame } = useVenueOwnerData();
     const [submitted, setSubmitted] = useState(false);
+
+    const [bookingType, setBookingType] = useState<"Walking" | "Court Booking">("Walking");
 
     const [form, setForm] = useState({
         sport: "",
         location: "",
+        venueId: "",
+        courtId: "",
         datetime: "",
         duration: "30 min",
         playersNeeded: "",
@@ -32,17 +38,74 @@ export default function HostPage() {
         note: "",
     });
 
+    const selectedVenueCourts = courts.filter(
+        (c) => c.venueId === form.venueId && c.active
+    );
+
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
     ) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setForm((prev) => ({
+            ...prev,
+            [name]: value,
+            // reset court when venue changes
+            ...(name === "venueId" ? { courtId: "" } : {}),
+        }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Build a booking and push it to the venue-owner system as "Pending"
+        const selectedVenue = venues.find((v) => v.id === form.venueId);
+        const selectedCourt = courts.find((c) => c.id === form.courtId);
+
+        const dateObj = form.datetime ? new Date(form.datetime) : new Date();
+        const date = dateObj.toISOString().split("T")[0];
+        const startTime = dateObj.toTimeString().slice(0, 5);
+        const [gameDate, gameTime] = form.datetime.split("T");
+
+        // Calculate end time from duration
+        const durationMin: Record<string, number> = {
+            "30 min": 30, "45 min": 45, "1 hour": 60,
+            "1.5 hours": 90, "2 hours": 120, "2.5 hours": 150, "3 hours": 180,
+        };
+        const endDate = new Date(dateObj.getTime() + (durationMin[form.duration] ?? 60) * 60000);
+        const endTime = endDate.toTimeString().slice(0, 5);
+
+        const price = bookingType === "Court Booking" && selectedCourt
+            ? Math.round((selectedCourt.pricePerHour * (durationMin[form.duration] ?? 60)) / 60)
+            : 0;
+
+        addHostedGame({
+            sport: form.sport,
+            location: form.location,
+            date: gameDate,
+            time: gameTime,
+            duration: form.duration,
+            playersNeeded: Number(form.playersNeeded),
+            skillLevel: form.skillLevel,
+            note: form.note,
+            bookingType,
+            venueName: selectedVenue?.name,
+            courtName: selectedCourt?.name,
+        });
+
+        addBooking({
+            courtId: form.courtId || "walk-in",
+            venueId: form.venueId || (venues[0]?.id ?? "v1"),
+            playerName: "You (Player)",
+            date,
+            startTime,
+            endTime,
+            price,
+            bookingType,
+        });
+
         setSubmitted(true);
         setTimeout(() => {
-            router.push("/player/dashboard");
+            router.push("/player/listings");
         }, 1800);
     };
 
@@ -57,7 +120,7 @@ export default function HostPage() {
 
                             {/* Icon */}
                             <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
-                                <Search size={26} className="text-blue-500" />
+                                <ShieldCheck size={26} className="text-blue-500" />
                             </div>
 
                             {/* Title */}
@@ -73,6 +136,44 @@ export default function HostPage() {
                                 <span className="text-blue-500 font-semibold">Fill</span>{" "}
                                 out the details below so others can join you.
                             </p>
+
+                            {/* Booking Type Cards */}
+                            <div className="space-y-3">
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Booking Type</p>
+                                <button
+                                    type="button"
+                                    onClick={() => setBookingType("Walking")}
+                                    className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${bookingType === "Walking"
+                                        ? "border-blue-500 bg-blue-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                        }`}
+                                >
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${bookingType === "Walking" ? "bg-blue-500 text-white" : "bg-gray-100 text-slate-500"}`}>
+                                        <Footprints size={18} />
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-bold ${bookingType === "Walking" ? "text-blue-700" : "text-slate-700"}`}>Walking</p>
+                                        <p className="text-xs text-slate-400">Drop-in, no court required</p>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setBookingType("Court Booking")}
+                                    className={`w-full flex items-center gap-3 p-4 rounded-2xl border-2 transition-all text-left ${bookingType === "Court Booking"
+                                        ? "border-emerald-500 bg-emerald-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                        }`}
+                                >
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${bookingType === "Court Booking" ? "bg-emerald-500 text-white" : "bg-gray-100 text-slate-500"}`}>
+                                        <ShieldCheck size={18} />
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-bold ${bookingType === "Court Booking" ? "text-emerald-700" : "text-slate-700"}`}>Court Booking</p>
+                                        <p className="text-xs text-slate-400">Reserve a specific court</p>
+                                    </div>
+                                </button>
+                            </div>
 
                             {/* Tip Box */}
                             <div className="bg-blue-50 rounded-2xl p-4 flex gap-3">
@@ -92,10 +193,17 @@ export default function HostPage() {
                                         <CheckCircle2 size={36} className="text-emerald-500" />
                                     </div>
                                     <h2 className="text-2xl font-extrabold text-slate-900">Game Posted!</h2>
-                                    <p className="text-slate-500 text-sm">Redirecting you to the dashboard…</p>
+                                    <p className="text-slate-500 text-sm">Your booking is now <span className="font-bold text-amber-500">Pending</span> approval from the venue owner.</p>
+                                    <p className="text-slate-400 text-xs">Redirecting you to your hosting…</p>
                                 </div>
                             ) : (
                                 <form onSubmit={handleSubmit} className="space-y-6">
+
+                                    {/* Active Type Badge */}
+                                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${bookingType === "Walking" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                                        {bookingType === "Walking" ? <Footprints size={15} /> : <ShieldCheck size={15} />}
+                                        {bookingType}
+                                    </div>
 
                                     {/* Sport */}
                                     <div className="flex items-start gap-4 border-b border-gray-100 pb-6">
@@ -118,6 +226,44 @@ export default function HostPage() {
                                             </select>
                                         </div>
                                     </div>
+
+                                    {/* Venue + Court — only for Court Booking */}
+                                    {bookingType === "Court Booking" && (
+                                        <div className="flex items-start gap-4 border-b border-gray-100 pb-6">
+                                            <ShieldCheck size={20} className="text-slate-400 mt-3 flex-shrink-0" />
+                                            <div className="flex-1 space-y-3">
+                                                <label className="block text-sm font-semibold text-slate-700">
+                                                    Select Venue &amp; Court
+                                                </label>
+                                                <select
+                                                    name="venueId"
+                                                    value={form.venueId}
+                                                    onChange={handleChange}
+                                                    required={bookingType === "Court Booking"}
+                                                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 appearance-none cursor-pointer"
+                                                >
+                                                    <option value="" disabled>Choose a venue…</option>
+                                                    {venues.filter(v => v.status === "Active").map((v) => (
+                                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                                    ))}
+                                                </select>
+                                                {form.venueId && (
+                                                    <select
+                                                        name="courtId"
+                                                        value={form.courtId}
+                                                        onChange={handleChange}
+                                                        required={bookingType === "Court Booking"}
+                                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 appearance-none cursor-pointer"
+                                                    >
+                                                        <option value="" disabled>Choose a court…</option>
+                                                        {selectedVenueCourts.map((c) => (
+                                                            <option key={c.id} value={c.id}>{c.name} — ${c.pricePerHour}/hr</option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Location */}
                                     <div className="flex items-start gap-4 border-b border-gray-100 pb-6">
@@ -239,9 +385,12 @@ export default function HostPage() {
                                     <div className="flex justify-end pt-2">
                                         <button
                                             type="submit"
-                                            className="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white font-bold py-3 px-10 rounded-full shadow-md transition-all"
+                                            className={`font-bold py-3 px-10 rounded-full shadow-md transition-all active:scale-95 text-white ${bookingType === "Walking"
+                                                ? "bg-blue-600 hover:bg-blue-700"
+                                                : "bg-emerald-600 hover:bg-emerald-700"
+                                                }`}
                                         >
-                                            Post Game
+                                            {bookingType === "Walking" ? "Post Walking Game" : "Book Court"}
                                         </button>
                                     </div>
 

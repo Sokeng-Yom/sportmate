@@ -8,12 +8,13 @@ import { ArrowRight, UserCircle2, Building2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { supabase } from "../../lib/supabaseClient";
 
 const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
     role: z.enum(["PLAYER", "VENUE_OWNER"], {
-        required_error: "Please select an account type",
+        message: "Please select an account type",
     }),
 });
 
@@ -23,8 +24,9 @@ export default function LoginPage() {
     const router = useRouter();
     const [selectedRole, setSelectedRole] = useState<"PLAYER" | "VENUE_OWNER">("PLAYER");
     const [showPassword, setShowPassword] = useState(false);
+    const [authError, setAuthError] = useState<string | null>(null);
 
-    const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginFormValues>({
+    const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
         defaultValues: {
             role: "PLAYER",
@@ -36,11 +38,28 @@ export default function LoginPage() {
         setValue("role", role);
     };
 
-    const onSubmit = (data: LoginFormValues) => {
-        // Mock login logic
-        localStorage.setItem("mock_session_role", data.role);
+    const onSubmit = async (data: LoginFormValues) => {
+        setAuthError(null);
 
-        router.push("/player/dashboard");
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email: data.email,
+                password: data.password,
+            });
+
+            if (error) {
+                setAuthError(error.message);
+                return;
+            }
+
+            if (data.role === "VENUE_OWNER") {
+                router.push("/venue-owner");
+            } else {
+                router.push("/player/dashboard");
+            }
+        } catch (error) {
+            setAuthError(error instanceof Error ? error.message : "Unable to log in. Please try again.");
+        }
     };
 
     return (
@@ -63,6 +82,11 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    {authError && (
+                        <p role="alert" className="text-red-500 text-sm" aria-live="polite">
+                            {authError}
+                        </p>
+                    )}
 
                     {/* Role Selection */}
                     <div>
@@ -131,9 +155,10 @@ export default function LoginPage() {
 
                     <button
                         type="submit"
+                        disabled={isSubmitting}
                         className="w-full mt-6 bg-brand hover:bg-brand-dark text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand/20 transition-all flex items-center justify-center gap-2 active:scale-95"
                     >
-                        Log In <ArrowRight size={18} />
+                        {isSubmitting ? "Logging in..." : <>Log In <ArrowRight size={18} /></>}
                     </button>
                 </form>
 

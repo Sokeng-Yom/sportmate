@@ -1,8 +1,12 @@
 "use client";
 
-import { Search, ChevronDown } from "lucide-react";
+import Link from "next/link";
+import { Search, ChevronDown, CalendarDays, Clock3, MapPin, Users } from "lucide-react";
+import { useVenueOwnerData } from "../../venue-owner/context/VenueOwnerContext";
 
 export default function PlayerDashboard() {
+    const { hostedGames } = useVenueOwnerData();
+
     return (
         <div className="pb-24">
             {/* Hero Section */}
@@ -62,77 +66,73 @@ export default function PlayerDashboard() {
                 <div className="flex justify-between items-baseline mb-6">
                     <h2 className="text-2xl font-extrabold text-slate-900">List hosting</h2>
                     <span className="text-slate-500 font-medium text-sm text-right flex-1">
-                        3 spots near you
+                        {hostedGames.length} {hostedGames.length === 1 ? "spot" : "spots"} near you
                     </span>
                 </div>
 
-                {/* Card Component */}
-                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6 hover:shadow-md transition-shadow">
-
-                    {/* Card Icon Container */}
-                    <div className="bg-[#EAE1D3] w-24 h-24 rounded-2xl flex-shrink-0 flex items-center justify-center">
-                        {/* Custom SVG or Emoji for Badminton Racket representing the design */}
-                        <span className="text-4xl text-[#725C9E]">🏸</span>
+                {hostedGames.length === 0 ? (
+                    <div className="bg-white rounded-[2rem] p-12 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                        <span className="text-4xl mb-4">🏟️</span>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">No games found</h3>
+                        <p className="text-slate-500 max-w-md">There are currently no open spots available. Try adjusting your search filters or check back later.</p>
+                        <Link
+                            href="/player/host"
+                            className="mt-6 bg-[#D97736] hover:bg-[#c26529] text-white px-6 py-2.5 rounded-full font-bold transition-colors"
+                        >
+                            Host a game
+                        </Link>
                     </div>
-
-                    {/* Card Content */}
-                    <div className="flex-1 flex flex-col">
-
-                        {/* Top row: Avatar & Badge */}
-                        <div className="flex justify-between items-start mb-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border border-gray-100">
-                                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=BC" alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    <div className="space-y-4">
+                        {hostedGames.map((game) => (
+                            <article
+                                key={game.id}
+                                className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100"
+                            >
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+                                    <div>
+                                        <h3 className="text-xl font-extrabold text-slate-900">
+                                            {game.sport}
+                                        </h3>
+                                        <p className="text-sm text-slate-500 mt-1">
+                                            {game.bookingType}
+                                            {game.venueName ? ` · ${game.venueName}` : ""}
+                                            {game.courtName ? ` · ${game.courtName}` : ""}
+                                        </p>
+                                    </div>
+                                    <span className="self-start bg-orange-50 text-[#A66138] px-4 py-1 rounded-full text-xs font-bold">
+                                        {game.skillLevel}
+                                    </span>
                                 </div>
-                                <div>
-                                    <p className="font-bold text-slate-900 leading-tight">1</p>
-                                    <p className="text-xs text-slate-500 font-medium leading-tight">BC</p>
+
+                                <div className="grid sm:grid-cols-2 gap-3 text-sm text-slate-600">
+                                    <p className="flex items-center gap-2">
+                                        <MapPin size={16} className="text-[#D97736] flex-shrink-0" />
+                                        {game.location}
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                        <CalendarDays size={16} className="text-[#D97736] flex-shrink-0" />
+                                        {game.date}
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                        <Clock3 size={16} className="text-[#D97736] flex-shrink-0" />
+                                        {game.time} · {game.duration}
+                                    </p>
+                                    <p className="flex items-center gap-2">
+                                        <Users size={16} className="text-[#D97736] flex-shrink-0" />
+                                        {game.playersNeeded} {game.playersNeeded === 1 ? "player" : "players"} needed
+                                    </p>
                                 </div>
-                            </div>
-                            <span className="bg-[#F6EBE5] text-[#A66138] px-4 py-1 rounded-full text-xs font-bold">
-                                Beginner
-                            </span>
-                        </div>
 
-                        {/* Title */}
-                        <h3 className="text-xl font-extrabold text-slate-900 mb-4">Badminton — Open game</h3>
-
-                        {/* Details Grid */}
-                        <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-4 text-sm">
-                            <div className="text-slate-700"><span className="text-slate-500 font-bold">Location: </span>BC</div>
-                            <div className="text-slate-700"><span className="text-slate-500 font-bold">Date: </span>2026-09-26</div>
-                            <div className="text-slate-700"><span className="text-slate-500 font-bold">Time: </span>13:42</div>
-                            <div className="text-slate-700"><span className="text-slate-500 font-bold">Duration: </span>1 hour</div>
-                            <div className="text-slate-700 col-span-2"><span className="text-slate-500 font-bold">Players needed: </span>1</div>
-                        </div>
-
-                        {/* Status & Progress Bar */}
-                        <div className="mb-4">
-                            <span className="inline-block bg-red-100/80 text-red-700 text-xs font-bold px-3 py-1 rounded-full mb-3">
-                                Hosting full
-                            </span>
-                            <div className="w-full h-1.5 rounded-full bg-gray-100 overflow-hidden mb-2">
-                                <div className="h-full bg-red-600 rounded-full w-full"></div>
-                            </div>
-                            <p className="text-xs text-slate-500 font-medium">1/1 joined</p>
-                        </div>
-
-                        {/* Note */}
-                        <p className="text-sm text-slate-700 mb-6 font-medium">
-                            <span className="font-bold text-slate-500">Note: </span>
-                            Looking for friendly players for a fun match!
-                        </p>
-
-                        {/* Footer row */}
-                        <div className="flex justify-between items-center mt-auto border-t border-gray-50 pt-4">
-                            <p className="text-sm text-[#A66138]">Skill level: Beginner</p>
-                            <button className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-full text-sm transition-colors cursor-pointer">
-                                View game
-                            </button>
-                        </div>
-
+                                {game.note && (
+                                    <p className="mt-4 pt-4 border-t border-gray-100 text-sm text-slate-500">
+                                        {game.note}
+                                    </p>
+                                )}
+                            </article>
+                        ))}
                     </div>
-                </div>
+                )}
             </section>
         </div>
     );
