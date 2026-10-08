@@ -3,6 +3,7 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.venues import router as venues_router
 from app.api.v1.sports import router as sports_router
 from app.api.v1.matches import router as matches_router
+from app.api.v1.waiting_list import router as waiting_list_router
 from app.db.session import SessionLocal
 from app.services.waiting_list_expiry import expire_stale_waiting_list_entries
 from fastapi import Depends, FastAPI, HTTPException
@@ -38,6 +39,7 @@ app.include_router(admin_router)
 app.include_router(venues_router)
 app.include_router(sports_router)
 app.include_router(matches_router)
+app.include_router(waiting_list_router)
 
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
