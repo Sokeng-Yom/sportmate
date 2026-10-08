@@ -1,7 +1,9 @@
 from datetime import date as date_type
 
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
+from app.core.clock import utc_now_naive
 from app.core.enums import MatchStatus
 from app.models.match import Match, MatchPlayer
 from app.models.match_leave import MatchLeave
@@ -9,6 +11,10 @@ from app.models.user_sport import UserSport
 from app.schemas.match import MatchRead
 from app.services.leave_risk import RISK_CRITICAL
 from app.services.matchmaking import compute_match_score
+
+# Scoring happens in Python, so the work per request is capped. Candidates are the
+# soonest upcoming matches; the cap only matters once thousands of matches are open at once.
+MAX_CANDIDATES = 1000
 
 
 def build_recommendations(
@@ -22,25 +28,35 @@ def build_recommendations(
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
-    user_sport_rows = db.query(UserSport).filter(UserSport.user_id == user_id).all()
-    user_sport_names = [s.sport for s in user_sport_rows]
-    skill_by_sport = {s.sport.lower(): s.skill_level for s in user_sport_rows}
+    today = utc_now_naive().date()
 
-    leaves = db.query(MatchLeave).filter(MatchLeave.user_id == user_id).all()
-    total_leaves = len(leaves)
-    critical_leaves = sum(1 for leave in leaves if leave.risk_level == RISK_CRITICAL)
+    sport_rows = db.query(UserSport.sport, UserSport.skill_level).filter(UserSport.user_id == user_id).all()
+    user_sport_names = [name for name, _ in sport_rows]
+    skill_by_sport = {name.lower(): level for name, level in sport_rows}
 
-    already_joined_ids = {
-        row.match_id for row in db.query(MatchPlayer).filter(MatchPlayer.user_id == user_id).all()
-    }
+    total_leaves, critical_leaves = (
+        db.query(
+            func.count(MatchLeave.id),
+            func.count(case((MatchLeave.risk_level == RISK_CRITICAL, 1))),
+        )
+        .filter(MatchLeave.user_id == user_id)
+        .one()
+    )
 
-    query = db.query(Match).filter(Match.status == MatchStatus.OPEN, Match.created_by != user_id)
+    already_joined = select(MatchPlayer.match_id).where(MatchPlayer.user_id == user_id)
+
+    query = db.query(Match).filter(
+        Match.status == MatchStatus.OPEN,
+        Match.created_by != user_id,
+        Match.date >= today,
+        ~Match.id.in_(already_joined),
+    )
     if sport:
-        query = query.filter(Match.sport == sport)
+        query = query.filter(func.lower(Match.sport) == sport.strip().lower())
     if location:
         query = query.filter(Match.location.ilike(f"%{location}%"))
 
-    candidates = [m for m in query.all() if m.id not in already_joined_ids]
+    candidates = query.order_by(Match.date, Match.time, Match.id).limit(MAX_CANDIDATES).all()
 
     scored = []
     for match in candidates:
@@ -57,16 +73,16 @@ def build_recommendations(
             preferred_location=location,
         )
         if score >= min_score:
-            item = MatchRead.model_validate(match).model_dump()
-            item["score"] = score
-            scored.append(item)
+            scored.append((score, match))
 
-    scored.sort(key=lambda m: m["score"], reverse=True)
+    # Highest score first; equal scores keep the soonest match first.
+    scored.sort(key=lambda pair: (-pair[0], pair[1].date, pair[1].time))
 
     start = (page - 1) * page_size
-    return {
-        "items": scored[start : start + page_size],
-        "total": len(scored),
-        "page": page,
-        "page_size": page_size,
-    }
+    items = []
+    for score, match in scored[start : start + page_size]:
+        item = MatchRead.model_validate(match).model_dump()
+        item["score"] = score
+        items.append(item)
+
+    return {"items": items, "total": len(scored), "page": page, "page_size": page_size}
