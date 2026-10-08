@@ -2,7 +2,6 @@ import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.clock import utc_now_naive
@@ -11,11 +10,17 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.match import Match, MatchPlayer
 from app.models.waiting_list import WaitingList
+from app.schemas.lifecycle import WaitingListAccepted
+from app.services.waiting_list_service import count_joined
 
 router = APIRouter(prefix="/api/v1/waiting-list", tags=["waiting-list"])
 
 
-@router.post("/{entry_id}/accept", summary="Accept an offered waiting-list slot")
+@router.post(
+    "/{entry_id}/accept",
+    response_model=WaitingListAccepted,
+    summary="Accept an offered waiting-list slot",
+)
 def accept_waiting_list_entry(
     entry_id: UUID,
     user: dict = Depends(get_current_user),
@@ -34,16 +39,13 @@ def accept_waiting_list_entry(
         raise HTTPException(status_code=400, detail="This offer has expired")
 
     match = db.query(Match).filter(Match.id == entry.match_id).with_for_update().first()
-    current_count = (
-        db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == entry.match_id).scalar()
-    )
-    if current_count >= match.players_needed:
+    joined = count_joined(db, entry.match_id)
+    if joined >= match.players_needed:
         raise HTTPException(status_code=400, detail="Match is already full")
 
     entry.status = "ACCEPTED"
     db.add(MatchPlayer(id=uuid.uuid4(), match_id=entry.match_id, user_id=entry.user_id))
-
-    if current_count + 1 >= match.players_needed:
+    if joined + 1 >= match.players_needed:
         match.status = MatchStatus.FULL
 
     db.commit()

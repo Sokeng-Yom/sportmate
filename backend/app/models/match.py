@@ -1,8 +1,19 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, Date, Time, ForeignKey, DateTime, func
+
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Time,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+
 from app.db.session import Base
 
 
@@ -16,14 +27,18 @@ class Match(Base):
     time = Column(Time, nullable=False)
     players_needed = Column(Integer, nullable=False)
     skill_level = Column(String, nullable=False)
-    status = Column(String, nullable=False, default="OPEN")  # OPEN, FULL, READY, CONFIRMED, COMPLETED, CANCELLED
+    status = Column(String, nullable=False, default="OPEN")
     created_by = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")
 
+
 class MatchPlayer(Base):
     __tablename__ = "match_players"
+    __table_args__ = (
+        UniqueConstraint("match_id", "user_id", name="uq_match_players_match_user"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     match_id = Column(UUID(as_uuid=True), ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)

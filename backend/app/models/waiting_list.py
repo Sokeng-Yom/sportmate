@@ -1,5 +1,6 @@
 import uuid
-from sqlalchemy import Column, String, Integer, ForeignKey, DateTime, func
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db.session import Base
@@ -7,6 +8,9 @@ from app.db.session import Base
 
 class WaitingList(Base):
     __tablename__ = "waiting_list"
+    __table_args__ = (
+        UniqueConstraint("match_id", "user_id", name="uq_waiting_list_match_user"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     match_id = Column(UUID(as_uuid=True), ForeignKey("matches.id", ondelete="CASCADE"), nullable=False)
