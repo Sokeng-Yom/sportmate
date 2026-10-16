@@ -30,6 +30,7 @@ from app.services.leave_risk import (
     classify_risk,
     hours_remaining,
 )
+from app.services.match_events import notify_player_joined, notify_player_left, notify_restricted
 from app.services.recommendations import build_recommendations
 from app.services.waiting_list_service import count_joined, offer_open_slots, open_slots
 
@@ -211,7 +212,7 @@ def join_match(
     match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    if match.status != MatchStatus.OPEN:
+    if match.status not in (MatchStatus.OPEN, MatchStatus.CONFIRMED):
         raise HTTPException(status_code=400, detail=f"Cannot join a match with status {match.status}")
 
     already_joined = (
@@ -245,8 +246,10 @@ def join_match(
         own_offer.status = "ACCEPTED"
 
     db.add(MatchPlayer(id=uuid.uuid4(), match_id=match_id, user_id=user_id))
-    if joined + 1 >= match.players_needed:
-        match.status = MatchStatus.FULL
+    became_full = joined + 1 >= match.players_needed
+    if became_full and match.status == MatchStatus.OPEN:
+        match.status = MatchStatus.FULL  # a CONFIRMED (booked) match keeps its status
+    notify_player_joined(db, match, uuid.UUID(str(user_id)), profile.name if profile else "", became_full)
 
     try:
         db.commit()
@@ -293,6 +296,7 @@ def leave_match(
         profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
         if profile:
             profile.restricted_until = utc_now() + timedelta(days=CRITICAL_RESTRICTION_DAYS)
+            notify_restricted(db, profile.id, profile.restricted_until)
 
     db.delete(entry)
     db.flush()  # autoflush is off: make the delete visible before counting slots
@@ -300,6 +304,7 @@ def leave_match(
     if match.status == MatchStatus.FULL:
         match.status = MatchStatus.OPEN
     offer_open_slots(db, match)  # one offer per free slot, not just the first
+    notify_player_left(db, match, uuid.UUID(str(user["sub"])), risk_level)
 
     db.commit()
     db.refresh(match)
@@ -345,12 +350,12 @@ def join_waiting_list(
     match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    if match.status not in (MatchStatus.OPEN, MatchStatus.FULL):
+    if match.status not in (MatchStatus.OPEN, MatchStatus.FULL, MatchStatus.CONFIRMED):
         raise HTTPException(status_code=400, detail=f"Cannot join the waiting list of a {match.status} match")
 
     # A match counts as "full" for waiting purposes when nothing is left for this user
     # (all players in, or every free slot is held for someone else's offer).
-    if match.status != MatchStatus.FULL and open_slots(db, match, for_user_id=user_id) > 0:
+    if open_slots(db, match, for_user_id=user_id) > 0:
         raise HTTPException(status_code=400, detail="Match is not full; join directly instead")
 
     already_playing = (

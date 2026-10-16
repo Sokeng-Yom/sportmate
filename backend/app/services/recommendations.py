@@ -3,7 +3,7 @@ from datetime import date as date_type
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from app.core.clock import utc_now_naive
+from app.core.clock import local_now_naive
 from app.core.enums import MatchStatus
 from app.models.match import Match, MatchPlayer
 from app.models.match_leave import MatchLeave
@@ -28,7 +28,7 @@ def build_recommendations(
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
-    today = utc_now_naive().date()
+    today = local_now_naive().date()  # match dates are Cambodia local dates
 
     sport_rows = db.query(UserSport.sport, UserSport.skill_level).filter(UserSport.user_id == user_id).all()
     user_sport_names = [name for name, _ in sport_rows]

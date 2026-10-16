@@ -167,7 +167,8 @@ def fire_concurrently():
 def make_approved_venue(client, auth_headers_for):
     """Registers, 'pays for' and admin-approves a venue. Returns (owner_headers, venue_json)."""
 
-    def _make(owner_headers=None, name="Central Hall"):
+    def _make(owner_headers=None, name=None):
+        name = name or f"Hall {uuid.uuid4().hex[:8]}"
         owner = owner_headers or auth_headers_for("VENUE_OWNER")
         admin = auth_headers_for("ADMIN")
         created = client.post(

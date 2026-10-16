@@ -1,4 +1,6 @@
-from datetime import datetime, date, time
+from datetime import date, datetime, time
+
+from app.core.clock import local_now_naive
 
 RISK_NORMAL = "NORMAL"
 RISK_WARNING = "WARNING"
@@ -9,20 +11,14 @@ CRITICAL_RESTRICTION_DAYS = 3
 
 
 def hours_remaining(match_date: date, match_time: time, now: datetime | None = None) -> float:
-    now = now or datetime.utcnow()
-    match_datetime = datetime.combine(match_date, match_time)
-    delta = match_datetime - now
+    """Match times are Cambodia local wall-clock times, so compare against local 'now'."""
+    now = now or local_now_naive()
+    delta = datetime.combine(match_date, match_time) - now
     return delta.total_seconds() / 3600
 
 
 def classify_risk(hours_left: float) -> str:
-    """
-    Per the architecture doc (Section 24-B):
-    > 24 hours  -> NORMAL
-    4-24 hours  -> WARNING
-    2-4 hours   -> HIGH_RISK
-    < 2 hours   -> CRITICAL
-    """
+    """> 24h NORMAL, 4-24h WARNING, 2-4h HIGH_RISK, < 2h CRITICAL (architecture Section 24-B)."""
     if hours_left > 24:
         return RISK_NORMAL
     if hours_left > 4:

@@ -5,17 +5,18 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.clock import utc_now_naive
+from app.core.constants import NotificationType
 from app.models.match import Match, MatchPlayer
 from app.models.waiting_list import WaitingList
+from app.services.notifications import create_notification
 
 OFFER_WINDOW_MINUTES = 30
-_OFFERABLE_STATUSES = ("OPEN", "FULL")
+# A booked (CONFIRMED) match can still refill when someone leaves.
+_OFFERABLE_STATUSES = ("OPEN", "FULL", "CONFIRMED")
 
 
 def count_joined(db: Session, match_id: UUID) -> int:
-    return (
-        db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == match_id).scalar()
-    )
+    return db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == match_id).scalar()
 
 
 def count_active_offers(db: Session, match_id: UUID, exclude_user_id=None) -> int:
@@ -41,9 +42,9 @@ def open_slots(db: Session, match: Match, for_user_id=None) -> int:
 
 def offer_open_slots(db: Session, match: Match) -> int:
     """
-    Offers every currently free slot to the next WAITING entries, in position order.
-    The caller must hold the match row lock and must have flushed pending changes
-    (autoflush is off in this project). Returns how many offers were made.
+    Offers every currently free slot to the next WAITING entries, in position order, and sends
+    each of them a notification. The caller must hold the match row lock and must have flushed
+    pending changes (autoflush is off). Returns how many offers were made.
     """
     if match.status not in _OFFERABLE_STATUSES:
         return 0
@@ -63,6 +64,14 @@ def offer_open_slots(db: Session, match: Match) -> int:
         next_entry.status = "NOTIFIED"
         next_entry.notified_at = now
         next_entry.expires_at = now + timedelta(minutes=OFFER_WINDOW_MINUTES)
+        create_notification(
+            db, next_entry.user_id, NotificationType.WAITING_LIST_OFFER,
+            {
+                "match_id": str(match.id),
+                "entry_id": str(next_entry.id),
+                "expires_at": next_entry.expires_at.isoformat() + "Z",  # UTC
+            },
+        )
         db.flush()  # so the next loop iteration doesn't pick the same entry again
         slots -= 1
         offered += 1
