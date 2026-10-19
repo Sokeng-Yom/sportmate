@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarCheck, Check, X, Search, ChevronDown, Footprints, ShieldCheck } from "lucide-react";
+import { CalendarCheck, X, Search, ChevronDown, Footprints, ShieldCheck } from "lucide-react";
 import { useVenueOwnerData, Booking } from "../context/VenueOwnerContext";
 import { EmptyState, StatusBadge, ToastProvider, useToast } from "../components/ui";
 
@@ -47,9 +47,10 @@ function BookingsContent() {
     const getVenueName = (venueId: string) => venues.find(v => v.id === venueId)?.name ?? "Unknown";
     const getCourtName = (courtId: string) => courts.find(c => c.id === courtId)?.name ?? "Unknown";
 
-    const handleAction = (id: string, status: Booking["status"]) => {
-        updateBookingStatus(id, status);
-        toast(status === "Confirmed" ? "Booking confirmed!" : "Booking declined.", status === "Confirmed" ? "success" : "info");
+    const handleCancel = async (id: string) => {
+        const result = await updateBookingStatus(id, "Cancelled");
+        if (result.ok) toast("Booking cancelled.", "info");
+        else toast(result.error ?? "Could not cancel this booking.", "error");
     };
 
     return (
@@ -104,8 +105,8 @@ function BookingsContent() {
                                             className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
                                             <td className="px-5 py-3.5">
                                                 <div className="flex items-center gap-3">
-                                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName}`} alt="" className="w-8 h-8 rounded-full bg-slate-100" />
-                                                    <span className="font-semibold text-slate-900 text-sm">{b.playerName}</span>
+                                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-8 h-8 rounded-full bg-slate-100" />
+                                                    <span className="font-semibold text-slate-900 text-sm">{b.playerName || "—"}</span>
                                                 </div>
                                             </td>
                                             <td className="px-5 py-3.5">
@@ -117,20 +118,14 @@ function BookingsContent() {
                                             </td>
                                             <td className="px-5 py-3.5 text-sm text-slate-600">{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                                             <td className="px-5 py-3.5 text-sm text-slate-600">{b.startTime} – {b.endTime}</td>
-                                            <td className="px-5 py-3.5 text-sm font-bold text-slate-900">${b.price}</td>
+                                            <td className="px-5 py-3.5 text-sm font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</td>
                                             <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
                                             <td className="px-5 py-3.5">
-                                                {b.status === "Pending" && (
-                                                    <div className="flex items-center gap-2">
-                                                        <button onClick={() => handleAction(b.id, "Confirmed")}
-                                                            className="flex items-center gap-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg transition-colors">
-                                                            <Check size={12} /> Confirm
-                                                        </button>
-                                                        <button onClick={() => handleAction(b.id, "Cancelled")}
-                                                            className="flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors">
-                                                            <X size={12} /> Decline
-                                                        </button>
-                                                    </div>
+                                                {b.status === "Confirmed" && (
+                                                    <button onClick={() => handleCancel(b.id)}
+                                                        className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors">
+                                                        <X size={12} /> Cancel booking
+                                                    </button>
                                                 )}
                                             </td>
                                         </motion.tr>
@@ -146,9 +141,9 @@ function BookingsContent() {
                             <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                                 <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-3">
-                                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName}`} alt="" className="w-9 h-9 rounded-full bg-slate-100" />
+                                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-9 h-9 rounded-full bg-slate-100" />
                                         <div>
-                                            <p className="font-bold text-slate-900 text-sm">{b.playerName}</p>
+                                            <p className="font-bold text-slate-900 text-sm">{b.playerName || "—"}</p>
                                             <p className="text-xs text-slate-500">{getCourtName(b.courtId)} @ {getVenueName(b.venueId)}</p>
                                         </div>
                                     </div>
@@ -159,13 +154,10 @@ function BookingsContent() {
                                 </div>
                                 <div className="flex items-center justify-between text-xs text-slate-500">
                                     <span>{new Date(b.date).toLocaleDateString()} · {b.startTime}–{b.endTime}</span>
-                                    <span className="font-bold text-slate-900">${b.price}</span>
+                                    <span className="font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</span>
                                 </div>
-                                {b.status === "Pending" && (
-                                    <div className="flex gap-2 mt-3">
-                                        <button onClick={() => handleAction(b.id, "Confirmed")} className="flex-1 bg-emerald-600 text-white text-xs font-bold py-2 rounded-xl hover:bg-emerald-700 transition-colors">Confirm</button>
-                                        <button onClick={() => handleAction(b.id, "Cancelled")} className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-xl hover:bg-red-600 transition-colors">Decline</button>
-                                    </div>
+                                {b.status === "Confirmed" && (
+                                    <button onClick={() => handleCancel(b.id)} className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-xl hover:bg-red-600 transition-colors">Cancel booking</button>
                                 )}
                             </div>
                         ))}

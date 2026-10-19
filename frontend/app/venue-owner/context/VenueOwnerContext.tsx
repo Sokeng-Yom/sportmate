@@ -1,7 +1,20 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import {
+    listMyVenues,
+    listVenueCourts,
+    listVenueBookings,
+    createVenue,
+    confirmVenuePayment,
+    createCourt,
+    updateCourt as updateCourtApi,
+    cancelBooking,
+    updateProfile as updateProfileApi,
+} from "../../../lib/api";
+import { ApiError } from "../../../lib/apiClient";
+import { useAuth } from "../../../lib/auth";
+import type { BookingRead, CourtRead, VenueRead, WeeklyAvailability } from "../../../lib/types";
 
 export type Venue = {
     id: string;
@@ -10,7 +23,8 @@ export type Venue = {
     description: string;
     sports: string[];
     amenities: string[];
-    status: "Active" | "Draft";
+    status: string;       // display label, e.g. "Active" | "Payment pending"
+    rawStatus?: string;   // backend status: PAYMENT_PENDING | PENDING_REVIEW | APPROVED | REJECTED
     coverImage?: string;
 };
 
@@ -94,46 +108,111 @@ type VenueOwnerContextType = {
     venues: Venue[];
     courts: Court[];
     bookings: Booking[];
-    hostedGames: HostedGame[];
     reviews: Review[];
     conversations: Conversation[];
     profile: OwnerProfile;
-    addVenue: (venue: Omit<Venue, "id" | "status">) => void;
-    deleteVenue: (id: string) => void;
-    addCourt: (court: Omit<Court, "id">) => void;
-    updateCourt: (id: string, court: Partial<Court>) => void;
-    deleteCourt: (id: string) => void;
-    updateBookingStatus: (id: string, status: Booking["status"]) => void;
-    addBooking: (booking: Omit<Booking, "id" | "status">) => void;
-    addHostedGame: (game: Omit<HostedGame, "id">) => void;
+    loading: boolean;
+    loadError: string | null;
+    refresh: () => Promise<void>;
+    confirmPayment: (venueId: string) => Promise<MutationResult>;
+    addVenue: (venue: Omit<Venue, "id" | "status">) => Promise<MutationResult>;
+    addCourt: (court: Omit<Court, "id">) => Promise<MutationResult>;
+    updateCourt: (id: string, court: Partial<Court>) => Promise<MutationResult>;
+    updateBookingStatus: (id: string, status: Booking["status"]) => Promise<MutationResult>;
     sendMessage: (conversationId: string, text: string) => void;
     markConversationRead: (conversationId: string) => void;
-    updateProfile: (profile: Partial<OwnerProfile>) => void;
+    updateProfile: (profile: Partial<OwnerProfile>) => Promise<MutationResult>;
 };
 
 const VenueOwnerContext = createContext<VenueOwnerContextType | undefined>(undefined);
 
-// Initial Mock Data
-const initialVenues: Venue[] = [
-    { id: "v1", name: "Downtown Sports Arena", address: "123 Main St, City", description: "Premium indoor sports facility with AC.", sports: ["Basketball", "Volleyball"], amenities: ["Parking", "WiFi", "Locker Room"], status: "Active", coverImage: "https://images.unsplash.com/photo-1505322022379-7c3353ee6291?auto=format&fit=crop&q=80&w=800" },
-    { id: "v2", name: "Greenfield Tennis Club", address: "45 Park Avenue, City", description: "Outdoor clay and hard courts.", sports: ["Tennis"], amenities: ["Cafe", "Parking"], status: "Active", coverImage: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?auto=format&fit=crop&q=80&w=800" },
-    { id: "v3", name: "Future Stadium (Under Construction)", address: "88 Future Blvd, City", description: "State of the art upcoming stadium.", sports: ["Football"], amenities: [], status: "Draft" },
-];
+// ---------------------------------------------------------------------------
+// API → UI adapters (backend schemas in lib/types, routers in
+// app/api/v1/{venues,courts,bookings}.py). Fields the backend does not expose
+// (court/booking pricing, player display names, amenities) map to a neutral
+// value and the pages render them as "—".
+// ---------------------------------------------------------------------------
 
-const initialCourts: Court[] = [
-    { id: "c1", venueId: "v1", name: "Court A", sport: "Basketball", pricePerHour: 50, openTime: "08:00", closeTime: "22:00", active: true },
-    { id: "c2", venueId: "v1", name: "Court B", sport: "Volleyball", pricePerHour: 40, openTime: "08:00", closeTime: "22:00", active: true },
-    { id: "c3", venueId: "v2", name: "Clay Court 1", sport: "Tennis", pricePerHour: 30, openTime: "06:00", closeTime: "20:00", active: true },
-    { id: "c4", venueId: "v2", name: "Hard Court 1", sport: "Tennis", pricePerHour: 25, openTime: "06:00", closeTime: "20:00", active: false },
-];
+type MutationResult = { ok: boolean; error?: string };
 
-const initialBookings: Booking[] = [
-    { id: "b1", courtId: "c1", venueId: "v1", playerName: "John Doe", date: "2026-10-01", startTime: "10:00", endTime: "11:00", price: 50, status: "Confirmed", bookingType: "Court Booking" },
-    { id: "b2", courtId: "c3", venueId: "v2", playerName: "Jane Smith", date: "2026-10-02", startTime: "14:00", endTime: "16:00", price: 60, status: "Pending", bookingType: "Walking" },
-    { id: "b3", courtId: "c2", venueId: "v1", playerName: "Alice Johnson", date: "2026-10-01", startTime: "18:00", endTime: "19:00", price: 40, status: "Completed", bookingType: "Court Booking" },
-    { id: "b4", courtId: "c1", venueId: "v1", playerName: "Bob Williams", date: "2026-10-05", startTime: "09:00", endTime: "11:00", price: 100, status: "Cancelled", bookingType: "Court Booking" },
-    { id: "b5", courtId: "c3", venueId: "v2", playerName: "Charlie Brown", date: "2026-10-06", startTime: "07:00", endTime: "09:00", price: 60, status: "Pending", bookingType: "Walking" },
-];
+const VENUE_STATUS_LABELS: Record<string, string> = {
+    PAYMENT_PENDING: "Payment pending",
+    PENDING_REVIEW: "Pending review",
+    APPROVED: "Active",
+    REJECTED: "Rejected",
+};
+
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+function errorMessage(err: unknown): string {
+    return err instanceof ApiError ? err.message : "Something went wrong. Please try again.";
+}
+
+function venueSportsFromCourts(courts: CourtRead[]): string[] {
+    return Array.from(new Set(courts.map((c) => c.sport).filter(Boolean))).sort();
+}
+
+function availabilityWindowTimes(availability: WeeklyAvailability | null): { open: string; close: string } {
+    if (!availability) return { open: "", close: "" };
+    let open = "";
+    let close = "";
+    for (const day of DAY_KEYS) {
+        for (const window of availability[day] ?? []) {
+            if (!open || window.start < open) open = window.start;
+            if (!close || window.end > close) close = window.end;
+        }
+    }
+    return { open, close };
+}
+
+function toWeeklyAvailability(openTime: string, closeTime: string): WeeklyAvailability | null {
+    if (!openTime || !closeTime) return null;
+    const window = { start: openTime, end: closeTime };
+    return { mon: [window], tue: [window], wed: [window], thu: [window], fri: [window], sat: [window], sun: [window] };
+}
+
+function toUiVenue(v: VenueRead, venueCourts: CourtRead[]): Venue {
+    return {
+        id: v.id,
+        name: v.name,
+        address: v.address,
+        description: v.description ?? "",
+        sports: venueSportsFromCourts(venueCourts),
+        amenities: [], // not part of the backend venue schema yet
+        status: VENUE_STATUS_LABELS[v.status] ?? v.status,
+        rawStatus: v.status,
+        coverImage: v.photo_url ?? undefined,
+    };
+}
+
+function toUiCourt(c: CourtRead): Court {
+    const { open, close } = availabilityWindowTimes(c.availability);
+    return {
+        id: c.id,
+        venueId: c.venue_id,
+        name: c.name,
+        sport: c.sport,
+        pricePerHour: 0, // pricing is not part of the backend court model
+        openTime: open,
+        closeTime: close,
+        active: true,
+    };
+}
+
+function toUiBooking(b: BookingRead): Booking {
+    return {
+        id: b.id,
+        courtId: b.court_id,
+        venueId: b.venue_id ?? "",
+        playerName: "", // backend returns the booker's id, not a display name
+        date: b.start_time.slice(0, 10),
+        startTime: b.start_time.slice(11, 16),
+        endTime: b.end_time.slice(11, 16),
+        price: 0, // pricing is not part of the backend booking model
+        status: b.status === "CANCELLED" ? "Cancelled" : "Confirmed",
+        bookingType: "Court Booking",
+    };
+}
 
 const initialReviews: Review[] = [
     { id: "r1", venueId: "v1", playerName: "John Doe", rating: 5, comment: "Amazing courts! Highly recommend.", date: "2026-09-28" },
@@ -161,58 +240,131 @@ const initialConversations: Conversation[] = [
 ];
 
 export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): JSX.Element => {
-    const searchParams = useSearchParams();
-    const isEmpty = searchParams.get("empty") === "1";
+    const { profile: authProfile, session, refreshProfile } = useAuth();
 
-    const [venues, setVenues] = useState<Venue[]>(isEmpty ? [] : initialVenues);
-    const [courts, setCourts] = useState<Court[]>(isEmpty ? [] : initialCourts);
-    const [bookings, setBookings] = useState<Booking[]>(isEmpty ? [] : initialBookings);
-    const [hostedGames, setHostedGames] = useState<HostedGame[]>([]);
-    const [reviews, setReviews] = useState<Review[]>(isEmpty ? [] : initialReviews);
-    const [conversations, setConversations] = useState<Conversation[]>(isEmpty ? [] : initialConversations);
+    // Real data from the FastAPI backend (venues, courts, bookings).
+    const [venues, setVenues] = useState<Venue[]>([]);
+    const [courts, setCourts] = useState<Court[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
+    // Mock-only areas with no backend endpoints yet.
+    const [reviews, setReviews] = useState<Review[]>(initialReviews);
+    const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
 
     const [profile, setProfile] = useState<OwnerProfile>({
-        name: "Sokheng",
-        email: "sokheng@sportmates.com",
-        phone: "+855 12 345 678",
-        businessName: "Sokheng Sports Co.",
+        name: authProfile?.name ?? "Venue Owner",
+        email: session?.user?.email ?? "",
+        phone: "",
+        businessName: "",
+        avatar: authProfile?.avatar ?? undefined,
     });
 
-    const addVenue = (venue: Omit<Venue, "id" | "status">) => {
-        const newVenue: Venue = { ...venue, id: `v${Date.now()}`, status: "Active" };
-        setVenues((prev) => [...prev, newVenue]);
-    };
+    const refresh = useCallback(async () => {
+        setLoading(true);
+        setLoadError(null);
+        try {
+            const venueRows = await listMyVenues();
+            const courtSets = await Promise.all(
+                venueRows.map((v: VenueRead) => listVenueCourts(v.id).catch(() => [] as CourtRead[]))
+            );
+            const bookingSets = await Promise.all(
+                venueRows.map((v: VenueRead) =>
+                    listVenueBookings(v.id, { page_size: 100 })
+                        .then((p) => p.items)
+                        .catch(() => [] as BookingRead[])
+                )
+            );
 
-    const deleteVenue = (id: string) => {
-        setVenues((prev) => prev.filter(v => v.id !== id));
-        setCourts((prev) => prev.filter(c => c.venueId !== id)); // Cascade mock delete
-    };
+            setVenues(venueRows.map((v: VenueRead, i: number) => toUiVenue(v, courtSets[i] ?? [])));
+            setCourts(courtSets.flatMap((rows) => rows).map(toUiCourt));
+            setBookings(bookingSets.flatMap((rows) => rows).map(toUiBooking));
+        } catch (err) {
+            setLoadError(errorMessage(err));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
-    const addCourt = (court: Omit<Court, "id">) => {
-        setCourts((prev) => [...prev, { ...court, id: `c${Date.now()}` }]);
-    };
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
 
-    const updateCourt = (id: string, courtUpdate: Partial<Court>) => {
-        setCourts((prev) => prev.map(c => c.id === id ? { ...c, ...courtUpdate } : c));
-    };
+    // Keep the owner profile shown in the UI in sync with the authenticated profile.
+    useEffect(() => {
+        if (!authProfile) return;
+        setProfile((prev) => ({
+            ...prev,
+            name: authProfile.name || prev.name,
+            avatar: authProfile.avatar || prev.avatar,
+            email: session?.user?.email || prev.email,
+        }));
+    }, [authProfile, session]);
 
-    const deleteCourt = (id: string) => {
-        setCourts((prev) => prev.filter(c => c.id !== id));
-    };
+    const addVenue = useCallback(async (venue: Omit<Venue, "id" | "status">): Promise<MutationResult> => {
+        try {
+            await createVenue({ name: venue.name, address: venue.address, description: venue.description || null });
+            await refresh();
+            return { ok: true };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+        }
+    }, [refresh]);
 
-    const updateBookingStatus = (id: string, status: Booking["status"]) => {
-        setBookings((prev) => prev.map(b => b.id === id ? { ...b, status } : b));
-    };
+    const confirmPayment = useCallback(async (venueId: string): Promise<MutationResult> => {
+        try {
+            await confirmVenuePayment(venueId);
+            await refresh();
+            return { ok: true };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+        }
+    }, [refresh]);
 
-    const addBooking = (booking: Omit<Booking, "id" | "status">) => {
-        const newBooking: Booking = { ...booking, id: `b${Date.now()}`, status: "Pending" };
-        setBookings((prev) => [newBooking, ...prev]);
-    };
+    const addCourt = useCallback(async (court: Omit<Court, "id">): Promise<MutationResult> => {
+        try {
+            await createCourt(court.venueId, {
+                name: court.name,
+                sport: court.sport,
+                availability: toWeeklyAvailability(court.openTime, court.closeTime) ?? undefined,
+            });
+            await refresh();
+            return { ok: true };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+        }
+    }, [refresh]);
 
-    const addHostedGame = (game: Omit<HostedGame, "id">) => {
-        const newGame: HostedGame = { ...game, id: `g${Date.now()}` };
-        setHostedGames((prev) => [newGame, ...prev]);
-    };
+    const updateCourt = useCallback(async (id: string, courtUpdate: Partial<Court>): Promise<MutationResult> => {
+        try {
+            const availability = courtUpdate.openTime && courtUpdate.closeTime
+                ? toWeeklyAvailability(courtUpdate.openTime, courtUpdate.closeTime)
+                : undefined;
+            await updateCourtApi(id, {
+                name: courtUpdate.name,
+                sport: courtUpdate.sport,
+                availability: availability ?? undefined,
+            });
+            await refresh();
+            return { ok: true };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+        }
+    }, [refresh]);
+
+    const updateBookingStatus = useCallback(async (id: string, status: Booking["status"]): Promise<MutationResult> => {
+        if (status !== "Cancelled") {
+            return { ok: false, error: "Bookings are confirmed automatically; only cancelling is supported by the API." };
+        }
+        try {
+            await cancelBooking(id);
+            await refresh();
+            return { ok: true };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+        }
+    }, [refresh]);
 
     const sendMessage = (conversationId: string, text: string) => {
         setConversations((prev) => prev.map(c => {
@@ -242,14 +394,25 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
         }));
     };
 
-    const updateProfile = (newProfile: Partial<OwnerProfile>) => {
-        setProfile(prev => ({ ...prev, ...newProfile }));
-    };
+    const updateProfile = useCallback(async (newProfile: Partial<OwnerProfile>): Promise<MutationResult> => {
+        try {
+            if (newProfile.name !== undefined && newProfile.name !== authProfile?.name) {
+                await updateProfileApi({ name: newProfile.name });
+                await refreshProfile();
+            }
+            setProfile((prev) => ({ ...prev, ...newProfile }));
+            return { ok: true };
+        } catch (err) {
+            return { ok: false, error: errorMessage(err) };
+        }
+    }, [authProfile, refreshProfile]);
 
     return (
         <VenueOwnerContext.Provider value={{
-            venues, courts, bookings, hostedGames, reviews, conversations, profile,
-            addVenue, deleteVenue, addCourt, updateCourt, deleteCourt, updateBookingStatus, addBooking, addHostedGame, sendMessage, markConversationRead, updateProfile
+            venues, courts, bookings, reviews, conversations, profile,
+            loading, loadError, refresh, confirmPayment,
+            addVenue, addCourt, updateCourt, updateBookingStatus,
+            sendMessage, markConversationRead, updateProfile
         }}>
             {children}
         </VenueOwnerContext.Provider>

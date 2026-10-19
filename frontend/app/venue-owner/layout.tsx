@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { VenueOwnerDataProvider } from "./context/VenueOwnerContext";
+import { RouteGuard, useAuth } from "../../lib/auth";
 import { Suspense } from "react";
 import {
     LayoutDashboard,
@@ -18,6 +19,7 @@ import {
 
 export default function VenueOwnerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const { profile } = useAuth();
 
     const sidebarLinks = [
         { name: "Dashboard", href: "/venue-owner", icon: LayoutDashboard },
@@ -40,7 +42,8 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
     };
 
     return (
-        <div className="min-h-screen bg-[#F9FBF9] flex text-slate-900 font-sans">
+        <RouteGuard roles={["VENUE_OWNER", "ADMIN"]}>
+            <div className="min-h-screen bg-[#F9FBF9] flex text-slate-900 font-sans">
             {/* Sidebar */}
             <aside className="w-[260px] bg-white border-r border-gray-100 flex flex-col fixed h-full z-40 p-4">
                 {/* Logo */}
@@ -119,7 +122,7 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
 
                         <div className="flex items-center gap-2 cursor-pointer">
                             <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden border border-gray-100">
-                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sokheng" alt="Avatar" className="w-full h-full object-cover" />
+                                <img src={profile?.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.name ?? "owner"}`} alt="Avatar" className="w-full h-full object-cover" />
                             </div>
                             <ChevronDown size={16} className="text-slate-400" />
                         </div>
@@ -134,7 +137,8 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
                         </VenueOwnerDataProvider>
                     </Suspense>
                 </main>
+                </div>
             </div>
-        </div>
+        </RouteGuard>
     );
 }

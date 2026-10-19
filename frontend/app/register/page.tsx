@@ -9,6 +9,8 @@ import { Building2, UserCircle2, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
+import { getProfile } from "../../lib/api";
+import type { Role } from "../../lib/types";
 
 const registerSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -67,7 +69,16 @@ export default function RegisterPage() {
             }
 
             if (data.session) {
-                if (selectedRole === "VENUE_OWNER") {
+                // Prefer the role the sign-up trigger stored in the profile.
+                // ADMIN is a valid profile role, so widen past the form's two options.
+                let role: Role = selectedRole;
+                try {
+                    const profile = await getProfile();
+                    if (profile) role = profile.role;
+                } catch {
+                    // Profile fetch failed — keep the selected role as a best guess.
+                }
+                if (role === "VENUE_OWNER" || role === "ADMIN") {
                     router.push("/venue-owner");
                 } else {
                     router.push("/player/dashboard");

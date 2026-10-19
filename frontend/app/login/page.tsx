@@ -9,6 +9,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { supabase } from "../../lib/supabaseClient";
+import { getProfile } from "../../lib/api";
+import type { Role } from "../../lib/types";
 
 const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -52,7 +54,18 @@ export default function LoginPage() {
                 return;
             }
 
-            if (data.role === "VENUE_OWNER") {
+            // Redirect by the role stored in the profile (source of truth),
+            // falling back to the role the user picked on this form.
+            // ADMIN is a valid profile role, so widen past the form's two options.
+            let role: Role = data.role;
+            try {
+                const profile = await getProfile();
+                if (profile) role = profile.role;
+            } catch {
+                // Profile fetch failed — keep the selected role as a best guess.
+            }
+
+            if (role === "VENUE_OWNER" || role === "ADMIN") {
                 router.push("/venue-owner");
             } else {
                 router.push("/player/dashboard");

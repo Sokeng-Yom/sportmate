@@ -6,7 +6,7 @@ import {
     Building, ShieldCheck, Lock,
 } from "lucide-react";
 import { useVenueOwnerData } from "./context/VenueOwnerContext";
-import { StatusBadge } from "./components/ui";
+import { StatusBadge, Spinner } from "./components/ui";
 
 function StarInline({ rating }: { rating: number }) {
     return (
@@ -19,7 +19,19 @@ function StarInline({ rating }: { rating: number }) {
 }
 
 export default function VenueOwnerDashboard() {
-    const { venues, courts, bookings, reviews, profile } = useVenueOwnerData();
+    const { venues, courts, bookings, reviews, profile, loading, loadError, refresh } = useVenueOwnerData();
+
+    if (loading) return <Spinner />;
+
+    if (loadError) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                <p className="text-red-500 text-sm font-medium mb-4">{loadError}</p>
+                <button onClick={() => refresh()}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">Retry</button>
+            </div>
+        );
+    }
 
     const totalBookings = bookings.length;
     const totalPlayers = new Set(bookings.map(b => b.playerName)).size;

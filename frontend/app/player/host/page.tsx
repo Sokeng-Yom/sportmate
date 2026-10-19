@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-    Globe, MapPin, Calendar, DollarSign, Users, BarChart2,
-    PenLine, Info, CheckCircle2, Footprints, ShieldCheck
+    Globe, MapPin, Calendar, Users, BarChart2,
+    PenLine, Info, CheckCircle2, Footprints, ShieldCheck, DollarSign
 } from "lucide-react";
-import { useVenueOwnerData } from "../../venue-owner/context/VenueOwnerContext";
+import { ApiError } from "../../../lib/apiClient";
+import { createBooking, createMatch, joinMatch, listMyVenues, listVenueCourts } from "../../../lib/api";
+import type { CourtRead, VenueRead } from "../../../lib/types";
 
 const SPORTS = [
     "Tennis", "Basketball", "Running", "Badminton", "Football",
@@ -17,12 +19,21 @@ const DURATIONS = [
     "30 min", "45 min", "1 hour", "1.5 hours", "2 hours", "2.5 hours", "3 hours",
 ];
 
-const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
+// Backend enums: BEGINNER | INTERMEDIATE | ADVANCED
+const SKILL_LEVELS = [
+    { value: "BEGINNER", label: "Beginner" },
+    { value: "INTERMEDIATE", label: "Intermediate" },
+    { value: "ADVANCED", label: "Advanced" },
+];
 
 export default function HostPage() {
     const router = useRouter();
-    const { venues, courts, addBooking, addHostedGame } = useVenueOwnerData();
     const [submitted, setSubmitted] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    const [venues, setVenues] = useState<VenueRead[]>([]);
+    const [courts, setCourts] = useState<CourtRead[]>([]);
 
     const [bookingType, setBookingType] = useState<"Walking" | "Court Booking">("Walking");
 
@@ -32,15 +43,32 @@ export default function HostPage() {
         venueId: "",
         courtId: "",
         datetime: "",
-        duration: "30 min",
+        duration: "1 hour",
         playersNeeded: "",
-        skillLevel: "Beginner",
+        skillLevel: "BEGINNER",
         note: "",
     });
 
-    const selectedVenueCourts = courts.filter(
-        (c) => c.venueId === form.venueId && c.active
-    );
+    // Load the owner's venues (for the Court Booking venue picker).
+    useEffect(() => {
+        listMyVenues()
+            .then((rows) => setVenues(rows.filter((v) => v.status === "APPROVED")))
+            .catch(() => setVenues([]));
+    }, []);
+
+    // Load courts whenever the selected venue changes.
+    useEffect(() => {
+        if (!form.venueId) {
+            setCourts([]);
+            return;
+        }
+        listVenueCourts(form.venueId)
+            .then((rows) => setCourts(rows))
+            .catch(() => setCourts([]));
+    }, [form.venueId]);
+
+    const selectedVenue = venues.find((v) => v.id === form.venueId);
+    const selectedCourt = courts.find((c) => c.id === form.courtId);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -54,59 +82,67 @@ export default function HostPage() {
         }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setSubmitting(true);
+        setSubmitError(null);
 
-        // Build a booking and push it to the venue-owner system as "Pending"
-        const selectedVenue = venues.find((v) => v.id === form.venueId);
-        const selectedCourt = courts.find((c) => c.id === form.courtId);
-
-        const dateObj = form.datetime ? new Date(form.datetime) : new Date();
-        const date = dateObj.toISOString().split("T")[0];
-        const startTime = dateObj.toTimeString().slice(0, 5);
-        const [gameDate, gameTime] = form.datetime.split("T");
-
-        // Calculate end time from duration
         const durationMin: Record<string, number> = {
             "30 min": 30, "45 min": 45, "1 hour": 60,
             "1.5 hours": 90, "2 hours": 120, "2.5 hours": 150, "3 hours": 180,
         };
-        const endDate = new Date(dateObj.getTime() + (durationMin[form.duration] ?? 60) * 60000);
-        const endTime = endDate.toTimeString().slice(0, 5);
 
-        const price = bookingType === "Court Booking" && selectedCourt
-            ? Math.round((selectedCourt.pricePerHour * (durationMin[form.duration] ?? 60)) / 60)
-            : 0;
+        const [gameDate, gameTime] = form.datetime.split("T");
+        const playersNeeded = Number(form.playersNeeded) || 1;
 
-        addHostedGame({
-            sport: form.sport,
-            location: form.location,
-            date: gameDate,
-            time: gameTime,
-            duration: form.duration,
-            playersNeeded: Number(form.playersNeeded),
-            skillLevel: form.skillLevel,
-            note: form.note,
-            bookingType,
-            venueName: selectedVenue?.name,
-            courtName: selectedCourt?.name,
-        });
+        // For court bookings the match lives at the chosen venue.
+        const matchLocation =
+            bookingType === "Court Booking" && selectedVenue
+                ? selectedVenue.name
+                : form.location.trim() || "TBC";
 
-        addBooking({
-            courtId: form.courtId || "walk-in",
-            venueId: form.venueId || (venues[0]?.id ?? "v1"),
-            playerName: "You (Player)",
-            date,
-            startTime,
-            endTime,
-            price,
-            bookingType,
-        });
+        try {
+            const match = await createMatch({
+                sport: form.sport,
+                location: matchLocation,
+                date: gameDate,
+                time: gameTime,
+                players_needed: playersNeeded,
+                skill_level: form.skillLevel,
+            });
 
-        setSubmitted(true);
-        setTimeout(() => {
-            router.push("/player/listings");
-        }, 1800);
+            // The creator joins their own match so they can chat and (once it's
+            // full) book a court. Best-effort: the match itself is already live.
+            let creatorJoined = false;
+            try {
+                await joinMatch(match.id);
+                creatorJoined = true;
+            } catch {
+                /* ignore — creator can still manage the match */
+            }
+
+            // Court Booking: if the match is already full (e.g. a 1-player match)
+            // and a court was picked, reserve it right away.
+            if (bookingType === "Court Booking" && creatorJoined && selectedCourt && playersNeeded <= 1) {
+                try {
+                    await createBooking({
+                        match_id: match.id,
+                        court_id: selectedCourt.id,
+                        duration_minutes: durationMin[form.duration] ?? 60,
+                    });
+                } catch {
+                    /* the match is posted regardless; booking can be retried when full */
+                }
+            }
+
+            setSubmitted(true);
+            setTimeout(() => {
+                router.push("/player/listings");
+            }, 1800);
+        } catch (err) {
+            setSubmitError(err instanceof ApiError ? err.message : "Could not post your game. Please try again.");
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -193,11 +229,16 @@ export default function HostPage() {
                                         <CheckCircle2 size={36} className="text-emerald-500" />
                                     </div>
                                     <h2 className="text-2xl font-extrabold text-slate-900">Game Posted!</h2>
-                                    <p className="text-slate-500 text-sm">Your booking is now <span className="font-bold text-amber-500">Pending</span> approval from the venue owner.</p>
+                                    <p className="text-slate-500 text-sm">Your match is now live and open to other players.</p>
                                     <p className="text-slate-400 text-xs">Redirecting you to your hosting…</p>
                                 </div>
                             ) : (
                                 <form onSubmit={handleSubmit} className="space-y-6">
+                                    {submitError && (
+                                        <p className="text-sm text-red-500 font-medium bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                                            {submitError}
+                                        </p>
+                                    )}
 
                                     {/* Active Type Badge */}
                                     <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${bookingType === "Walking" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
@@ -243,7 +284,7 @@ export default function HostPage() {
                                                     className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 appearance-none cursor-pointer"
                                                 >
                                                     <option value="" disabled>Choose a venue…</option>
-                                                    {venues.filter(v => v.status === "Active").map((v) => (
+                                                    {venues.map((v) => (
                                                         <option key={v.id} value={v.id}>{v.name}</option>
                                                     ))}
                                                 </select>
@@ -256,8 +297,8 @@ export default function HostPage() {
                                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 appearance-none cursor-pointer"
                                                     >
                                                         <option value="" disabled>Choose a court…</option>
-                                                        {selectedVenueCourts.map((c) => (
-                                                            <option key={c.id} value={c.id}>{c.name} — ${c.pricePerHour}/hr</option>
+                                                        {courts.map((c) => (
+                                                            <option key={c.id} value={c.id}>{c.name} — {c.sport}</option>
                                                         ))}
                                                     </select>
                                                 )}
@@ -357,7 +398,7 @@ export default function HostPage() {
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 appearance-none cursor-pointer"
                                             >
                                                 {SKILL_LEVELS.map((l) => (
-                                                    <option key={l} value={l}>{l}</option>
+                                                    <option key={l.value} value={l.value}>{l.label}</option>
                                                 ))}
                                             </select>
                                         </div>
@@ -385,12 +426,15 @@ export default function HostPage() {
                                     <div className="flex justify-end pt-2">
                                         <button
                                             type="submit"
-                                            className={`font-bold py-3 px-10 rounded-full shadow-md transition-all active:scale-95 text-white ${bookingType === "Walking"
+                                            disabled={submitting}
+                                            className={`font-bold py-3 px-10 rounded-full shadow-md transition-all active:scale-95 text-white disabled:opacity-60 ${bookingType === "Walking"
                                                 ? "bg-blue-600 hover:bg-blue-700"
                                                 : "bg-emerald-600 hover:bg-emerald-700"
                                                 }`}
                                         >
-                                            {bookingType === "Walking" ? "Post Walking Game" : "Book Court"}
+                                            {submitting
+                                                ? "Posting…"
+                                                : bookingType === "Walking" ? "Post Walking Game" : "Book Court"}
                                         </button>
                                     </div>
 
