@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     Globe, MapPin, Calendar, DollarSign, Users, BarChart2,
     PenLine, Info, CheckCircle2, Footprints, ShieldCheck
@@ -20,16 +20,31 @@ const DURATIONS = [
 const SKILL_LEVELS = ["Beginner", "Intermediate", "Advanced", "Professional"];
 
 export default function HostPage() {
+    return (
+        <Suspense fallback={null}>
+            <HostPageContent />
+        </Suspense>
+    );
+}
+
+function HostPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { venues, courts, addBooking, addHostedGame } = useVenueOwnerData();
     const [submitted, setSubmitted] = useState(false);
+
+    // Pre-select venue from ?venueId= query param if it matches an active venue
+    const preselectedVenueId = (() => {
+        const raw = searchParams.get("venueId") ?? "";
+        return venues.some((v) => v.id === raw && v.status === "Active") ? raw : "";
+    })();
 
     const [bookingType, setBookingType] = useState<"Walking" | "Court Booking">("Walking");
 
     const [form, setForm] = useState({
         sport: "",
         location: "",
-        venueId: "",
+        venueId: preselectedVenueId,
         courtId: "",
         datetime: "",
         duration: "30 min",

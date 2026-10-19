@@ -25,6 +25,7 @@ function PlayerLayoutContent({ children }: { children: React.ReactNode }) {
         { name: "Explore", href: "/player/dashboard" },
         { name: "Host", href: "/player/host" },
         { name: "My Listings", href: "/player/listings" },
+        { name: "Venues", href: "/player/venues" },
         { name: "Messages", href: "/player/messages" },
     ];
 
@@ -52,7 +53,7 @@ function PlayerLayoutContent({ children }: { children: React.ReactNode }) {
                         <Link
                             key={link.name}
                             href={link.href}
-                            className={`${pathname === link.href
+                            className={`${pathname.startsWith(link.href)
                                 ? "text-slate-900 font-bold"
                                 : "text-slate-600 hover:text-slate-900"
                                 } transition-colors`}
