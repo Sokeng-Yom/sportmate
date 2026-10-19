@@ -11,9 +11,10 @@ class UserSportCreate(BaseModel):
     @field_validator("skill_level")
     @classmethod
     def validate_skill_level(cls, v: str) -> str:
-        if v not in SkillLevel.ALL:
+        v_upper = v.strip().upper()
+        if v_upper not in SkillLevel.ALL:
             raise ValueError(f"skill_level must be one of {SkillLevel.ALL}")
-        return v
+        return v_upper
 
     @field_validator("sport")
     @classmethod

@@ -104,3 +104,76 @@ def test_expiry_promotes_next_entry(db_session, seeded_profile):
     assert expired_count >= 1
     assert entry_1.status == "EXPIRED"
     assert entry_2.status == "NOTIFIED"
+
+def test_accept_expired_entry_rejected(client, auth_headers_for, db_session):
+    from datetime import datetime, timedelta
+    import jwt as pyjwt
+
+    creator = auth_headers_for("PLAYER")
+    filler = auth_headers_for("PLAYER")
+    waiter_headers = auth_headers_for("PLAYER")
+
+    match_id = create_full_match(client, creator, players_needed=1)
+    join_response = client.post(f"/api/v1/matches/{match_id}/join", headers=filler)
+    assert join_response.json()["status"] == "FULL"
+
+    client.post(f"/api/v1/matches/{match_id}/waiting-list", headers=waiter_headers)
+    client.post(f"/api/v1/matches/{match_id}/leave", headers=filler)  # notifies the waiter
+
+    entry = db_session.query(WaitingList).filter(WaitingList.match_id == match_id).first()
+    entry.expires_at = datetime.utcnow() - timedelta(minutes=1)  # force it expired
+    db_session.commit()
+
+    response = client.post(f"/api/v1/waiting-list/{entry.id}/accept", headers=waiter_headers)
+    assert response.status_code == 400
+    assert "expired" in response.json()["detail"].lower()
+
+
+def test_cannot_accept_someone_elses_entry(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    filler = auth_headers_for("PLAYER")
+    waiter_headers = auth_headers_for("PLAYER")
+    other_headers = auth_headers_for("PLAYER")
+
+    match_id = create_full_match(client, creator, players_needed=1)
+    client.post(f"/api/v1/matches/{match_id}/join", headers=filler)
+    waitlist_response = client.post(f"/api/v1/matches/{match_id}/waiting-list", headers=waiter_headers)
+    entry_id = waitlist_response.json()["id"]
+    client.post(f"/api/v1/matches/{match_id}/leave", headers=filler)  # notifies waiter
+
+    response = client.post(f"/api/v1/waiting-list/{entry_id}/accept", headers=other_headers)
+    assert response.status_code == 403
+
+
+def test_cannot_accept_entry_still_waiting_not_notified(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    waiter_headers = auth_headers_for("PLAYER")
+
+    match_id = create_full_match(client, creator, players_needed=1)
+    # Need the match FULL first to join the waiting list at all
+    other = auth_headers_for("PLAYER")
+    client.post(f"/api/v1/matches/{match_id}/join", headers=other)
+    waitlist_response = client.post(f"/api/v1/matches/{match_id}/waiting-list", headers=waiter_headers)
+    entry_id = waitlist_response.json()["id"]
+    # No one has left yet, so this entry is still WAITING, not NOTIFIED
+
+    response = client.post(f"/api/v1/waiting-list/{entry_id}/accept", headers=waiter_headers)
+    assert response.status_code == 400
+
+
+def test_accept_transitions_match_to_full_when_capacity_reached(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    filler = auth_headers_for("PLAYER")
+    waiter_headers = auth_headers_for("PLAYER")
+
+    match_id = create_full_match(client, creator, players_needed=1)
+    client.post(f"/api/v1/matches/{match_id}/join", headers=filler)
+    waitlist_response = client.post(f"/api/v1/matches/{match_id}/waiting-list", headers=waiter_headers)
+    entry_id = waitlist_response.json()["id"]
+    client.post(f"/api/v1/matches/{match_id}/leave", headers=filler)
+
+    accept_response = client.post(f"/api/v1/waiting-list/{entry_id}/accept", headers=waiter_headers)
+    assert accept_response.status_code == 200
+
+    match_detail = client.get(f"/api/v1/matches/{match_id}", headers=waiter_headers)
+    assert match_detail.json()["status"] == "FULL"

@@ -110,8 +110,6 @@ def test_only_creator_can_cancel(client, auth_headers_for):
     assert response.json()["status"] == "CANCELLED"
 
 
-
-
 def test_critical_leave_restricts_user(client, auth_headers_for, db_session):
     from datetime import datetime, timezone, timedelta
     from app.models.profile import Profile
@@ -166,3 +164,51 @@ def test_restricted_user_cannot_join(client, auth_headers_for, db_session):
 
     response = client.post(f"/api/v1/matches/{match_id}/join", headers=restricted_headers)
     assert response.status_code == 403
+
+def test_leave_risk_preview_matches_actual_leave_outcome(client, auth_headers_for):
+    from datetime import datetime, timedelta
+
+    creator = auth_headers_for("PLAYER")
+    joiner = auth_headers_for("PLAYER")
+
+    # Match starting in 1 hour -> CRITICAL
+    near_future = datetime.utcnow() + timedelta(hours=1)
+    match_response = client.post(
+        "/api/v1/matches",
+        json={
+            "sport": "Badminton", "location": "Phnom Penh",
+            "date": near_future.date().isoformat(),
+            "time": near_future.time().isoformat(),
+            "players_needed": 2, "skill_level": "BEGINNER",
+        },
+        headers=creator,
+    )
+    match_id = match_response.json()["id"]
+    client.post(f"/api/v1/matches/{match_id}/join", headers=joiner)
+
+    preview = client.get(f"/api/v1/matches/{match_id}/leave-risk-preview", headers=joiner)
+    assert preview.status_code == 200
+    assert preview.json()["risk_level"] == "CRITICAL"
+    assert preview.json()["will_restrict"] is True
+
+
+def test_leave_risk_preview_requires_participation(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    non_participant = auth_headers_for("PLAYER")
+
+    match_id = create_test_match(client, creator, players_needed=2)
+
+    response = client.get(f"/api/v1/matches/{match_id}/leave-risk-preview", headers=non_participant)
+    assert response.status_code == 400
+
+
+def test_leave_risk_preview_normal_tier_far_future_match(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    joiner = auth_headers_for("PLAYER")
+
+    match_id = create_test_match(client, creator, players_needed=2)  # uses far-future date "2026-11-01" from helper
+    client.post(f"/api/v1/matches/{match_id}/join", headers=joiner)
+
+    response = client.get(f"/api/v1/matches/{match_id}/leave-risk-preview", headers=joiner)
+    assert response.status_code == 200
+    assert response.json()["will_restrict"] is False

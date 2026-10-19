@@ -69,3 +69,9 @@ class PaginatedMatches(BaseModel):
 
 class RecommendedMatch(MatchRead):
     score: float
+
+class PaginatedRecommendedMatches(BaseModel):
+    items: list[RecommendedMatch]
+    total: int
+    page: int
+    page_size: int
