@@ -39,7 +39,7 @@ export default function VenueOwnerDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 items-center">
                 <div>
                     <h2 className="text-emerald-600 font-bold mb-1">Welcome back,</h2>
-                    <h1 className="text-4xl font-extrabold text-slate-900 mb-2">{profile.name}!</h1>
+                    <h1 className="text-4xl font-extrabold text-slate-900 mb-2">{profile.name || "Venue Owner"}!</h1>
                     <p className="text-slate-500 font-medium">Here's what's happening with your venues today.</p>
                 </div>
 

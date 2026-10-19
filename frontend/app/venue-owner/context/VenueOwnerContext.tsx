@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "../../../lib/supabaseClient";
 
 export type Venue = {
     id: string;
@@ -113,70 +113,49 @@ type VenueOwnerContextType = {
 
 const VenueOwnerContext = createContext<VenueOwnerContextType | undefined>(undefined);
 
-// Initial Mock Data
-const initialVenues: Venue[] = [
-    { id: "v1", name: "Downtown Sports Arena", address: "123 Main St, City", description: "Premium indoor sports facility with AC.", sports: ["Basketball", "Volleyball"], amenities: ["Parking", "WiFi", "Locker Room"], status: "Active", coverImage: "https://images.unsplash.com/photo-1505322022379-7c3353ee6291?auto=format&fit=crop&q=80&w=800" },
-    { id: "v2", name: "Greenfield Tennis Club", address: "45 Park Avenue, City", description: "Outdoor clay and hard courts.", sports: ["Tennis"], amenities: ["Cafe", "Parking"], status: "Active", coverImage: "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?auto=format&fit=crop&q=80&w=800" },
-    { id: "v3", name: "Future Stadium (Under Construction)", address: "88 Future Blvd, City", description: "State of the art upcoming stadium.", sports: ["Football"], amenities: [], status: "Draft" },
-];
-
-const initialCourts: Court[] = [
-    { id: "c1", venueId: "v1", name: "Court A", sport: "Basketball", pricePerHour: 50, openTime: "08:00", closeTime: "22:00", active: true },
-    { id: "c2", venueId: "v1", name: "Court B", sport: "Volleyball", pricePerHour: 40, openTime: "08:00", closeTime: "22:00", active: true },
-    { id: "c3", venueId: "v2", name: "Clay Court 1", sport: "Tennis", pricePerHour: 30, openTime: "06:00", closeTime: "20:00", active: true },
-    { id: "c4", venueId: "v2", name: "Hard Court 1", sport: "Tennis", pricePerHour: 25, openTime: "06:00", closeTime: "20:00", active: false },
-];
-
-const initialBookings: Booking[] = [
-    { id: "b1", courtId: "c1", venueId: "v1", playerName: "John Doe", date: "2026-10-01", startTime: "10:00", endTime: "11:00", price: 50, status: "Confirmed", bookingType: "Court Booking" },
-    { id: "b2", courtId: "c3", venueId: "v2", playerName: "Jane Smith", date: "2026-10-02", startTime: "14:00", endTime: "16:00", price: 60, status: "Pending", bookingType: "Walking" },
-    { id: "b3", courtId: "c2", venueId: "v1", playerName: "Alice Johnson", date: "2026-10-01", startTime: "18:00", endTime: "19:00", price: 40, status: "Completed", bookingType: "Court Booking" },
-    { id: "b4", courtId: "c1", venueId: "v1", playerName: "Bob Williams", date: "2026-10-05", startTime: "09:00", endTime: "11:00", price: 100, status: "Cancelled", bookingType: "Court Booking" },
-    { id: "b5", courtId: "c3", venueId: "v2", playerName: "Charlie Brown", date: "2026-10-06", startTime: "07:00", endTime: "09:00", price: 60, status: "Pending", bookingType: "Walking" },
-];
-
-const initialReviews: Review[] = [
-    { id: "r1", venueId: "v1", playerName: "John Doe", rating: 5, comment: "Amazing courts! Highly recommend.", date: "2026-09-28" },
-    { id: "r2", venueId: "v1", playerName: "Alice Johnson", rating: 4, comment: "Good facilities, but parking was full.", date: "2026-09-25" },
-    { id: "r3", venueId: "v2", playerName: "Jane Smith", rating: 5, comment: "Loved the clay courts.", date: "2026-09-20" },
-    { id: "r4", venueId: "v2", playerName: "Bob Williams", rating: 2, comment: "Court was closed for maintenance unexpectedly.", date: "2026-09-15" },
-];
-
-const initialConversations: Conversation[] = [
-    {
-        id: "conv1", playerName: "John Doe", lastMessage: "See you at 10!", lastMessageTime: "10:30 AM", unreadCount: 1,
-        messages: [
-            { id: "m1", senderId: "player", text: "Hi, is Court A available earlier?", timestamp: "10:20 AM", isRead: false },
-            { id: "m2", senderId: "owner", text: "Sorry, it's booked until 10.", timestamp: "10:25 AM", isRead: true },
-            { id: "m3", senderId: "player", text: "See you at 10!", timestamp: "10:30 AM", isRead: false },
-        ]
-    },
-    {
-        id: "conv2", playerName: "Jane Smith", lastMessage: "Thanks for confirming.", lastMessageTime: "Yesterday", unreadCount: 0,
-        messages: [
-            { id: "m4", senderId: "owner", text: "Your booking for the clay court is confirmed.", timestamp: "Yesterday", isRead: true },
-            { id: "m5", senderId: "player", text: "Thanks for confirming.", timestamp: "Yesterday", isRead: true }
-        ]
-    }
-];
-
 export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): JSX.Element => {
-    const searchParams = useSearchParams();
-    const isEmpty = searchParams.get("empty") === "1";
-
-    const [venues, setVenues] = useState<Venue[]>(isEmpty ? [] : initialVenues);
-    const [courts, setCourts] = useState<Court[]>(isEmpty ? [] : initialCourts);
-    const [bookings, setBookings] = useState<Booking[]>(isEmpty ? [] : initialBookings);
+    const [venues, setVenues] = useState<Venue[]>([]);
+    const [courts, setCourts] = useState<Court[]>([]);
+    const [bookings, setBookings] = useState<Booking[]>([]);
     const [hostedGames, setHostedGames] = useState<HostedGame[]>([]);
-    const [reviews, setReviews] = useState<Review[]>(isEmpty ? [] : initialReviews);
-    const [conversations, setConversations] = useState<Conversation[]>(isEmpty ? [] : initialConversations);
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [conversations, setConversations] = useState<Conversation[]>([]);
 
     const [profile, setProfile] = useState<OwnerProfile>({
-        name: "Sokheng",
-        email: "sokheng@sportmates.com",
-        phone: "+855 12 345 678",
-        businessName: "Sokheng Sports Co.",
+        name: "",
+        email: "",
+        phone: "",
+        businessName: "",
     });
+
+    useEffect(() => {
+        const syncUserProfile = (user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"]) => {
+            const metadataName = user?.user_metadata?.name ?? user?.user_metadata?.full_name;
+            const name = typeof metadataName === "string" ? metadataName.trim() : "";
+            const email = user?.email ?? "";
+            const displayName = name || email.split("@")[0] || "";
+
+            setProfile((current) => ({
+                ...current,
+                name: displayName,
+                email,
+            }));
+        };
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            syncUserProfile(session?.user ?? null);
+        });
+
+        void supabase.auth.getSession().then(({ data, error }) => {
+            if (error) {
+                console.error("Failed to load the signed-in user profile:", error.message);
+                return;
+            }
+            syncUserProfile(data.session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     const addVenue = (venue: Omit<Venue, "id" | "status">) => {
         const newVenue: Venue = { ...venue, id: `v${Date.now()}`, status: "Active" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -69,10 +69,39 @@ function ProfileSection() {
     const { profile, updateProfile } = useVenueOwnerData();
     const { toast } = useToast();
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const { register, handleSubmit, formState: { errors } } = useForm<ProfileFormValues>({
         resolver: zodResolver(profileSchema),
         defaultValues: { name: profile.name, email: profile.email, phone: profile.phone },
     });
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith("image/")) {
+            toast("Please select an image file (JPG, PNG, GIF, WebP).");
+            return;
+        }
+        // Validate file size (max 5 MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast("Image must be smaller than 5 MB.");
+            return;
+        }
+
+        setUploading(true);
+        // Revoke any previous object URL to avoid memory leaks
+        if (profile.avatar && profile.avatar.startsWith("blob:")) {
+            URL.revokeObjectURL(profile.avatar);
+        }
+        const objectUrl = URL.createObjectURL(file);
+        updateProfile({ avatar: objectUrl });
+        setUploading(false);
+        toast("Profile photo updated!");
+    };
 
     const onSubmit = async (data: ProfileFormValues) => {
         setSaving(true);
@@ -82,20 +111,74 @@ function ProfileSection() {
         toast("Profile updated successfully.");
     };
 
+    const avatarSrc = profile.avatar
+        ? profile.avatar
+        : `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile.name || "user")}`;
+
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            {/* Hidden file input */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+            />
+
             <div className="flex items-center gap-5 pb-5 border-b border-slate-100">
-                <div className="relative">
-                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.name}`} alt="Avatar" className="w-20 h-20 rounded-full bg-slate-100 border-4 border-white shadow" />
-                    <button type="button" className="absolute bottom-0 right-0 w-7 h-7 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow hover:bg-emerald-700 transition-colors">
+                <div className="relative group">
+                    {/* Avatar preview */}
+                    <div className="w-20 h-20 rounded-full bg-slate-100 border-4 border-white shadow overflow-hidden">
+                        {uploading ? (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                                <svg className="animate-spin h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                            </div>
+                        ) : (
+                            <img
+                                src={avatarSrc}
+                                alt="Profile photo"
+                                className="w-full h-full object-cover"
+                            />
+                        )}
+                    </div>
+
+                    {/* Hover overlay */}
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity"
+                        title="Change photo"
+                    >
+                        <Camera size={18} className="text-white" />
+                    </div>
+
+                    {/* Camera badge */}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-0 right-0 w-7 h-7 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow hover:bg-emerald-700 active:scale-95 transition-all"
+                        title="Upload photo"
+                    >
                         <Camera size={13} />
                     </button>
                 </div>
+
                 <div>
-                    <p className="font-bold text-slate-900">{profile.name}</p>
+                    <p className="font-bold text-slate-900">{profile.name || "Your Name"}</p>
                     <p className="text-sm text-slate-500">{profile.email}</p>
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors"
+                    >
+                        Change profile photo
+                    </button>
                 </div>
             </div>
+
             <FormField label="Full Name" error={errors.name?.message}>
                 <input {...register("name")} className={inputCls()} />
             </FormField>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { VenueOwnerDataProvider } from "./context/VenueOwnerContext";
+import { VenueOwnerDataProvider, useVenueOwnerData } from "./context/VenueOwnerContext";
 import { Suspense } from "react";
 import {
     LayoutDashboard,
@@ -17,7 +17,19 @@ import {
 } from "lucide-react";
 
 export default function VenueOwnerLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <Suspense fallback={null}>
+            <VenueOwnerDataProvider>
+                <VenueOwnerLayoutContent>{children}</VenueOwnerLayoutContent>
+            </VenueOwnerDataProvider>
+        </Suspense>
+    );
+}
+
+function VenueOwnerLayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const { profile } = useVenueOwnerData();
+    const displayName = profile.name || "Account";
 
     const sidebarLinks = [
         { name: "Dashboard", href: "/venue-owner", icon: LayoutDashboard },
@@ -117,22 +129,20 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
                             <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
                         </button>
 
-                        <div className="flex items-center gap-2 cursor-pointer">
+                        <div className="flex items-center gap-2">
+                            <span className="hidden sm:inline max-w-36 truncate text-sm font-semibold text-slate-700">
+                                {displayName}
+                            </span>
                             <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden border border-gray-100">
-                                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sokheng" alt="Avatar" className="w-full h-full object-cover" />
+                                <img src={profile.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`} alt={`${displayName} avatar`} className="w-full h-full object-cover" />
                             </div>
-                            <ChevronDown size={16} className="text-slate-400" />
                         </div>
                     </div>
                 </header>
 
                 {/* Page Content */}
                 <main className="flex-1 p-8">
-                    <Suspense fallback={null}>
-                        <VenueOwnerDataProvider>
-                            {children}
-                        </VenueOwnerDataProvider>
-                    </Suspense>
+                    {children}
                 </main>
             </div>
         </div>

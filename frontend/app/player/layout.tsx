@@ -3,11 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
-import { Bell, User } from "lucide-react";
-import { VenueOwnerDataProvider } from "../venue-owner/context/VenueOwnerContext";
+import { Bell } from "lucide-react";
+import { VenueOwnerDataProvider, useVenueOwnerData } from "../venue-owner/context/VenueOwnerContext";
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
+    return (
+        <Suspense fallback={null}>
+            <VenueOwnerDataProvider>
+                <PlayerLayoutContent>{children}</PlayerLayoutContent>
+            </VenueOwnerDataProvider>
+        </Suspense>
+    );
+}
+
+function PlayerLayoutContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const { profile } = useVenueOwnerData();
+    const displayName = profile.name || "Account";
 
     const navLinks = [
         { name: "Explore", href: "/player/dashboard" },
@@ -41,8 +53,8 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                             key={link.name}
                             href={link.href}
                             className={`${pathname === link.href
-                                    ? "text-slate-900 font-bold"
-                                    : "text-slate-600 hover:text-slate-900"
+                                ? "text-slate-900 font-bold"
+                                : "text-slate-600 hover:text-slate-900"
                                 } transition-colors`}
                         >
                             {link.name}
@@ -56,10 +68,13 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                         <Bell size={20} />
                     </button>
 
-                    <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm cursor-pointer">
+                    <span className="hidden sm:inline max-w-36 truncate text-sm font-semibold text-slate-700">
+                        {displayName}
+                    </span>
+                    <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
                         <img
-                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-                            alt="Avatar"
+                            src={profile.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(displayName)}`}
+                            alt={`${displayName} avatar`}
                             className="w-full h-full object-cover"
                         />
                     </div>
@@ -67,13 +82,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             </header>
 
             {/* Main Content Area */}
-            <main className="w-full">
-                <Suspense fallback={null}>
-                    <VenueOwnerDataProvider>
-                        {children}
-                    </VenueOwnerDataProvider>
-                </Suspense>
-            </main>
+            <main className="w-full">{children}</main>
         </div>
     );
 }
