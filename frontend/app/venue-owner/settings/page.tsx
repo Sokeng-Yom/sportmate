@@ -12,13 +12,13 @@ import { ToastProvider, useToast } from "../components/ui";
 const profileSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Invalid email"),
-    phone: z.string().min(6, "Phone too short"),
+    phone: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 const businessSchema = z.object({
-    businessName: z.string().min(2, "Business name too short"),
+    businessName: z.string().optional(),
     payoutAccount: z.string().optional(),
 });
 
@@ -105,10 +105,10 @@ function ProfileSection() {
 
     const onSubmit = async (data: ProfileFormValues) => {
         setSaving(true);
-        await new Promise(r => setTimeout(r, 1200));
-        updateProfile(data);
+        const result = await updateProfile(data);
         setSaving(false);
-        toast("Profile updated successfully.");
+        if (result.ok) toast("Profile updated successfully.");
+        else toast(result.error ?? "Could not update profile.", "error");
     };
 
     const avatarSrc = profile.avatar
@@ -206,10 +206,10 @@ function BusinessSection() {
 
     const onSubmit = async (data: BusinessFormValues) => {
         setSaving(true);
-        await new Promise(r => setTimeout(r, 1200));
-        updateProfile({ businessName: data.businessName });
+        const result = await updateProfile({ businessName: data.businessName });
         setSaving(false);
-        toast("Business info updated.");
+        if (result.ok) toast("Business info updated.");
+        else toast(result.error ?? "Could not update business info.", "error");
     };
 
     return (

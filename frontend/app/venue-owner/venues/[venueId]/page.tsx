@@ -7,9 +7,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, MapPin, Plus, Pencil, Trash2, ToggleLeft, ToggleRight, X } from "lucide-react";
+import { ChevronRight, MapPin, Plus, Pencil, X, ShieldCheck } from "lucide-react";
 import { useVenueOwnerData, Court } from "../../context/VenueOwnerContext";
-import { StatusBadge, ConfirmModal, EmptyState, ToastProvider, useToast } from "../../components/ui";
+import { StatusBadge, EmptyState, ToastProvider, useToast } from "../../components/ui";
 
 const courtSchema = z.object({
     name: z.string().trim().min(1, "Court name is required"),
@@ -53,14 +53,15 @@ function CourtModal({ open, venueId, court, onClose }: { open: boolean; venueId:
         defaultValues,
     });
 
-    const onSubmit = (data: z.infer<typeof courtSchema>) => {
-        if (isEdit && court) {
-            updateCourt(court.id, data);
-            toast("Court updated successfully.");
-        } else {
-            addCourt({ ...data, venueId });
-            toast("Court added successfully.");
+    const onSubmit = async (data: z.infer<typeof courtSchema>) => {
+        const result = isEdit && court
+            ? await updateCourt(court.id, data)
+            : await addCourt({ ...data, venueId });
+        if (!result.ok) {
+            toast(result.error ?? "Could not save the court.", "error");
+            return;
         }
+        toast(isEdit ? "Court updated successfully." : "Court added successfully.");
         onClose();
     };
 
@@ -132,10 +133,9 @@ function CourtModal({ open, venueId, court, onClose }: { open: boolean; venueId:
 function VenueDetailContent() {
     const params = useParams();
     const venueId = params.venueId as string;
-    const { venues, courts, deleteCourt } = useVenueOwnerData();
+    const { venues, courts, addCourt, updateCourt, confirmPayment } = useVenueOwnerData();
     const { toast } = useToast();
     const [courtModal, setCourtModal] = useState<{ open: boolean; court?: Court }>({ open: false });
-    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
     const venue = venues.find((v) => v.id === venueId);
     const venueCourts = courts.filter((c) => c.venueId === venueId);
@@ -151,12 +151,10 @@ function VenueDetailContent() {
         );
     }
 
-    const handleDeleteCourt = () => {
-        if (deleteTarget) {
-            deleteCourt(deleteTarget);
-            toast("Court deleted.", "info");
-            setDeleteTarget(null);
-        }
+    const handleConfirmPayment = async () => {
+        const result = await confirmPayment(venueId);
+        if (result.ok) toast("Payment confirmed — your venue has been submitted for review.");
+        else toast(result.error ?? "Could not confirm payment.", "error");
     };
 
     return (
@@ -184,6 +182,14 @@ function VenueDetailContent() {
                                 {venue.amenities.map((a) => <span key={a} className="bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1 rounded-full">{a}</span>)}
                             </div>
                         </div>
+                        <div className="flex flex-col items-start sm:items-end gap-2">
+                            {venue.rawStatus === "PAYMENT_PENDING" && (
+                                <button onClick={handleConfirmPayment}
+                                    className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
+                                    <ShieldCheck size={16} /> Confirm payment & submit
+                                </button>
+                            )}
+                        </div>
                     </div>
                     <p className="text-slate-500 text-sm mt-4 leading-relaxed">{venue.description}</p>
                 </div>
@@ -193,10 +199,14 @@ function VenueDetailContent() {
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-gray-100 flex items-center justify-between">
                     <h2 className="font-bold text-slate-900 text-lg">Courts ({venueCourts.length})</h2>
-                    <button onClick={() => setCourtModal({ open: true })}
-                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
-                        <Plus size={15} /> Add Court
-                    </button>
+                    {venue.rawStatus === "APPROVED" ? (
+                        <button onClick={() => setCourtModal({ open: true })}
+                            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
+                            <Plus size={15} /> Add Court
+                        </button>
+                    ) : (
+                        <span className="text-xs font-medium text-slate-500">Courts can be added once the venue is approved.</span>
+                    )}
                 </div>
 
                 {venueCourts.length === 0 ? (
@@ -219,8 +229,8 @@ function VenueDetailContent() {
                                     <tr key={c.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
                                         <td className="px-5 py-3.5 font-semibold text-slate-900 text-sm">{c.name}</td>
                                         <td className="px-5 py-3.5 text-slate-600 text-sm">{c.sport}</td>
-                                        <td className="px-5 py-3.5 text-slate-500 text-sm">{c.openTime} – {c.closeTime}</td>
-                                        <td className="px-5 py-3.5 text-slate-900 font-bold text-sm">${c.pricePerHour}</td>
+                                        <td className="px-5 py-3.5 text-slate-500 text-sm">{c.openTime ? `${c.openTime} – ${c.closeTime}` : "—"}</td>
+                                        <td className="px-5 py-3.5 text-slate-900 font-bold text-sm">{c.pricePerHour > 0 ? `$${c.pricePerHour}` : "—"}</td>
                                         <td className="px-5 py-3.5">
                                             <StatusBadge status={c.active ? "Active" : "Draft"} />
                                         </td>
@@ -228,8 +238,6 @@ function VenueDetailContent() {
                                             <div className="flex items-center gap-2 justify-end">
                                                 <button onClick={() => setCourtModal({ open: true, court: c })}
                                                     className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"><Pencil size={14} /></button>
-                                                <button onClick={() => setDeleteTarget(c.id)}
-                                                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -241,7 +249,6 @@ function VenueDetailContent() {
             </div>
 
             <CourtModal open={courtModal.open} venueId={venueId} court={courtModal.court} onClose={() => setCourtModal({ open: false })} />
-            <ConfirmModal open={!!deleteTarget} title="Delete Court?" description="This court will be permanently removed." confirmLabel="Delete" danger onConfirm={handleDeleteCourt} onCancel={() => setDeleteTarget(null)} />
         </div>
     );
 }

@@ -3,11 +3,11 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Plus, Search, MoreVertical, Eye, Pencil, Trash2, MapPin } from "lucide-react";
+import { Building2, Plus, Search, MoreVertical, Eye, Pencil, MapPin } from "lucide-react";
 import { useVenueOwnerData, Venue } from "../context/VenueOwnerContext";
-import { PageHeader, EmptyState, StatusBadge, ConfirmModal, useToast, ToastProvider } from "../components/ui";
+import { PageHeader, EmptyState, StatusBadge, Spinner } from "../components/ui";
 
-function VenueCard({ venue, courtsCount, onDelete }: { venue: Venue; courtsCount: number; onDelete: () => void }) {
+function VenueCard({ venue, courtsCount }: { venue: Venue; courtsCount: number }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const sportColors: Record<string, string> = {
         Football: "bg-orange-50 text-orange-700",
@@ -49,10 +49,6 @@ function VenueCard({ venue, courtsCount, onDelete }: { venue: Venue; courtsCount
                                 <button className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors w-full">
                                     <Pencil size={15} /> Edit
                                 </button>
-                                <button onClick={() => { setMenuOpen(false); onDelete(); }}
-                                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors w-full">
-                                    <Trash2 size={15} /> Delete
-                                </button>
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -83,23 +79,25 @@ function VenueCard({ venue, courtsCount, onDelete }: { venue: Venue; courtsCount
 }
 
 function VenuesContent() {
-    const { venues, courts, deleteVenue } = useVenueOwnerData();
-    const { toast } = useToast();
+    const { venues, courts, loading, loadError, refresh } = useVenueOwnerData();
     const [search, setSearch] = useState("");
-    const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
     const filtered = useMemo(() =>
         venues.filter((v) => v.name.toLowerCase().includes(search.toLowerCase()) || v.address.toLowerCase().includes(search.toLowerCase())),
         [venues, search]
     );
 
-    const handleDelete = () => {
-        if (deleteTarget) {
-            deleteVenue(deleteTarget);
-            toast("Venue deleted.", "info");
-            setDeleteTarget(null);
-        }
-    };
+    if (loading) return <Spinner />;
+
+    if (loadError) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                <p className="text-red-500 text-sm font-medium mb-4">{loadError}</p>
+                <button onClick={() => refresh()}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors">Retry</button>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -137,30 +135,16 @@ function VenuesContent() {
                     <AnimatePresence>
                         {filtered.map((v) => (
                             <VenueCard key={v.id} venue={v}
-                                courtsCount={courts.filter((c) => c.venueId === v.id).length}
-                                onDelete={() => setDeleteTarget(v.id)} />
+                                courtsCount={courts.filter((c) => c.venueId === v.id).length} />
                         ))}
                     </AnimatePresence>
                 </motion.div>
             )}
 
-            <ConfirmModal
-                open={!!deleteTarget}
-                title="Delete Venue?"
-                description="This will permanently remove the venue and all its courts. This action cannot be undone."
-                confirmLabel="Delete"
-                danger
-                onConfirm={handleDelete}
-                onCancel={() => setDeleteTarget(null)}
-            />
         </div>
     );
 }
 
 export default function MyVenuesPage() {
-    return (
-        <ToastProvider>
-            <VenuesContent />
-        </ToastProvider>
-    );
+    return <VenuesContent />;
 }

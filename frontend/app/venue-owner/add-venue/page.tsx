@@ -27,6 +27,7 @@ export default function AddVenuePage() {
     const router = useRouter();
     const { addVenue } = useVenueOwnerData();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
     const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<VenueFormValues>({
@@ -47,9 +48,19 @@ export default function AddVenuePage() {
 
     const onSubmit = async (data: VenueFormValues) => {
         setIsSubmitting(true);
-        await new Promise((res) => setTimeout(res, 1500));
-        addVenue({ name: data.name, address: data.address, description: data.description, sports: data.sports, amenities: data.amenities ?? [] });
+        setSubmitError(null);
+        const result = await addVenue({
+            name: data.name,
+            address: data.address,
+            description: data.description,
+            sports: data.sports,
+            amenities: data.amenities ?? [],
+        });
         setIsSubmitting(false);
+        if (!result.ok) {
+            setSubmitError(result.error ?? "Unable to create the venue. Please try again.");
+            return;
+        }
         setSuccess(true);
         setTimeout(() => router.push("/venue-owner/venues"), 2000);
     };
@@ -154,7 +165,8 @@ export default function AddVenuePage() {
                         </section>
                     </div>
 
-                    <div className="bg-slate-50 p-6 sm:px-8 border-t border-slate-100 flex items-center justify-end">
+                    <div className="bg-slate-50 p-6 sm:px-8 border-t border-slate-100 flex flex-col items-end gap-3">
+                        {submitError && <p className="text-red-500 text-sm font-medium">{submitError}</p>}
                         <button type="submit" disabled={isSubmitting}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-emerald-600/25 flex items-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed">
                             {isSubmitting ? (

@@ -1,8 +1,11 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, ClipboardList, MapPin, Calendar, Clock, Users, RefreshCw, Type, Edit2, MessageSquare } from "lucide-react";
-import { useVenueOwnerData } from "../../venue-owner/context/VenueOwnerContext";
+import { Plus, ClipboardList, MapPin, Calendar, Clock, Users, RefreshCw, XCircle, MessageSquare, Loader2 } from "lucide-react";
+import { ApiError } from "../../../lib/apiClient";
+import { cancelMatch, listMatches } from "../../../lib/api";
+import type { MatchRead } from "../../../lib/types";
 
 const SPORT_IMAGES: Record<string, string> = {
     Basketball: "https://images.unsplash.com/photo-1546519638405-a9f9c2b9b62f?auto=format&fit=crop&q=80&w=400",
@@ -20,18 +23,57 @@ const SKILL_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 function formatGameDate(dateStr: string) {
-    const d = new Date(dateStr);
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
+function skillLabel(level: string): string {
+    return level.charAt(0) + level.slice(1).toLowerCase();
+}
+
 export default function MyListingsPage() {
-    const { hostedGames, profile } = useVenueOwnerData();
-    const count = hostedGames.length;
+    const [matches, setMatches] = useState<MatchRead[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [notice, setNotice] = useState<string | null>(null);
+    const [busyId, setBusyId] = useState<string | null>(null);
+    const count = matches.length;
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const page = await listMatches({ created_by_me: true, page_size: 100 });
+            setMatches(page.items);
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : "Failed to load your listings");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const handleCancel = async (id: string) => {
+        setBusyId(id);
+        setNotice(null);
+        try {
+            await cancelMatch(id);
+            setMatches((prev) => prev.filter((m) => m.id !== id));
+            setNotice("Match cancelled.");
+        } catch (err) {
+            setNotice(err instanceof ApiError ? err.message : "Could not cancel the match");
+        } finally {
+            setBusyId(null);
+        }
+    };
 
     return (
         <div className="min-h-screen px-6 py-12" style={{ background: "#F2E3D0" }}>
             <div className="max-w-3xl mx-auto">
-
                 {/* Header */}
                 <div className="flex items-start justify-between mb-8">
                     <div>
@@ -55,9 +97,34 @@ export default function MyListingsPage() {
                     </Link>
                 </div>
 
+                {notice && (
+                    <p className="mb-6 text-sm font-medium text-slate-700 bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm">
+                        {notice}
+                    </p>
+                )}
+
                 {/* Content */}
-                {count === 0 ? (
-                    /* Empty State */
+                {loading ? (
+                    <div className="space-y-4">
+                        {[0, 1].map((i) => (
+                            <div key={i} className="bg-white rounded-3xl p-6 shadow-sm animate-pulse">
+                                <div className="h-4 w-32 bg-gray-100 rounded mb-3" />
+                                <div className="h-4 w-48 bg-gray-100 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                ) : error ? (
+                    <div className="bg-white rounded-3xl border py-16 flex flex-col items-center justify-center text-center gap-4 shadow-sm">
+                        <p className="text-slate-600 font-medium">{error}</p>
+                        <button
+                            onClick={load}
+                            className="inline-flex items-center gap-2 font-bold text-white px-5 py-2.5 rounded-full transition-colors"
+                            style={{ background: "#D97736" }}
+                        >
+                            <RefreshCw size={15} /> Try again
+                        </button>
+                    </div>
+                ) : count === 0 ? (
                     <div
                         className="bg-white rounded-3xl border py-24 flex flex-col items-center justify-center text-center gap-4 shadow-sm"
                         style={{ borderColor: "#EAD9C2" }}
@@ -71,153 +138,102 @@ export default function MyListingsPage() {
                         <p className="text-lg font-extrabold text-slate-800">
                             You haven't hosted any games yet.
                         </p>
-                        <p className="text-sm text-slate-500 font-medium">
-                            Host your first game to find a sports partner.
+                        <p className="text-sm text-slate-500 max-w-sm">
+                            Host your first game and players near you will be able to find and join it.
                         </p>
                         <Link
                             href="/player/host"
-                            className="mt-4 text-white font-bold px-8 py-3 rounded-full shadow transition-all text-sm active:scale-95"
+                            className="mt-2 font-bold text-white px-6 py-3 rounded-full shadow-md transition-all active:scale-95"
                             style={{ background: "#D97736" }}
                         >
                             Host a game
                         </Link>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-4">
-                        {hostedGames.map((game) => {
-                            const imgSrc = SPORT_IMAGES[game.sport] ?? SPORT_IMAGES.default;
-                            const skillStyle = SKILL_COLORS[game.skillLevel] ?? { bg: "#F5F5F5", text: "#555" };
-                            const hostSeed = (profile.name ?? "Host").replace(/\s+/g, "");
-                            const spotsText = `${game.playersNeeded} spot${game.playersNeeded !== 1 ? "s" : ""} left`;
+                    <div className="grid gap-6">
+
+{matches.map((match) => {
+                            const img = SPORT_IMAGES[match.sport] ?? SPORT_IMAGES.default;
+                            const skill = skillLabel(match.skill_level);
+                            const color = SKILL_COLORS[skill] ?? SKILL_COLORS.Intermediate;
+                            const spotsText =
+                                match.status === "CANCELLED"
+                                    ? "Cancelled"
+                                    : match.status === "FULL"
+                                        ? "Full"
+                                        : `${match.players_needed} spot${match.players_needed === 1 ? "" : "s"}`;
+                            const canCancel = match.status === "OPEN" || match.status === "FULL" || match.status === "CONFIRMED";
 
                             return (
                                 <div
-                                    key={game.id}
-                                    className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-row"
-                                    style={{ border: "1px solid #EAD9C2" }}
+                                    key={match.id}
+                                    className="bg-white rounded-3xl shadow-sm overflow-hidden flex flex-col sm:flex-row border border-[#EAD9C2]"
                                 >
-                                    {/* Left: Venue Image */}
-                                    <div className="w-36 flex-shrink-0 relative" style={{ minHeight: "160px" }}>
-                                        <img
-                                            src={imgSrc}
-                                            alt={game.sport}
-                                            className="w-full h-full object-cover"
-                                            style={{ borderRadius: "0 0 0 16px" }}
-                                        />
+                                    <div className="sm:w-44 h-44 sm:h-auto flex-shrink-0 relative">
+                                        <img src={img} alt={match.sport} className="w-full h-full object-cover" />
+                                        <span
+                                            className="absolute top-3 left-3 text-xs font-bold px-3 py-1 rounded-full shadow-sm"
+                                            style={{ background: color.bg, color: color.text }}
+                                        >
+                                            {skill}
+                                        </span>
                                     </div>
 
-                                    {/* Right: Details */}
-                                    <div className="flex-1 px-5 py-4 flex flex-col justify-between min-w-0">
-                                        {/* Top row: Host avatar + name + skill badge */}
-                                        <div className="flex items-start justify-between gap-2 mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border-2 border-white shadow">
-                                                    <img
-                                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${hostSeed}`}
-                                                        alt={profile.name}
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-bold leading-tight" style={{ color: "#2B1A0F" }}>
-                                                        {profile.name}
-                                                    </p>
-                                                    {game.location && (
-                                                        <p className="text-xs" style={{ color: "#8B6147" }}>
-                                                            {game.location}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Skill Badge */}
-                                            <span
-                                                className="text-xs font-semibold px-3 py-0.5 rounded-full flex-shrink-0"
-                                                style={{ background: skillStyle.bg, color: skillStyle.text }}
-                                            >
-                                                {game.skillLevel}
-                                            </span>
-                                        </div>
-
-                                        {/* Title */}
-                                        <h3 className="font-extrabold text-base leading-snug mb-1" style={{ color: "#1A1A1A" }}>
-                                            {game.sport} — {game.bookingType}
-                                        </h3>
-
-                                        {/* Note / Description */}
-                                        {game.note && (
-                                            <p className="text-sm mb-2 line-clamp-2" style={{ color: "#4A4A4A" }}>
-                                                {game.note}
-                                            </p>
-                                        )}
-
-                                        {/* Meta row: location · date · spots */}
-                                        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs mb-3" style={{ color: "#8B6147" }}>
-                                            {game.location && (
-                                                <span className="flex items-center gap-1">
-                                                    <MapPin size={11} />
-                                                    {game.location}
-                                                </span>
-                                            )}
-                                            {game.date && (
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar size={11} />
-                                                    {formatGameDate(game.date)}
-                                                </span>
-                                            )}
-                                            {game.time && (
-                                                <span className="flex items-center gap-1">
-                                                    <Clock size={11} />
-                                                    {game.time}
-                                                </span>
-                                            )}
-                                            <span className="flex items-center gap-1">
-                                                <Users size={11} />
+                                    <div className="flex-1 p-5">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <h3 className="text-xl font-extrabold" style={{ color: "#2B1A0F" }}>
+                                                {match.sport}
+                                            </h3>
+                                            <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-50 text-[#A66138]">
                                                 {spotsText}
                                             </span>
                                         </div>
 
-                                        {/* Bottom row: Action icons + Join button */}
-                                        <div className="flex items-center justify-between">
-                                            {/* Quick-action icons */}
+                                        <div className="mt-3 space-y-1.5 text-sm text-slate-600">
+                                            <p className="flex items-center gap-2">
+                                                <MapPin size={14} className="text-[#D97736] flex-shrink-0" />
+                                                {match.location}
+                                            </p>
+                                            <p className="flex items-center gap-2">
+                                                <Calendar size={14} className="text-[#D97736] flex-shrink-0" />
+                                                {formatGameDate(match.date)}
+                                            </p>
+                                            <p className="flex items-center gap-2">
+                                                <Clock size={14} className="text-[#D97736] flex-shrink-0" />
+                                                {match.time.slice(0, 5)}
+                                            </p>
+                                            <p className="flex items-center gap-2">
+                                                <Users size={14} className="text-[#D97736] flex-shrink-0" />
+                                                {match.players_needed} {match.players_needed === 1 ? "player" : "players"} needed
+                                            </p>
+                                        </div>
+
+                                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#F2E3D0]">
                                             <div className="flex items-center gap-3">
-                                                <button
-                                                    title="Refresh"
-                                                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-orange-50"
-                                                    style={{ color: "#A07850" }}
-                                                >
-                                                    <RefreshCw size={14} />
-                                                </button>
-                                                <button
-                                                    title="Edit title"
-                                                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-orange-50"
-                                                    style={{ color: "#A07850" }}
-                                                >
-                                                    <Type size={14} />
-                                                </button>
-                                                <button
-                                                    title="Edit"
-                                                    className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-orange-50"
-                                                    style={{ color: "#A07850" }}
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                                <button
+                                                <Link
+                                                    href="/player/messages"
                                                     title="Message"
                                                     className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-orange-50"
                                                     style={{ color: "#A07850" }}
                                                 >
                                                     <MessageSquare size={14} />
-                                                </button>
+                                                </Link>
+                                                {canCancel && (
+                                                    <button
+                                                        title="Cancel match"
+                                                        disabled={busyId === match.id}
+                                                        onClick={() => handleCancel(match.id)}
+                                                        className="w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-red-50"
+                                                        style={{ color: "#A07850" }}
+                                                    >
+                                                        {busyId === match.id ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                                                    </button>
+                                                )}
                                             </div>
 
-                                            {/* Join Game Button */}
-                                            <button
-                                                className="text-white text-xs font-bold px-4 py-2 rounded-full shadow-sm transition-all active:scale-95 hover:opacity-90"
-                                                style={{ background: "#2B1A0F" }}
-                                            >
-                                                Join game
-                                            </button>
+                                            <span className="text-xs font-bold px-3 py-1.5 rounded-full text-white" style={{ background: "#2B1A0F" }}>
+                                                {match.status}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
