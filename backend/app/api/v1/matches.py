@@ -32,7 +32,12 @@ from app.services.leave_risk import (
 )
 from app.services.match_events import notify_player_joined, notify_player_left, notify_restricted
 from app.services.recommendations import build_recommendations
-from app.services.waiting_list_service import count_joined, offer_open_slots, open_slots
+from app.services.waiting_list_service import (
+    count_joined,
+    count_joined_for_matches,
+    offer_open_slots,
+    open_slots,
+)
 
 router = APIRouter(prefix="/api/v1/matches", tags=["matches"])
 
@@ -69,7 +74,8 @@ def list_matches(
     if location:
         query = query.filter(Match.location.ilike(f"%{location}%"))
     if status:
-        query = query.filter(Match.status == status)
+        statuses = [value.strip() for value in status.split(",") if value.strip()]
+        query = query.filter(Match.status.in_(statuses))
     if created_by_me:
         query = query.filter(Match.created_by == user["sub"])
     if joined_by_me:
@@ -81,12 +87,20 @@ def list_matches(
 
     total = query.count()
     # A stable ORDER BY is required for pagination, otherwise pages can overlap or skip rows.
-    items = (
+    matches = (
         query.order_by(Match.date, Match.time, Match.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
+    joined_counts = count_joined_for_matches(db, [match.id for match in matches])
+    items = [
+        {
+            **MatchRead.model_validate(match).model_dump(),
+            "joined_count": joined_counts.get(match.id, 0),
+        }
+        for match in matches
+    ]
     return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 

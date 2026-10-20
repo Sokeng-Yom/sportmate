@@ -119,6 +119,7 @@ def test_recommended_endpoint_sorted_descending(client, auth_headers_for):
     assert response.status_code == 200
     scores = [m["score"] for m in response.json()["items"]]
     assert scores == sorted(scores, reverse=True)
+    assert all("joined_count" in match for match in response.json()["items"])
 
 
 def test_recommended_endpoint_excludes_own_matches(client, auth_headers_for):

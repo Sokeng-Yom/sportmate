@@ -57,18 +57,23 @@ class MatchRead(BaseModel):
     created_at: datetime
 
 
+class MatchListRead(MatchRead):
+    joined_count: int
+
+
 class MatchDetailRead(MatchRead):
     players: list[MatchPlayerRead] = []
 
 
 class PaginatedMatches(BaseModel):
-    items: list[MatchRead]
+    items: list[MatchListRead]
     total: int
     page: int
     page_size: int
 
 class RecommendedMatch(MatchRead):
     score: float
+    joined_count: int
 
 class PaginatedRecommendedMatches(BaseModel):
     items: list[RecommendedMatch]

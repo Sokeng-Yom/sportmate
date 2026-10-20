@@ -19,6 +19,18 @@ def count_joined(db: Session, match_id: UUID) -> int:
     return db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == match_id).scalar()
 
 
+def count_joined_for_matches(db: Session, match_ids: list[UUID]) -> dict[UUID, int]:
+    if not match_ids:
+        return {}
+    rows = (
+        db.query(MatchPlayer.match_id, func.count(MatchPlayer.id))
+        .filter(MatchPlayer.match_id.in_(match_ids))
+        .group_by(MatchPlayer.match_id)
+        .all()
+    )
+    return {match_id: count for match_id, count in rows}
+
+
 def count_active_offers(db: Session, match_id: UUID, exclude_user_id=None) -> int:
     """Offers that are still inside their 30-minute window."""
     query = db.query(func.count()).select_from(WaitingList).filter(

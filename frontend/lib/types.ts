@@ -78,6 +78,7 @@ export interface MatchRead {
   status: MatchStatus;
   created_by: string;
   created_at: string;
+  joined_count?: number;
 }
 
 export interface MatchPlayerRead {

@@ -91,3 +91,50 @@ def test_match_detail_includes_players_list(client, auth_headers_for):
 
     response = client.get(f"/api/v1/matches/{match_id}", headers=creator)
     assert len(response.json()["players"]) == 1
+
+
+def test_list_matches_includes_joined_count(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    joiner = auth_headers_for("PLAYER")
+    create = client.post(
+        "/api/v1/matches",
+        json={
+            "sport": "Badminton",
+            "location": "Phnom Penh",
+            "date": "2026-12-01",
+            "time": "19:00:00",
+            "players_needed": 3,
+            "skill_level": "BEGINNER",
+        },
+        headers=creator,
+    )
+    match_id = create.json()["id"]
+    client.post(f"/api/v1/matches/{match_id}/join", headers=joiner)
+
+    response = client.get("/api/v1/matches?created_by_me=true", headers=creator)
+    listed_match = next(item for item in response.json()["items"] if item["id"] == match_id)
+    assert listed_match["joined_count"] == 1
+
+
+def test_list_matches_can_include_open_and_full_statuses(client, auth_headers_for):
+    creator = auth_headers_for("PLAYER")
+    joiner = auth_headers_for("PLAYER")
+    create = client.post(
+        "/api/v1/matches",
+        json={
+            "sport": "Badminton",
+            "location": "Phnom Penh",
+            "date": "2026-12-01",
+            "time": "19:00:00",
+            "players_needed": 1,
+            "skill_level": "BEGINNER",
+        },
+        headers=creator,
+    )
+    match_id = create.json()["id"]
+    client.post(f"/api/v1/matches/{match_id}/join", headers=joiner)
+
+    response = client.get("/api/v1/matches?status=OPEN%2CFULL", headers=creator)
+    listed_match = next(item for item in response.json()["items"] if item["id"] == match_id)
+    assert listed_match["status"] == "FULL"
+    assert listed_match["joined_count"] == 1
