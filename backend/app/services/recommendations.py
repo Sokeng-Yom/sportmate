@@ -11,6 +11,7 @@ from app.models.user_sport import UserSport
 from app.schemas.match import MatchRead
 from app.services.leave_risk import RISK_CRITICAL
 from app.services.matchmaking import compute_match_score
+from app.services.waiting_list_service import count_joined_for_matches
 
 # Scoring happens in Python, so the work per request is capped. Candidates are the
 # soonest upcoming matches; the cap only matters once thousands of matches are open at once.
@@ -79,10 +80,13 @@ def build_recommendations(
     scored.sort(key=lambda pair: (-pair[0], pair[1].date, pair[1].time))
 
     start = (page - 1) * page_size
+    selected = scored[start : start + page_size]
+    joined_counts = count_joined_for_matches(db, [match.id for _, match in selected])
     items = []
-    for score, match in scored[start : start + page_size]:
+    for score, match in selected:
         item = MatchRead.model_validate(match).model_dump()
         item["score"] = score
+        item["joined_count"] = joined_counts.get(match.id, 0)
         items.append(item)
 
     return {"items": items, "total": len(scored), "page": page, "page_size": page_size}

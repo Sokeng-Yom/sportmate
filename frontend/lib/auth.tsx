@@ -23,6 +23,7 @@ interface AuthContextValue {
   role: Role | null;
   /** True until the initial session + profile check finishes. */
   loading: boolean;
+  profileError: string | null;
   /** Refreshes the profile from GET /api/v1/profiles/me. */
   refreshProfile: () => Promise<Profile | null>;
   signOut: () => Promise<void>;
@@ -46,16 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SupabaseSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   const refreshProfile = useCallback(async () => {
     if (!session) return null;
+    setLoading(true);
+    setProfileError(null);
     try {
       const loaded = await fetchProfile();
       setProfile(loaded);
+      if (!loaded) {
+        setProfileError("No profile is linked to this account. Check your account setup and try again.");
+      }
       return loaded;
-    } catch {
-      // Network/backend errors are surfaced to the caller; keep the old profile.
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Could not load your account profile.");
       return null;
+    } finally {
+      setLoading(false);
     }
   }, [session]);
 
@@ -70,36 +79,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           fetchProfile()
             .then((p) => {
-              if (!cancelled) setProfile(p);
+              if (!cancelled) {
+                setProfile(p);
+                setProfileError(p ? null : "No profile is linked to this account. Check your account setup and try again.");
+              }
             })
-            .catch(() => {
-              if (!cancelled) setProfile(null);
+            .catch((error: unknown) => {
+              if (!cancelled) {
+                setProfile(null);
+                setProfileError(error instanceof Error ? error.message : "Could not load your account profile.");
+              }
             })
             .finally(() => {
               if (!cancelled) setLoading(false);
             });
         } else {
           setProfile(null);
+          setProfileError(null);
           setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
           setProfile(null);
+          setProfileError(error instanceof Error ? error.message : "Could not check your sign-in session.");
           setLoading(false);
         }
       });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      setProfileError(null);
       if (newSession) {
+        setLoading(true);
         fetchProfile()
-          .then((p) => setProfile(p))
-          .catch(() => setProfile(null));
+          .then((p) => {
+            setProfile(p);
+            setProfileError(p ? null : "No profile is linked to this account. Check your account setup and try again.");
+          })
+          .catch((error: unknown) => {
+            setProfile(null);
+            setProfileError(error instanceof Error ? error.message : "Could not load your account profile.");
+          })
+          .finally(() => setLoading(false));
       } else {
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {
@@ -112,13 +138,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
+    setProfileError(null);
   }, []);
 
   const role = useMemo<Role | null>(() => (profile ? (profile.role as Role) : null), [profile]);
 
   const value = useMemo(
-    () => ({ session, profile, role, loading, refreshProfile, signOut }),
-    [session, profile, role, loading, refreshProfile, signOut],
+    () => ({ session, profile, role, loading, profileError, refreshProfile, signOut }),
+    [session, profile, role, loading, profileError, refreshProfile, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -156,7 +183,7 @@ const ROLE_HOME: Record<Role, string> = {
  * to /login, and users with the wrong role go to their own home page.
  */
 export function RouteGuard({ roles, children }: { roles: Role[]; children: ReactNode }) {
-  const { session, profile, role, loading } = useAuth();
+  const { session, profile, role, loading, profileError, refreshProfile, signOut } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -171,7 +198,33 @@ export function RouteGuard({ roles, children }: { roles: Role[]; children: React
   }, [loading, session, role, roles, router]);
 
   if (loading || !session) return <AuthLoading />;
-  if (!role || !roles.includes(role)) return <AuthLoading />;
+  if (!profile || !role) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6 dark:bg-slate-950">
+        <div className="max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h1 className="text-lg font-bold text-slate-900 dark:text-white">Could not load your account</h1>
+          <p role="alert" className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+            {profileError ?? "Your account profile is unavailable. Check your backend connection and account setup."}
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <button
+              onClick={() => void refreshProfile()}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              Try again
+            </button>
+            <button
+              onClick={() => void signOut()}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-gray-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!roles.includes(role)) return <AuthLoading />;
   return <>{children}</>;
 }
 

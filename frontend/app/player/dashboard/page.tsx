@@ -27,6 +27,31 @@ function skillLabel(level: string): string {
     return level.charAt(0) + level.slice(1).toLowerCase();
 }
 
+const SPORT_ICONS: Record<string, string> = {
+    Basketball: "🏀",
+    Tennis: "🎾",
+    Football: "⚽",
+    Badminton: "🏸",
+    Volleyball: "🏐",
+    Cricket: "🏏",
+    Golf: "⛳",
+    Swimming: "🏊",
+    Cycling: "🚴",
+    Running: "🏃",
+};
+
+function gameStatusLabel(status: string): string {
+    switch (status) {
+        case "OPEN": return "Open game";
+        case "FULL": return "Hosting full";
+        case "READY": return "Ready";
+        case "CONFIRMED": return "Confirmed";
+        case "COMPLETED": return "Completed";
+        case "CANCELLED": return "Cancelled";
+        default: return status;
+    }
+}
+
 function MatchCard({
     match,
     isJoined,
@@ -40,57 +65,83 @@ function MatchCard({
     onLeave: (id: string) => void;
     busy: boolean;
 }) {
+    const joinedCount = match.joined_count ?? 0;
+    const playerCapacity = Math.max(match.players_needed, 1);
+    const progressPercent = Math.min((joinedCount / playerCapacity) * 100, 100);
+    const isFull = match.status === "FULL" || joinedCount >= playerCapacity;
+
     return (
-        <article className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-                <div>
-                    <h3 className="text-xl font-extrabold text-slate-900">{match.sport}</h3>
-                    <p className="text-sm text-slate-500 mt-1">
-                        {match.status === "OPEN" ? "Open spot" : match.status === "FULL" ? "Match full" : match.status}
-                    </p>
+        <article className="rounded-2xl border border-[#E8E3DE] bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex gap-4">
+                <div className="hidden h-[104px] w-[104px] shrink-0 items-center justify-center rounded-2xl bg-[#EAD7C2] text-5xl sm:flex">
+                    {SPORT_ICONS[match.sport] ?? "🏆"}
                 </div>
-                <span className="self-start bg-orange-50 text-[#A66138] px-4 py-1 rounded-full text-xs font-bold">
-                    {skillLabel(match.skill_level)}
-                </span>
-            </div>
+                <div className="min-w-0 flex-1">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                        <h3 className="text-lg font-bold text-slate-950 sm:text-xl">
+                            {match.sport} — {isFull ? "Hosting full" : gameStatusLabel(match.status)}
+                        </h3>
+                        <span className="shrink-0 rounded-full bg-[#FFF0E1] px-3 py-1.5 text-xs font-semibold text-[#B85D14]">
+                            {skillLabel(match.skill_level)}
+                        </span>
+                    </div>
 
-            <div className="grid sm:grid-cols-2 gap-3 text-sm text-slate-600">
-                <p className="flex items-center gap-2">
-                    <MapPin size={16} className="text-[#D97736] flex-shrink-0" />
-                    {match.location}
-                </p>
-                <p className="flex items-center gap-2">
-                    <CalendarDays size={16} className="text-[#D97736] flex-shrink-0" />
-                    {formatDate(match.date)}
-                </p>
-                <p className="flex items-center gap-2">
-                    <Clock3 size={16} className="text-[#D97736] flex-shrink-0" />
-                    {formatTime(match.time)}
-                </p>
-                <p className="flex items-center gap-2">
-                    <Users size={16} className="text-[#D97736] flex-shrink-0" />
-                    {match.players_needed} {match.players_needed === 1 ? "player" : "players"} needed
-                </p>
-            </div>
+                    <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
+                        <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
+                        <p><span className="font-semibold text-slate-950">Date:</span> {formatDate(match.date)}</p>
+                        <p><span className="font-semibold text-slate-950">Time:</span> {formatTime(match.time)}</p>
+                        <p><span className="font-semibold text-slate-950">Players needed:</span> {playerCapacity}</p>
+                    </div>
 
-            <div className="flex items-center justify-end gap-3 mt-4 pt-4 border-t border-gray-100">
-                {isJoined ? (
-                    <button
-                        onClick={() => onLeave(match.id)}
-                        disabled={busy}
-                        className="text-sm font-bold px-4 py-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-                    >
-                        Leave
-                    </button>
-                ) : (
-                    <button
-                        onClick={() => onJoin(match.id)}
-                        disabled={busy}
-                        className="text-sm font-bold bg-[#D97736] hover:bg-[#c26529] text-white px-5 py-2 rounded-full transition-colors disabled:opacity-50"
-                    >
-                        Join game
-                    </button>
-                )}
+                    <div className="mt-4" aria-label={`${joinedCount} of ${playerCapacity} players joined`}>
+                        <div
+                            role="progressbar"
+                            aria-valuemin={0}
+                            aria-valuemax={playerCapacity}
+                            aria-valuenow={Math.min(joinedCount, playerCapacity)}
+                            aria-label="Players joined"
+                            className="h-2.5 overflow-hidden rounded-full bg-[#F0ECE8]"
+                        >
+                            <div
+                                className={`h-full rounded-full transition-[width] ${isFull ? "bg-red-500" : "bg-[#D97736]"}`}
+                                style={{ width: `${progressPercent}%` }}
+                            />
+                        </div>
+                        <p className="mt-2 text-sm font-semibold text-slate-700">
+                            {joinedCount}/{playerCapacity} joined
+                        </p>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEAE5] pt-4">
+                        <p className="text-sm text-slate-600">
+                            <span className="font-semibold text-slate-900">Skill level:</span> {skillLabel(match.skill_level)}
+                        </p>
+                        {isJoined ? (
+                            <button
+                                onClick={() => onLeave(match.id)}
+                                disabled={busy}
+                                className="rounded-full border border-red-200 px-5 py-2.5 text-sm font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
+                            >
+                                Leave game
+                            </button>
+                        ) : isFull ? (
+                            <button
+                                disabled
+                                className="cursor-not-allowed rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white opacity-90"
+                            >
+                                Full
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => onJoin(match.id)}
+                                disabled={busy}
+                                className="rounded-full bg-[#201405] px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#39260D] disabled:opacity-50"
+                            >
+                                Join game
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
         </article>
     );
@@ -139,7 +190,7 @@ export default function PlayerDashboard() {
         setError(null);
         try {
             const params = {
-                status: "OPEN",
+                status: "OPEN,FULL",
                 ...(sport !== "Any sport" ? { sport } : {}),
                 ...(location.trim() ? { location: location.trim() } : {}),
             };
@@ -448,4 +499,3 @@ export default function PlayerDashboard() {
         </div>
     );
 }
-

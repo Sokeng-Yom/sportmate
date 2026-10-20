@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { ArrowRight, UserCircle2, Building2, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -15,30 +15,18 @@ import type { Role } from "../../lib/types";
 const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
-    role: z.enum(["PLAYER", "VENUE_OWNER"], {
-        message: "Please select an account type",
-    }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
     const router = useRouter();
-    const [selectedRole, setSelectedRole] = useState<"PLAYER" | "VENUE_OWNER">("PLAYER");
     const [showPassword, setShowPassword] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
 
-    const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
+    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
-        defaultValues: {
-            role: "PLAYER",
-        }
     });
-
-    const handleRoleChange = (role: "PLAYER" | "VENUE_OWNER") => {
-        setSelectedRole(role);
-        setValue("role", role);
-    };
 
     const onSubmit = async (data: LoginFormValues) => {
         setAuthError(null);
@@ -54,21 +42,22 @@ export default function LoginPage() {
                 return;
             }
 
-            // Redirect by the role stored in the profile (source of truth),
-            // falling back to the role the user picked on this form.
-            // ADMIN is a valid profile role, so widen past the form's two options.
-            let role: Role = data.role;
+            // The profile is the source of truth for the account's role.
             try {
                 const profile = await getProfile();
-                if (profile) role = profile.role;
-            } catch {
-                // Profile fetch failed — keep the selected role as a best guess.
-            }
+                if (!profile) {
+                    setAuthError("Could not load your account profile. Please try again.");
+                    return;
+                }
 
-            if (role === "VENUE_OWNER" || role === "ADMIN") {
-                router.push("/venue-owner");
-            } else {
-                router.push("/player/dashboard");
+                const role: Role = profile.role;
+                if (role === "VENUE_OWNER" || role === "ADMIN") {
+                    router.push("/venue-owner");
+                } else {
+                    router.push("/player/dashboard");
+                }
+            } catch (error) {
+                setAuthError(error instanceof Error ? error.message : "Could not load your account profile.");
             }
         } catch (error) {
             setAuthError(error instanceof Error ? error.message : "Unable to log in. Please try again.");
@@ -76,21 +65,21 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 p-6 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6 relative overflow-hidden">
 
             <div className="absolute top-[-20%] right-[-10%] w-96 h-96 bg-brand/10 rounded-full blur-3xl" />
 
-            <Link href="/" className="absolute top-8 left-8 font-extrabold text-xl text-slate-800 dark:text-white">
+            <Link href="/" className="absolute top-8 left-8 font-extrabold text-xl text-slate-800">
                 SportMate
             </Link>
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-brand/5 border border-gray-100 dark:border-slate-800 p-8 md:p-10 relative z-10"
+                className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-brand/5 border border-gray-100 p-8 md:p-10 relative z-10"
             >
                 <div className="mb-8">
-                    <h1 className="text-3xl font-extrabold mb-2 text-slate-900 dark:text-white">Welcome back</h1>
+                    <h1 className="text-3xl font-extrabold mb-2 text-slate-900">Welcome back</h1>
                     <p className="text-slate-500">Log in to SportMate to continue.</p>
                 </div>
 
@@ -101,43 +90,12 @@ export default function LoginPage() {
                         </p>
                     )}
 
-                    {/* Role Selection */}
                     <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">I am logging in as</label>
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                onClick={() => handleRoleChange("PLAYER")}
-                                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 transition-all ${selectedRole === "PLAYER"
-                                    ? "border-brand bg-brand/5 text-brand shadow-brand/10 shadow-sm"
-                                    : "border-gray-100 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-gray-300"
-                                    }`}
-                            >
-                                <UserCircle2 size={18} />
-                                <span className="font-semibold text-sm">Player</span>
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={() => handleRoleChange("VENUE_OWNER")}
-                                className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 transition-all ${selectedRole === "VENUE_OWNER"
-                                    ? "border-brand bg-brand/5 text-brand shadow-brand/10 shadow-sm"
-                                    : "border-gray-100 bg-gray-50 dark:bg-slate-800 dark:border-slate-700 text-slate-500 hover:border-gray-300"
-                                    }`}
-                            >
-                                <Building2 size={18} />
-                                <span className="font-semibold text-sm">Venue Owner</span>
-                            </button>
-                        </div>
-                        {errors.role && <p className="text-red-500 text-sm mt-1">{errors.role.message}</p>}
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Email</label>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5">Email</label>
                         <input
                             {...register("email")}
                             type="email"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                             placeholder="john@example.com"
                         />
                         {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>}
@@ -145,14 +103,14 @@ export default function LoginPage() {
 
                     <div>
                         <div className="flex justify-between mb-1.5">
-                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300">Password</label>
+                            <label className="block text-sm font-bold text-slate-700">Password</label>
                             <a href="#" className="text-xs font-semibold text-brand hover:underline">Forgot?</a>
                         </div>
                         <div className="relative">
                             <input
                                 {...register("password")}
                                 type={showPassword ? "text" : "password"}
-                                className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                                 placeholder="••••••••"
                             />
                             <button

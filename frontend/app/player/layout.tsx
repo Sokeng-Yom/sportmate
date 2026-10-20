@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { User } from "lucide-react";
 import { RouteGuard, useAuth } from "../../lib/auth";
 import NotificationsBell from "../components/NotificationsBell";
+import { VenueOwnerDataProvider } from "../venue-owner/context/VenueOwnerContext";
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -15,12 +16,14 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         { name: "Explore", href: "/player/dashboard" },
         { name: "Host", href: "/player/host" },
         { name: "My Listings", href: "/player/listings" },
+        { name: "Venues", href: "/player/venues" },
         { name: "Messages", href: "/player/messages" },
     ];
 
     return (
         <RouteGuard roles={["PLAYER"]}>
-            <div className="min-h-screen bg-[#F8F5F0] text-slate-900 font-sans">
+            <VenueOwnerDataProvider>
+                <div className="min-h-screen bg-[#F8F5F0] text-slate-900 font-sans">
                 {/* Top Navigation */}
                 <header className="bg-white px-8 py-4 flex items-center justify-between border-b border-gray-100 shadow-sm sticky top-0 z-50">
 
@@ -86,7 +89,8 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                         {children}
                     </Suspense>
                 </main>
-            </div>
+                </div>
+            </VenueOwnerDataProvider>
         </RouteGuard>
     );
 }

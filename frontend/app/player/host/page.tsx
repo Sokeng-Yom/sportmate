@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     Globe, MapPin, Calendar, Users, BarChart2,
     PenLine, Info, CheckCircle2, Footprints, ShieldCheck, DollarSign
@@ -27,7 +27,17 @@ const SKILL_LEVELS = [
 ];
 
 export default function HostPage() {
+    return (
+        <Suspense fallback={null}>
+            <HostPageContent />
+        </Suspense>
+    );
+}
+
+function HostPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const requestedVenueId = searchParams.get("venueId");
     const [submitted, setSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -48,6 +58,15 @@ export default function HostPage() {
         skillLevel: "BEGINNER",
         note: "",
     });
+
+    useEffect(() => {
+        if (!requestedVenueId || !venues.some((venue) => venue.id === requestedVenueId && venue.status === "APPROVED")) {
+            return;
+        }
+        setForm((current) => current.venueId
+            ? current
+            : { ...current, venueId: requestedVenueId });
+    }, [requestedVenueId, venues]);
 
     // Load the owner's venues (for the Court Booking venue picker).
     useEffect(() => {
