@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CalendarCheck, X, Search, ChevronDown, Footprints, ShieldCheck } from "lucide-react";
+import { CalendarCheck, X, Search, ChevronDown, Footprints, ShieldCheck, Check, XCircle, RefreshCw } from "lucide-react";
 import { useVenueOwnerData, Booking } from "../context/VenueOwnerContext";
-import { EmptyState, StatusBadge, ToastProvider, useToast } from "../components/ui";
+import { ConfirmModal, EmptyState, StatusBadge, ToastProvider, useToast } from "../components/ui";
 
 type Status = Booking["status"] | "All";
-const STATUSES: Status[] = ["All", "Pending", "Confirmed", "Completed", "Cancelled"];
+const STATUSES: Status[] = ["All", "Pending", "Confirmed", "Rejected", "Completed", "Cancelled"];
 
 function BookingTypeBadge({ type }: { type: Booking["bookingType"] }) {
     if (type === "Walking") {
@@ -25,11 +25,16 @@ function BookingTypeBadge({ type }: { type: Booking["bookingType"] }) {
 }
 
 function BookingsContent() {
-    const { bookings, venues, courts, updateBookingStatus } = useVenueOwnerData();
+    const { bookings, venues, courts, updateBookingStatus, loading, loadError, refresh } = useVenueOwnerData();
     const { toast } = useToast();
     const [activeStatus, setActiveStatus] = useState<Status>("All");
     const [venueFilter, setVenueFilter] = useState("all");
     const [search, setSearch] = useState("");
+    const [review, setReview] = useState<{ id: string; action: "Confirmed" | "Rejected" } | null>(null);
+
+    useEffect(() => {
+        void refresh();
+    }, [refresh]);
 
     const counts = useMemo(() => {
         const c: Record<string, number> = { All: bookings.length };
@@ -53,9 +58,34 @@ function BookingsContent() {
         else toast(result.error ?? "Could not cancel this booking.", "error");
     };
 
+    const handleReview = async () => {
+        if (!review) return;
+        const result = await updateBookingStatus(review.id, review.action);
+        if (result.ok) toast(review.action === "Confirmed" ? "Booking approved and confirmed." : "Booking request declined.", "success");
+        else toast(result.error ?? "Could not update this booking request.", "error");
+        setReview(null);
+    };
+
     return (
         <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 mb-6">Bookings</h1>
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-2xl font-extrabold text-slate-900">Bookings</h1>
+                <button
+                    type="button"
+                    onClick={() => void refresh()}
+                    disabled={loading}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+                    {loading ? "Refreshing…" : "Refresh"}
+                </button>
+            </div>
+
+            {loadError && (
+                <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    Could not load booking requests: {loadError}
+                </div>
+            )}
 
             {/* Status Tabs */}
             <div className="flex items-center gap-2 flex-wrap mb-6">
@@ -84,7 +114,7 @@ function BookingsContent() {
                 </div>
             </div>
 
-            {filtered.length === 0 ? (
+            {filtered.length === 0 && loadError ? null : filtered.length === 0 ? (
                 <EmptyState icon={<CalendarCheck size={24} />} title="No bookings found" description="No bookings match your current filters." />
             ) : (
                 <>
@@ -121,6 +151,18 @@ function BookingsContent() {
                                             <td className="px-5 py-3.5 text-sm font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</td>
                                             <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
                                             <td className="px-5 py-3.5">
+                                                {b.status === "Pending" && (
+                                                    <div className="flex items-center gap-2">
+                                                        <button onClick={() => setReview({ id: b.id, action: "Confirmed" })}
+                                                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700">
+                                                            <Check size={13} /> Approve
+                                                        </button>
+                                                        <button onClick={() => setReview({ id: b.id, action: "Rejected" })}
+                                                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50">
+                                                            <XCircle size={13} /> Reject
+                                                        </button>
+                                                    </div>
+                                                )}
                                                 {b.status === "Confirmed" && (
                                                     <button onClick={() => handleCancel(b.id)}
                                                         className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors">
@@ -156,9 +198,26 @@ function BookingsContent() {
                                     <span>{new Date(b.date).toLocaleDateString()} · {b.startTime}–{b.endTime}</span>
                                     <span className="font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</span>
                                 </div>
+                                {b.status === "Pending" && (
+                                    <div className="mt-3 flex gap-2">
+                                        <button onClick={() => setReview({ id: b.id, action: "Confirmed" })} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"><Check size={13} /> Approve</button>
+                                        <button onClick={() => setReview({ id: b.id, action: "Rejected" })} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-red-200 py-2 text-xs font-bold text-red-600 hover:bg-red-50"><XCircle size={13} /> Reject</button>
+                                    </div>
+                                )}
                                 {b.status === "Confirmed" && (
                                     <button onClick={() => handleCancel(b.id)} className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-xl hover:bg-red-600 transition-colors">Cancel booking</button>
                                 )}
+                                <ConfirmModal
+                                    open={review !== null}
+                                    title={review?.action === "Confirmed" ? "Approve this booking?" : "Reject this booking request?"}
+                                    description={review?.action === "Confirmed"
+                                        ? "The court reservation will be confirmed and the players will be notified."
+                                        : "The players will be notified that this booking request was declined."}
+                                    confirmLabel={review?.action === "Confirmed" ? "Approve booking" : "Reject request"}
+                                    danger={review?.action === "Rejected"}
+                                    onCancel={() => setReview(null)}
+                                    onConfirm={() => { void handleReview(); }}
+                                />
                             </div>
                         ))}
                     </div>

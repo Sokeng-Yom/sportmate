@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
@@ -32,3 +33,4 @@ class Court(Base):
     sport = Column(String, nullable=False)
     availability = Column(JSONB, nullable=True)  # weekly schedule, see schemas/court.py
     created_at = Column(DateTime, server_default=func.now())
+    venue = relationship("Venue", foreign_keys=[venue_id])

@@ -7,7 +7,7 @@ import {
     PenLine, Info, CheckCircle2, Footprints, ShieldCheck, DollarSign
 } from "lucide-react";
 import { ApiError } from "../../../lib/apiClient";
-import { createBooking, createMatch, joinMatch, listMyVenues, listVenueCourts } from "../../../lib/api";
+import { createBooking, createMatch, joinMatch, listVenueCourts, listVenues } from "../../../lib/api";
 import type { CourtRead, VenueRead } from "../../../lib/types";
 
 const SPORTS = [
@@ -40,6 +40,7 @@ function HostPageContent() {
     const requestedVenueId = searchParams.get("venueId");
     const [submitted, setSubmitted] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [venueLoadError, setVenueLoadError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     const [venues, setVenues] = useState<VenueRead[]>([]);
@@ -63,16 +64,20 @@ function HostPageContent() {
         if (!requestedVenueId || !venues.some((venue) => venue.id === requestedVenueId && venue.status === "APPROVED")) {
             return;
         }
+        setBookingType("Court Booking");
         setForm((current) => current.venueId
             ? current
             : { ...current, venueId: requestedVenueId });
     }, [requestedVenueId, venues]);
 
-    // Load the owner's venues (for the Court Booking venue picker).
+    // Players can book any approved venue, not only venues they own.
     useEffect(() => {
-        listMyVenues()
-            .then((rows) => setVenues(rows.filter((v) => v.status === "APPROVED")))
-            .catch(() => setVenues([]));
+        setVenueLoadError(null);
+        listVenues({ page_size: 100 })
+            .then((page) => setVenues(page.items))
+            .catch((err) => {
+                setVenueLoadError(err instanceof ApiError ? err.message : "Could not load venues.");
+            });
     }, []);
 
     // Load courts whenever the selected venue changes.
@@ -81,9 +86,13 @@ function HostPageContent() {
             setCourts([]);
             return;
         }
+        setVenueLoadError(null);
         listVenueCourts(form.venueId)
             .then((rows) => setCourts(rows))
-            .catch(() => setCourts([]));
+            .catch((err) => {
+                setCourts([]);
+                setVenueLoadError(err instanceof ApiError ? err.message : "Could not load courts.");
+            });
     }, [form.venueId]);
 
     const selectedVenue = venues.find((v) => v.id === form.venueId);
@@ -97,7 +106,7 @@ function HostPageContent() {
             ...prev,
             [name]: value,
             // reset court when venue changes
-            ...(name === "venueId" ? { courtId: "" } : {}),
+            ...(name === "venueId" || name === "sport" ? { courtId: "" } : {}),
         }));
     };
 
@@ -128,6 +137,12 @@ function HostPageContent() {
                 time: gameTime,
                 players_needed: playersNeeded,
                 skill_level: form.skillLevel,
+                ...(bookingType === "Court Booking" && selectedCourt
+                    ? {
+                        court_id: selectedCourt.id,
+                        court_duration_minutes: durationMin[form.duration] ?? 60,
+                    }
+                    : {}),
             });
 
             // The creator joins their own match so they can chat and (once it's
@@ -149,8 +164,12 @@ function HostPageContent() {
                         court_id: selectedCourt.id,
                         duration_minutes: durationMin[form.duration] ?? 60,
                     });
-                } catch {
-                    /* the match is posted regardless; booking can be retried when full */
+                } catch (err) {
+                    setSubmitError(
+                        `Your game was posted, but the court booking failed: ${
+                            err instanceof ApiError ? err.message : "Please try booking again from My listings."
+                        }`,
+                    );
                 }
             }
 
@@ -249,6 +268,7 @@ function HostPageContent() {
                                     </div>
                                     <h2 className="text-2xl font-extrabold text-slate-900">Game Posted!</h2>
                                     <p className="text-slate-500 text-sm">Your match is now live and open to other players.</p>
+                                    {submitError && <p className="max-w-lg text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">{submitError}</p>}
                                     <p className="text-slate-400 text-xs">Redirecting you to your hosting…</p>
                                 </div>
                             ) : (
@@ -256,6 +276,11 @@ function HostPageContent() {
                                     {submitError && (
                                         <p className="text-sm text-red-500 font-medium bg-red-50 border border-red-100 rounded-xl px-4 py-3">
                                             {submitError}
+                                        </p>
+                                    )}
+                                    {venueLoadError && bookingType === "Court Booking" && (
+                                        <p className="text-sm text-red-500 font-medium bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                                            {venueLoadError}
                                         </p>
                                     )}
 
@@ -307,6 +332,9 @@ function HostPageContent() {
                                                         <option key={v.id} value={v.id}>{v.name}</option>
                                                     ))}
                                                 </select>
+                                                {venues.length === 0 && !venueLoadError && (
+                                                    <p className="text-xs text-slate-500">No approved venues are available yet.</p>
+                                                )}
                                                 {form.venueId && (
                                                     <select
                                                         name="courtId"
@@ -316,10 +344,24 @@ function HostPageContent() {
                                                         className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 appearance-none cursor-pointer"
                                                     >
                                                         <option value="" disabled>Choose a court…</option>
-                                                        {courts.map((c) => (
+                                                        {courts
+                                                            .filter((court) => !form.sport || court.sport.toLowerCase() === form.sport.toLowerCase())
+                                                            .map((c) => (
                                                             <option key={c.id} value={c.id}>{c.name} — {c.sport}</option>
-                                                        ))}
+                                                            ))}
                                                     </select>
+                                                )}
+                                                {form.venueId && courts.length === 0 && !venueLoadError && (
+                                                    <p className="text-xs text-slate-500">
+                                                        {form.sport
+                                                            ? `No ${form.sport} courts are listed for this venue.`
+                                                            : "No courts are listed for this venue."}
+                                                    </p>
+                                                )}
+                                                {selectedCourt && (
+                                                    <p className="text-xs text-emerald-700">
+                                                        The court will be shown to players as pending until the booking is confirmed.
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>

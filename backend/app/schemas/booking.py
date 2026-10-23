@@ -21,6 +21,7 @@ class BookingRead(BaseModel):
     end_time: datetime
     status: str
     created_at: datetime
+    booker_name: str | None = None
     court_name: str | None = None
     venue_id: UUID | None = None
     venue_name: str | None = None

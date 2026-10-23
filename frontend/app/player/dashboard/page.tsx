@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
     Search, ChevronDown, CalendarDays, Clock3, MapPin, Users,
-    Star, RefreshCw, Calendar, Trophy,
+    Star, RefreshCw, Calendar, Trophy, ShieldCheck,
 } from "lucide-react";
 import { ApiError } from "../../../lib/apiClient";
 import { joinMatch, leaveMatch, listMatches, listRecommendedMatches, searchCourts } from "../../../lib/api";
@@ -21,6 +21,18 @@ function formatDate(date: string): string {
     const d = new Date(`${date}T00:00:00`);
     if (Number.isNaN(d.getTime())) return date;
     return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function formatPostedDateTime(dateTime: string): string {
+    const d = new Date(dateTime);
+    if (Number.isNaN(d.getTime())) return dateTime;
+    return d.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
 }
 
 function skillLabel(level: string): string {
@@ -88,8 +100,18 @@ function MatchCard({
 
                     <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
                         <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
+                        {match.court_id && (
+                            <p>
+                                <span className="font-semibold text-slate-950">Court:</span>{" "}
+                                {match.venue_name} — {match.court_name}{" "}
+                                <span className={`ml-1 text-xs font-semibold ${match.court_booking_status === "CONFIRMED" ? "text-emerald-700" : match.court_booking_status === "REJECTED" ? "text-rose-700" : "text-amber-700"}`}>
+                                    ({match.court_booking_status === "CONFIRMED" ? "Confirmed" : match.court_booking_status === "PENDING" ? "Awaiting venue approval" : match.court_booking_status === "REJECTED" ? "Request declined" : "Booking not requested"})
+                                </span>
+                            </p>
+                        )}
                         <p><span className="font-semibold text-slate-950">Date:</span> {formatDate(match.date)}</p>
                         <p><span className="font-semibold text-slate-950">Time:</span> {formatTime(match.time)}</p>
+                        <p><span className="font-semibold text-slate-950">Posted:</span> {formatPostedDateTime(match.created_at)}</p>
                         <p><span className="font-semibold text-slate-950">Players needed:</span> {playerCapacity}</p>
                     </div>
 
@@ -163,6 +185,7 @@ function LoadingCards({ count = 3 }: { count?: number }) {
 
 export default function PlayerDashboard() {
     const [matches, setMatches] = useState<MatchRead[]>([]);
+    const [joinedMatches, setJoinedMatches] = useState<MatchRead[]>([]);
     const [recommended, setRecommended] = useState<RecommendedMatch[]>([]);
     const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
@@ -195,12 +218,13 @@ export default function PlayerDashboard() {
                 ...(location.trim() ? { location: location.trim() } : {}),
             };
             const [open, rec, joined] = await Promise.all([
-                listMatches(params),
+                listMatches({ ...params, sort_by: "posted_at" }),
                 listRecommendedMatches({ page_size: 6 }),
                 listMatches({ joined_by_me: true, page_size: 100 }),
             ]);
             setMatches(open.items);
             setRecommended(rec.items);
+            setJoinedMatches(joined.items);
             setJoinedIds(new Set(joined.items.map((m) => m.id)));
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to load matches");
@@ -208,6 +232,10 @@ export default function PlayerDashboard() {
             setLoading(false);
         }
     }, [sport, location, applied]);
+
+    const confirmedJoinedMatches = joinedMatches.filter(
+        (match) => match.status === "CONFIRMED" && !matches.some((openMatch) => openMatch.id === match.id),
+    );
 
     useEffect(() => {
         load();
@@ -237,6 +265,7 @@ export default function PlayerDashboard() {
                 next.delete(id);
                 return next;
             });
+            setJoinedMatches((prev) => prev.filter((match) => match.id !== id));
             setNotice("You left the match.");
         } catch (err) {
             setNotice(err instanceof ApiError ? err.message : "Could not leave the match");
@@ -422,6 +451,26 @@ export default function PlayerDashboard() {
                 </section>
             )}
 
+            {!loading && !error && confirmedJoinedMatches.length > 0 && (
+                <section className="max-w-4xl mx-auto px-6 mt-16">
+                    <div className="flex items-center gap-2 mb-5">
+                        <ShieldCheck size={20} className="text-emerald-600" />
+                        <h2 className="text-2xl font-extrabold text-slate-900">Your confirmed games</h2>
+                    </div>
+                    <div className="space-y-4">
+                        {confirmedJoinedMatches.map((match) => (
+                            <MatchCard
+                                key={match.id}
+                                match={match}
+                                isJoined
+                                onJoin={handleJoin}
+                                onLeave={handleLeave}
+                                busy={busyId === match.id}
+                            />
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Court search */}
             <section className="max-w-4xl mx-auto px-6 mt-16">

@@ -68,6 +68,7 @@ async function request<T>(
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
+    cache: rest.cache ?? "no-store",
     headers: finalHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

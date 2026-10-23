@@ -51,7 +51,9 @@ export default function LoginPage() {
                 }
 
                 const role: Role = profile.role;
-                if (role === "VENUE_OWNER" || role === "ADMIN") {
+                if (role === "ADMIN") {
+                    router.push("/admin");
+                } else if (role === "VENUE_OWNER") {
                     router.push("/venue-owner");
                 } else {
                     router.push("/player/dashboard");

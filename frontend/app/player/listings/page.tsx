@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, ClipboardList, RefreshCw, XCircle, Loader2, User, X } from "lucide-react";
 import { ApiError } from "../../../lib/apiClient";
-import { cancelMatch, listMatches } from "../../../lib/api";
+import { cancelMatch, createBooking, listMatches } from "../../../lib/api";
 import type { MatchRead } from "../../../lib/types";
 import { useAuth } from "../../../lib/auth";
 
@@ -21,10 +21,29 @@ const SPORT_ICONS: Record<string, string> = {
     Running: "🏃",
 };
 
+type Notice = { message: string; kind: "info" | "success" | "error" };
+
 function formatGameDate(dateStr: string): string {
     const d = new Date(`${dateStr}T00:00:00`);
     if (Number.isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function hasMatchStarted(date: string, time: string): boolean {
+    const start = new Date(`${date}T${time.slice(0, 8)}+07:00`).getTime();
+    return Number.isFinite(start) && start <= Date.now();
+}
+
+function formatPostedDateTime(dateTime: string): string {
+    const d = new Date(dateTime);
+    if (Number.isNaN(d.getTime())) return dateTime;
+    return d.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
 }
 
 function skillLabel(level: string): string {
@@ -48,7 +67,7 @@ export default function MyListingsPage() {
     const [matches, setMatches] = useState<MatchRead[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [notice, setNotice] = useState<string | null>(null);
+    const [notice, setNotice] = useState<Notice | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [viewMatch, setViewMatch] = useState<MatchRead | null>(null);
     const count = matches.length;
@@ -76,9 +95,36 @@ export default function MyListingsPage() {
         try {
             await cancelMatch(id);
             setMatches((prev) => prev.filter((m) => m.id !== id));
-            setNotice("Match cancelled.");
+            setNotice({ message: "Match cancelled.", kind: "success" });
         } catch (err) {
-            setNotice(err instanceof ApiError ? err.message : "Could not cancel the match");
+            setNotice({ message: err instanceof ApiError ? err.message : "Could not cancel the match", kind: "error" });
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const handleBookCourt = async (match: MatchRead) => {
+        if (!match.court_id) return;
+        if (hasMatchStarted(match.date, match.time)) {
+            setNotice({ message: "This game has already started. Court booking requests are no longer available.", kind: "error" });
+            return;
+        }
+        setBusyId(match.id);
+        setNotice({ message: "Sending your court booking request…", kind: "info" });
+        try {
+            const booking = await createBooking({
+                match_id: match.id,
+                court_id: match.court_id,
+                duration_minutes: match.court_duration_minutes ?? 60,
+            });
+            setMatches((current) => current.map((item) =>
+                item.id === match.id
+                    ? { ...item, court_booking_status: booking.status }
+                    : item
+            ));
+            setNotice({ message: "Booking request sent to the venue. You’ll be notified when it’s reviewed.", kind: "success" });
+        } catch (err) {
+            setNotice({ message: err instanceof ApiError ? err.message : "Could not book the selected court.", kind: "error" });
         } finally {
             setBusyId(null);
         }
@@ -111,8 +157,18 @@ export default function MyListingsPage() {
                 </div>
 
                 {notice && (
-                    <p className="mb-6 text-sm font-medium text-slate-700 bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm">
-                        {notice}
+                    <p
+                        role="status"
+                        aria-live="polite"
+                        className={`mb-6 text-sm font-medium border rounded-xl px-4 py-3 shadow-sm ${
+                            notice.kind === "error"
+                                ? "text-red-700 bg-red-50 border-red-200"
+                                : notice.kind === "success"
+                                    ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                                    : "text-slate-700 bg-white border-gray-100"
+                        }`}
+                    >
+                        {notice.message}
                     </p>
                 )}
 
@@ -167,6 +223,7 @@ export default function MyListingsPage() {
                         {matches.map((match) => {
                             const skill = skillLabel(match.skill_level);
                             const canCancel = match.status === "OPEN" || match.status === "FULL" || match.status === "CONFIRMED";
+                            const matchStarted = hasMatchStarted(match.date, match.time);
 
                             return (
                                 <div
@@ -200,8 +257,18 @@ export default function MyListingsPage() {
                                             </h2>
                                             <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
                                                 <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
+                                                {match.court_id && (
+                                                    <p>
+                                                        <span className="font-semibold text-slate-950">Court:</span>{" "}
+                                                        {match.venue_name} — {match.court_name}{" "}
+                                                        <span className={`ml-1 text-xs font-semibold ${match.court_booking_status === "CONFIRMED" ? "text-emerald-700" : match.court_booking_status === "REJECTED" ? "text-rose-700" : "text-amber-700"}`}>
+                                                            ({match.court_booking_status === "CONFIRMED" ? "Confirmed" : match.court_booking_status === "PENDING" ? "Awaiting venue approval" : match.court_booking_status === "REJECTED" ? "Request declined" : "Booking not requested"})
+                                                        </span>
+                                                    </p>
+                                                )}
                                                 <p><span className="font-semibold text-slate-950">Date:</span> {formatGameDate(match.date)}</p>
                                                 <p><span className="font-semibold text-slate-950">Time:</span> {match.time.slice(0, 5)}</p>
+                                                <p><span className="font-semibold text-slate-950">Posted:</span> {formatPostedDateTime(match.created_at)}</p>
                                                 <p><span className="font-semibold text-slate-950">Players needed:</span> {match.players_needed}</p>
                                             </div>
 
@@ -213,6 +280,25 @@ export default function MyListingsPage() {
                                                     </span>
                                                 </p>
                                                 <div className="flex items-center gap-2">
+                                                    {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && match.status === "FULL" && matchStarted && (
+                                                        <span className="text-xs font-semibold text-slate-500">
+                                                            Game time passed; booking unavailable
+                                                        </span>
+                                                    )}
+                                                    {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && match.status === "FULL" && !matchStarted && (
+                                                        <button
+                                                            disabled={busyId === match.id}
+                                                            onClick={() => handleBookCourt(match)}
+                                                            className="inline-flex h-10 items-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                                                        >
+                                                            {busyId === match.id
+                                                                ? <Loader2 size={15} className="animate-spin" />
+                                                                : null}
+                                                            {busyId === match.id
+                                                                ? "Sending request…"
+                                                                : match.court_booking_status === "AVAILABLE" ? "Request court booking" : "Request again"}
+                                                        </button>
+                                                    )}
                                                     {canCancel && (
                                                         <button
                                                             title="Cancel match"
@@ -269,8 +355,15 @@ export default function MyListingsPage() {
                             </div>
                             <dl className="space-y-3 text-sm text-slate-700">
                                 <div><dt className="inline font-semibold text-slate-950">Location: </dt><dd className="inline">{viewMatch.location}</dd></div>
+                                {viewMatch.court_id && (
+                                    <>
+                                        <div><dt className="inline font-semibold text-slate-950">Venue: </dt><dd className="inline">{viewMatch.venue_name}</dd></div>
+                                        <div><dt className="inline font-semibold text-slate-950">Court: </dt><dd className="inline">{viewMatch.court_name} ({viewMatch.court_booking_status === "CONFIRMED" ? "Booking confirmed" : viewMatch.court_booking_status === "PENDING" ? "Awaiting venue approval" : viewMatch.court_booking_status === "REJECTED" ? "Request declined" : "Booking not requested"})</dd></div>
+                                    </>
+                                )}
                                 <div><dt className="inline font-semibold text-slate-950">Date: </dt><dd className="inline">{formatGameDate(viewMatch.date)}</dd></div>
                                 <div><dt className="inline font-semibold text-slate-950">Time: </dt><dd className="inline">{viewMatch.time.slice(0, 5)}</dd></div>
+                                <div><dt className="inline font-semibold text-slate-950">Posted: </dt><dd className="inline">{formatPostedDateTime(viewMatch.created_at)}</dd></div>
                                 <div><dt className="inline font-semibold text-slate-950">Players needed: </dt><dd className="inline">{viewMatch.players_needed}</dd></div>
                                 <div><dt className="inline font-semibold text-slate-950">Skill level: </dt><dd className="inline">{skillLabel(viewMatch.skill_level)}</dd></div>
                             </dl>
