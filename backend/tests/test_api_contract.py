@@ -16,7 +16,9 @@ UNTYPED_ALLOWLIST = {
 
 MATCH_KEYS = {
     "id", "sport", "location", "date", "time", "players_needed",
-    "skill_level", "status", "created_by", "created_at",
+    "skill_level", "status", "created_by", "created_at", "court_id",
+    "court_duration_minutes", "court_name", "venue_id", "venue_name",
+    "court_booking_status",
 }
 PAGE_KEYS = {"items", "total", "page", "page_size"}
 
@@ -84,8 +86,8 @@ def test_match_response_shapes_are_stable(client, auth_headers_for):
 
     listing = client.get("/api/v1/matches", headers=headers).json()
     assert set(listing) == PAGE_KEYS
-    assert set(listing["items"][0]) == MATCH_KEYS
+    assert set(listing["items"][0]) == MATCH_KEYS | {"joined_count"}
 
     recommended = client.get("/api/v1/matches/recommended", headers=headers).json()
     for item in recommended["items"]:
-        assert set(item) == MATCH_KEYS | {"score"}
+        assert set(item) == MATCH_KEYS | {"score", "joined_count"}

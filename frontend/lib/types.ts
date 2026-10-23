@@ -29,7 +29,7 @@ export type VenueStatus = (typeof VENUE_STATUSES)[number];
 export const SKILL_LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"] as const;
 export type SkillLevel = (typeof SKILL_LEVELS)[number];
 
-export const BOOKING_STATUSES = ["CONFIRMED", "CANCELLED"] as const;
+export const BOOKING_STATUSES = ["PENDING", "CONFIRMED", "REJECTED", "CANCELLED"] as const;
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 
 // ---------------------------------------------------------------------------
@@ -79,6 +79,12 @@ export interface MatchRead {
   created_by: string;
   created_at: string;
   joined_count?: number;
+  court_id: string | null;
+  court_duration_minutes: number | null;
+  court_name: string | null;
+  venue_id: string | null;
+  venue_name: string | null;
+  court_booking_status: BookingStatus | "AVAILABLE" | null;
 }
 
 export interface MatchPlayerRead {
@@ -102,6 +108,8 @@ export interface MatchCreate {
   time: string; // HH:MM (backend coerces to time)
   players_needed: number;
   skill_level: string; // one of SKILL_LEVELS
+  court_id?: string;
+  court_duration_minutes?: number;
 }
 
 export interface LeaveRiskPreview {
@@ -177,6 +185,7 @@ export interface BookingRead {
   end_time: string;
   status: BookingStatus;
   created_at: string;
+  booker_name: string | null;
   court_name: string | null;
   venue_id: string | null;
   venue_name: string | null;

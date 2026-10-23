@@ -1,6 +1,7 @@
-from datetime import date, time, datetime
+from datetime import date, datetime, time
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, field_validator
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.enums import SkillLevel
 
@@ -12,6 +13,14 @@ class MatchCreate(BaseModel):
     time: time
     players_needed: int
     skill_level: str
+    court_id: UUID | None = None
+    court_duration_minutes: int | None = Field(default=None, ge=30, le=240)
+
+    @model_validator(mode="after")
+    def validate_court_selection(self):
+        if (self.court_id is None) != (self.court_duration_minutes is None):
+            raise ValueError("court_id and court_duration_minutes must be provided together")
+        return self
 
     @field_validator("players_needed")
     @classmethod
@@ -55,6 +64,12 @@ class MatchRead(BaseModel):
     status: str
     created_by: UUID
     created_at: datetime
+    court_id: UUID | None = None
+    court_duration_minutes: int | None = None
+    court_name: str | None = None
+    venue_id: UUID | None = None
+    venue_name: str | None = None
+    court_booking_status: str | None = None
 
 
 class MatchListRead(MatchRead):

@@ -10,6 +10,8 @@ import {
     createCourt,
     updateCourt as updateCourtApi,
     cancelBooking,
+    approveBooking as approveBookingApi,
+    rejectBooking as rejectBookingApi,
     updateProfile as updateProfileApi,
 } from "../../../lib/api";
 import { ApiError } from "../../../lib/apiClient";
@@ -49,7 +51,7 @@ export type Booking = {
     startTime: string;
     endTime: string;
     price: number;
-    status: "Pending" | "Confirmed" | "Completed" | "Cancelled";
+    status: "Pending" | "Confirmed" | "Rejected" | "Completed" | "Cancelled";
     bookingType: "Walking" | "Court Booking";
 };
 
@@ -204,12 +206,12 @@ function toUiBooking(b: BookingRead): Booking {
         id: b.id,
         courtId: b.court_id,
         venueId: b.venue_id ?? "",
-        playerName: "", // backend returns the booker's id, not a display name
+        playerName: b.booker_name ?? "",
         date: b.start_time.slice(0, 10),
         startTime: b.start_time.slice(11, 16),
         endTime: b.end_time.slice(11, 16),
         price: 0, // pricing is not part of the backend booking model
-        status: b.status === "CANCELLED" ? "Cancelled" : "Confirmed",
+        status: b.status === "PENDING" ? "Pending" : b.status === "REJECTED" ? "Rejected" : b.status === "CANCELLED" ? "Cancelled" : "Confirmed",
         bookingType: "Court Booking",
     };
 }
@@ -269,17 +271,13 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
             const courtSets = await Promise.all(
                 venueRows.map((v: VenueRead) => listVenueCourts(v.id).catch(() => [] as CourtRead[]))
             );
-            const bookingSets = await Promise.all(
-                venueRows.map((v: VenueRead) =>
-                    listVenueBookings(v.id, { page_size: 100 })
-                        .then((p) => p.items)
-                        .catch(() => [] as BookingRead[])
-                )
+            const bookingPages = await Promise.all(
+                venueRows.map((v: VenueRead) => listVenueBookings(v.id, { page_size: 100 }))
             );
 
             setVenues(venueRows.map((v: VenueRead, i: number) => toUiVenue(v, courtSets[i] ?? [])));
             setCourts(courtSets.flatMap((rows) => rows).map(toUiCourt));
-            setBookings(bookingSets.flatMap((rows) => rows).map(toUiBooking));
+            setBookings(bookingPages.flatMap((page) => page.items).map(toUiBooking));
         } catch (err) {
             setLoadError(errorMessage(err));
         } finally {
@@ -354,11 +352,11 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
     }, [refresh]);
 
     const updateBookingStatus = useCallback(async (id: string, status: Booking["status"]): Promise<MutationResult> => {
-        if (status !== "Cancelled") {
-            return { ok: false, error: "Bookings are confirmed automatically; only cancelling is supported by the API." };
-        }
         try {
-            await cancelBooking(id);
+            if (status === "Confirmed") await approveBookingApi(id);
+            else if (status === "Rejected") await rejectBookingApi(id);
+            else if (status === "Cancelled") await cancelBooking(id);
+            else return { ok: false, error: "Unsupported booking status change." };
             await refresh();
             return { ok: true };
         } catch (err) {

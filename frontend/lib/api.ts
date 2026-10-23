@@ -80,7 +80,7 @@ export interface MatchListParams {
   page_size?: number;
 }
 
-export const listMatches = (params?: MatchListParams) =>
+export const listMatches = (params?: MatchListParams & { sort_by?: "game_time" | "posted_at" }) =>
   apiClient.get<Paginated<MatchRead>>(`/api/v1/matches${qs(params)}`);
 
 export const listRecommendedMatches = (params?: MatchListParams) =>
@@ -179,6 +179,12 @@ export const listMyBookings = (params?: { status?: string; page?: number; page_s
 export const cancelBooking = (bookingId: string) =>
   apiClient.post<BookingRead>(`/api/v1/bookings/${bookingId}/cancel`);
 
+export const approveBooking = (bookingId: string) =>
+  apiClient.post<BookingRead>(`/api/v1/bookings/${bookingId}/approve`);
+
+export const rejectBooking = (bookingId: string) =>
+  apiClient.post<BookingRead>(`/api/v1/bookings/${bookingId}/reject`);
+
 export const listVenueBookings = (
   venueId: string,
   params?: { status?: string; date?: string; page?: number; page_size?: number },
@@ -219,4 +225,3 @@ export const createPost = (payload: PostCreate) =>
 
 export const listPosts = (params?: { mine?: boolean; page?: number; page_size?: number }) =>
   apiClient.get<Paginated<PostRead>>(`/api/v1/posts${qs(params)}`);
-

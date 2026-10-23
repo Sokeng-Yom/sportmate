@@ -28,10 +28,36 @@ class Match(Base):
     players_needed = Column(Integer, nullable=False)
     skill_level = Column(String, nullable=False)
     status = Column(String, nullable=False, default="OPEN")
+    court_id = Column(UUID(as_uuid=True), ForeignKey("courts.id", ondelete="SET NULL"), nullable=True)
+    court_duration_minutes = Column(Integer, nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")
+    court = relationship("Court", foreign_keys=[court_id])
+    bookings = relationship(
+        "Booking",
+        back_populates="match",
+        order_by="(Booking.created_at.desc(), Booking.id.desc())",
+    )
+
+    @property
+    def court_name(self):
+        return self.court.name if self.court else None
+
+    @property
+    def venue_id(self):
+        return self.court.venue_id if self.court else None
+
+    @property
+    def venue_name(self):
+        return self.court.venue.name if self.court and self.court.venue else None
+
+    @property
+    def court_booking_status(self):
+        if self.court_id is None:
+            return None
+        return self.bookings[0].status if self.bookings else "AVAILABLE"
 
 
 class MatchPlayer(Base):

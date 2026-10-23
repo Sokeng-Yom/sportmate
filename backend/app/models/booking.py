@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 
 from app.db.session import Base
 
@@ -17,10 +18,10 @@ class Booking(Base):
     __table_args__ = (
         CheckConstraint("end_time > start_time", name="ck_bookings_end_after_start"),
         Index(
-            "uq_bookings_one_confirmed_per_match",
+            "uq_bookings_one_active_per_match",
             "match_id",
             unique=True,
-            postgresql_where=text("status = 'CONFIRMED' AND match_id IS NOT NULL"),
+            postgresql_where=text("status IN ('PENDING', 'CONFIRMED') AND match_id IS NOT NULL"),
         ),
         Index("ix_bookings_court_start", "court_id", "start_time"),
     )
@@ -31,5 +32,6 @@ class Booking(Base):
     booked_by = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
     start_time = Column(DateTime, nullable=False)  # Cambodia wall-clock time, no time zone
     end_time = Column(DateTime, nullable=False)
-    status = Column(String, nullable=False, default="CONFIRMED")  # CONFIRMED | CANCELLED
+    status = Column(String, nullable=False, default="PENDING")
     created_at = Column(DateTime, server_default=func.now())
+    match = relationship("Match", back_populates="bookings")

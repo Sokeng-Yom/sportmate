@@ -1,6 +1,7 @@
 import uuid
 from datetime import date as date_type
 from datetime import timedelta
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,12 +10,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.clock import utc_now
+from app.core.constants import BookingStatus, NotificationType
 from app.core.enums import MatchStatus
 from app.core.security import get_current_user
 from app.db.session import get_db
+from app.models.booking import Booking
 from app.models.match import Match, MatchPlayer
 from app.models.match_leave import MatchLeave
 from app.models.profile import Profile
+from app.models.venue import Court
 from app.models.waiting_list import WaitingList
 from app.schemas.lifecycle import LeaveRiskPreview, WaitingListJoined
 from app.schemas.match import (
@@ -31,6 +35,8 @@ from app.services.leave_risk import (
     hours_remaining,
 )
 from app.services.match_events import notify_player_joined, notify_player_left, notify_restricted
+from app.services.match_participants import participant_ids
+from app.services.notifications import create_notification
 from app.services.recommendations import build_recommendations
 from app.services.waiting_list_service import (
     count_joined,
@@ -40,6 +46,7 @@ from app.services.waiting_list_service import (
 )
 
 router = APIRouter(prefix="/api/v1/matches", tags=["matches"])
+MatchSort = Literal["game_time", "posted_at"]
 
 # Concurrency rule used by join / leave / waiting-list join / accept:
 # lock the match row with SELECT ... FOR UPDATE first. Everything that changes
@@ -61,6 +68,7 @@ def list_matches(
     created_by_me: bool = False,
     joined_by_me: bool = False,
     status: str | None = None,
+    sort_by: MatchSort = "game_time",
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     user: dict = Depends(get_current_user),
@@ -87,8 +95,13 @@ def list_matches(
 
     total = query.count()
     # A stable ORDER BY is required for pagination, otherwise pages can overlap or skip rows.
+    ordering = (
+        (Match.created_at.desc(), Match.id)
+        if sort_by == "posted_at"
+        else (Match.date, Match.time, Match.id)
+    )
     matches = (
-        query.order_by(Match.date, Match.time, Match.id)
+        query.order_by(*ordering)
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -137,6 +150,20 @@ def create_match(
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    court = None
+    if payload.court_id is not None:
+        court = (
+            db.query(Court)
+            .filter(Court.id == payload.court_id)
+            .first()
+        )
+        if court is None or court.venue.status != "APPROVED":
+            raise HTTPException(status_code=404, detail="Court not found")
+        if court.sport.strip().lower() != payload.sport.strip().lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"This court is for {court.sport}, but the match is {payload.sport}",
+            )
     match = Match(
         id=uuid.uuid4(),
         sport=payload.sport,
@@ -146,6 +173,8 @@ def create_match(
         players_needed=payload.players_needed,
         skill_level=payload.skill_level,
         status=MatchStatus.OPEN,
+        court_id=court.id if court else None,
+        court_duration_minutes=payload.court_duration_minutes,
         created_by=user["sub"],
     )
     db.add(match)
@@ -335,14 +364,50 @@ def cancel_match(
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    match = db.query(Match).filter(Match.id == match_id).first()
+    match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if str(match.created_by) != user["sub"]:
         raise HTTPException(status_code=403, detail="Only the match creator can cancel it")
 
+    booking = (
+        db.query(Booking)
+        .filter(
+            Booking.match_id == match.id,
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+        )
+        .with_for_update()
+        .first()
+    )
+    if booking:
+        booking.status = BookingStatus.CANCELLED
+        court = db.query(Court).filter(Court.id == booking.court_id).first()
+        if court:
+            owner_id = court.venue.owner_id
+            create_notification(
+                db,
+                owner_id,
+                NotificationType.BOOKING_CANCELLED,
+                {
+                    "match_id": str(match.id),
+                    "venue_name": court.venue.name,
+                    "court_name": court.name,
+                },
+            )
+        for participant_id in participant_ids(db, match):
+            create_notification(
+                db,
+                participant_id,
+                NotificationType.BOOKING_CANCELLED,
+                {
+                    "match_id": str(match.id),
+                    "venue_name": court.venue.name if court else match.location,
+                    "court_name": court.name if court else "",
+                },
+            )
     match.status = MatchStatus.CANCELLED
     db.commit()
+    db.expire(match, ["bookings"])
     db.refresh(match)
     return match
 

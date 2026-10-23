@@ -23,6 +23,10 @@ def _book(client, headers, match_id, court_id, duration=60):
     )
 
 
+def _approve(client, headers, booking_id):
+    return client.post(f"/api/v1/bookings/{booking_id}/approve", headers=headers)
+
+
 @pytest.fixture
 def booking_setup(auth_headers_for, make_approved_venue, make_court):
     """An approved venue with one always-open Badminton court, plus two players."""
@@ -44,6 +48,24 @@ def test_participant_books_a_court_for_a_full_match(client, new_match, booking_s
     response = _book(client, s["creator"], match_id, s["court"]["id"])
     assert response.status_code == 201, response.text
     booking = response.json()
+    assert booking["status"] == "PENDING"
+    venue_bookings = client.get(
+        f"/api/v1/venues/{s['venue']['id']}/bookings",
+        headers=s["owner"],
+    )
+    assert venue_bookings.status_code == 200, venue_bookings.text
+    listed_booking = next(
+        item for item in venue_bookings.json()["items"] if item["id"] == booking["id"]
+    )
+    assert listed_booking["status"] == "PENDING"
+    assert client.get(f"/api/v1/matches/{match_id}", headers=s["creator"]).json()["status"] == "FULL"
+
+    owner_notifications = client.get("/api/v1/notifications", headers=s["owner"]).json()["items"]
+    assert any(n["type"] == "BOOKING_REQUESTED" for n in owner_notifications)
+
+    approved = _approve(client, s["owner"], booking["id"])
+    assert approved.status_code == 200, approved.text
+    booking = approved.json()
     assert booking["status"] == "CONFIRMED"
     assert booking["start_time"] == start.isoformat()
     assert booking["court_name"] == "Court 1"
@@ -62,10 +84,56 @@ def test_participant_books_a_court_for_a_full_match(client, new_match, booking_s
         assert count == 1
     logged = (
         db_session.query(SecurityLog)
-        .filter(SecurityLog.action == "COURT_BOOKING", SecurityLog.details.like(f"match_id={match_id}%"))
+        .filter(
+            SecurityLog.action.in_(["COURT_BOOKING_REQUESTED", "COURT_BOOKING_APPROVED"]),
+            SecurityLog.details.like(f"%{match_id}%"),
+        )
         .count()
     )
-    assert logged == 1
+    assert logged == 2
+
+
+def test_only_managing_venue_owner_can_review_booking(client, new_match, booking_setup, auth_headers_for):
+    s = booking_setup
+    match_id, _ = _full_match(client, new_match, s["creator"], s["filler"])
+    booking = _book(client, s["creator"], match_id, s["court"]["id"]).json()
+    url = f"/api/v1/bookings/{booking['id']}/approve"
+
+    assert client.post(url, headers=s["creator"]).status_code == 403
+    assert client.post(url, headers=auth_headers_for("VENUE_OWNER")).status_code == 403
+    assert _approve(client, s["owner"], booking["id"]).status_code == 200
+
+
+def test_venue_owner_can_reject_and_player_can_request_again(client, new_match, booking_setup):
+    s = booking_setup
+    match_id, _ = _full_match(client, new_match, s["creator"], s["filler"])
+    booking = _book(client, s["creator"], match_id, s["court"]["id"]).json()
+
+    rejected = client.post(f"/api/v1/bookings/{booking['id']}/reject", headers=s["owner"])
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "REJECTED"
+    assert client.get(f"/api/v1/matches/{match_id}", headers=s["creator"]).json()["court_booking_status"] == "REJECTED"
+
+    notifications = client.get("/api/v1/notifications", headers=s["creator"]).json()["items"]
+    assert any(n["type"] == "BOOKING_REJECTED" for n in notifications)
+
+    retry = _book(client, s["creator"], match_id, s["court"]["id"])
+    assert retry.status_code == 201
+    assert retry.json()["status"] == "PENDING"
+
+
+def test_cancelling_a_match_with_pending_request_withdraws_it(client, new_match, booking_setup):
+    s = booking_setup
+    match_id, _ = _full_match(client, new_match, s["creator"], s["filler"])
+    booking = _book(client, s["creator"], match_id, s["court"]["id"]).json()
+
+    cancelled = client.patch(f"/api/v1/matches/{match_id}/cancel", headers=s["creator"])
+    assert cancelled.status_code == 200
+    venue_bookings = client.get(
+        f"/api/v1/venues/{s['venue']['id']}/bookings",
+        headers=s["owner"],
+    ).json()["items"]
+    assert next(item for item in venue_bookings if item["id"] == booking["id"])["status"] == "CANCELLED"
 
 
 def test_only_participants_can_book(client, new_match, booking_setup, auth_headers_for):
@@ -116,9 +184,15 @@ def test_overlapping_slot_is_409_but_back_to_back_is_fine(client, new_match, boo
     same_time, _ = _full_match(client, new_match, other_creator, other_filler, days_ahead=8, hour=19)
     next_hour, _ = _full_match(client, new_match, other_creator, other_filler, days_ahead=8, hour=20)
 
-    assert _book(client, s["creator"], first, s["court"]["id"]).status_code == 201
-    assert _book(client, other_creator, same_time, s["court"]["id"]).status_code == 409
-    assert _book(client, other_creator, next_hour, s["court"]["id"]).status_code == 201  # 20:00 starts when 19:00 ends
+    first_request = _book(client, s["creator"], first, s["court"]["id"])
+    conflicting_request = _book(client, other_creator, same_time, s["court"]["id"])
+    next_request = _book(client, other_creator, next_hour, s["court"]["id"])
+    assert first_request.status_code == 201
+    assert conflicting_request.status_code == 201
+    assert next_request.status_code == 201  # Pending requests do not reserve the slot.
+    assert _approve(client, s["owner"], first_request.json()["id"]).status_code == 200
+    assert _approve(client, s["owner"], conflicting_request.json()["id"]).status_code == 409
+    assert _approve(client, s["owner"], next_request.json()["id"]).status_code == 200
 
 
 def test_simultaneous_bookings_of_the_same_slot_only_one_succeeds(
@@ -141,7 +215,12 @@ def test_simultaneous_bookings_of_the_same_slot_only_one_succeeds(
         for creator, match_id in zip(creators, match_ids)
     ])
 
-    assert sorted(r.status_code for r in responses) == [201, 409, 409, 409]
+    assert sorted(r.status_code for r in responses) == [201, 201, 201, 201]
+    approved = [
+        _approve(client, s["owner"], response.json()["id"]).status_code
+        for response in responses
+    ]
+    assert sorted(approved) == [200, 409, 409, 409]
 
 
 def test_double_clicking_book_for_one_match_books_it_once(client, new_match, booking_setup, make_court, fire_concurrently):
@@ -191,7 +270,9 @@ def test_cancelling_frees_the_slot_and_reopens_the_match(client, new_match, book
     second, _ = _full_match(client, new_match, other_creator, other_filler, days_ahead=10, hour=19)
 
     booking = _book(client, s["creator"], first, s["court"]["id"]).json()
-    assert _book(client, other_creator, second, s["court"]["id"]).status_code == 409
+    other_booking = _book(client, other_creator, second, s["court"]["id"]).json()
+    assert _approve(client, s["owner"], booking["id"]).status_code == 200
+    assert _approve(client, s["owner"], other_booking["id"]).status_code == 409
 
     cancelled = client.post(f"/api/v1/bookings/{booking['id']}/cancel", headers=s["creator"])
     assert cancelled.status_code == 200
@@ -199,7 +280,7 @@ def test_cancelling_frees_the_slot_and_reopens_the_match(client, new_match, book
     assert client.get(f"/api/v1/matches/{first}", headers=s["creator"]).json()["status"] == "FULL"
     assert client.post(f"/api/v1/bookings/{booking['id']}/cancel", headers=s["creator"]).status_code == 400
 
-    assert _book(client, other_creator, second, s["court"]["id"]).status_code == 201  # slot is free again
+    assert _approve(client, s["owner"], other_booking["id"]).status_code == 200  # slot is free again
 
 
 def test_only_the_booker_or_the_venue_owner_can_cancel(client, new_match, booking_setup, auth_headers_for):
@@ -255,8 +336,11 @@ def test_court_search_only_returns_free_matching_courts(client, new_match, booki
     assert found["items"][0]["venue_name"] == token
 
     match_id, _ = _full_match(client, new_match, s["creator"], s["filler"], days_ahead=12, hour=19)
-    assert _book(client, s["creator"], match_id, s["court"]["id"]).status_code == 201
-    assert client.get(free, headers=s["creator"]).json()["total"] == 0                       # now taken
+    booking = _book(client, s["creator"], match_id, s["court"]["id"])
+    assert booking.status_code == 201
+    assert client.get(free, headers=s["creator"]).json()["total"] == 1  # Pending requests do not reserve the slot.
+    assert _approve(client, s["owner"], booking.json()["id"]).status_code == 200
+    assert client.get(free, headers=s["creator"]).json()["total"] == 0
     assert client.get(f"{base}&start_time=20:00:00&sport=Badminton", headers=s["creator"]).json()["total"] == 1
     assert client.get(f"{base}&start_time=03:00:00&sport=Badminton", headers=s["creator"]).json()["total"] == 0  # closed
     assert client.get(f"{base}&start_time=19:00:00&sport=Tennis", headers=s["creator"]).json()["total"] == 1     # taken too
