@@ -1,0 +1,1617 @@
+{
+  "GET /api/v1/admin/ping": {
+    "summary": "Admin connectivity check",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
+  },
+  "GET /api/v1/admin/posts/reported": {
+    "summary": "Posts with open reports, most reported first",
+    "query": [
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "author_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "author_name": "string",
+          "author_avatar": "string",
+          "content": "string",
+          "created_at": "2030-01-15T19:00:00",
+          "like_count": 1,
+          "comment_count": 1,
+          "liked_by_me": true,
+          "report_count": 1,
+          "reasons": [
+            "string"
+          ]
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "DELETE /api/v1/admin/posts/{post_id}": {
+    "summary": "Remove a post as a moderator",
+    "query": [],
+    "request": null,
+    "status": 204,
+    "response": null
+  },
+  "POST /api/v1/admin/posts/{post_id}/dismiss-reports": {
+    "summary": "Dismiss all open reports on a post",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "dismissed": 1
+    }
+  },
+  "GET /api/v1/admin/venues": {
+    "summary": "List venue applications",
+    "query": [
+      {
+        "name": "status",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "address": "string",
+          "description": "string",
+          "photo_url": "string",
+          "status": "string",
+          "rejection_reason": "string",
+          "reviewed_at": "2030-01-15T19:00:00",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/admin/venues/{venue_id}/approve": {
+    "summary": "Approve a venue application",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string",
+      "status": "string",
+      "rejection_reason": "string",
+      "reviewed_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/admin/venues/{venue_id}/reject": {
+    "summary": "Reject a venue application",
+    "query": [],
+    "request": {
+      "reason": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string",
+      "status": "string",
+      "rejection_reason": "string",
+      "reviewed_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/bookings": {
+    "summary": "Book a court for a full match",
+    "query": [],
+    "request": {
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "duration_minutes": 1
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "booked_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "start_time": "2030-01-15T19:00:00",
+      "end_time": "2030-01-15T19:00:00",
+      "status": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "booker_name": "string",
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string"
+    }
+  },
+  "GET /api/v1/bookings": {
+    "summary": "My bookings (as booker or match participant)",
+    "query": [
+      {
+        "name": "status",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "booked_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "start_time": "2030-01-15T19:00:00",
+          "end_time": "2030-01-15T19:00:00",
+          "status": "string",
+          "created_at": "2030-01-15T19:00:00",
+          "booker_name": "string",
+          "court_name": "string",
+          "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "venue_name": "string"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/bookings/{booking_id}/approve": {
+    "summary": "Approve a court booking request",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "booked_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "start_time": "2030-01-15T19:00:00",
+      "end_time": "2030-01-15T19:00:00",
+      "status": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "booker_name": "string",
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string"
+    }
+  },
+  "POST /api/v1/bookings/{booking_id}/cancel": {
+    "summary": "Cancel a booking",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "booked_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "start_time": "2030-01-15T19:00:00",
+      "end_time": "2030-01-15T19:00:00",
+      "status": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "booker_name": "string",
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string"
+    }
+  },
+  "POST /api/v1/bookings/{booking_id}/reject": {
+    "summary": "Reject a court booking request",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "booked_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "start_time": "2030-01-15T19:00:00",
+      "end_time": "2030-01-15T19:00:00",
+      "status": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "booker_name": "string",
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string"
+    }
+  },
+  "GET /api/v1/courts/search": {
+    "summary": "Find courts that are free at a given date and time",
+    "query": [
+      {
+        "name": "date",
+        "required": true,
+        "type": "date"
+      },
+      {
+        "name": "start_time",
+        "required": true,
+        "type": "time"
+      },
+      {
+        "name": "duration_minutes",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "sport",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "location",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "sport": "string",
+          "availability": {
+            "mon": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ],
+            "tue": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ],
+            "wed": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ],
+            "thu": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ],
+            "fri": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ],
+            "sat": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ],
+            "sun": [
+              {
+                "start": "19:00:00",
+                "end": "19:00:00"
+              }
+            ]
+          },
+          "created_at": "2030-01-15T19:00:00",
+          "venue_name": "string",
+          "venue_address": "string"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "GET /api/v1/courts/{court_id}": {
+    "summary": "Get a court",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "sport": "string",
+      "availability": {
+        "mon": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "tue": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "wed": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "thu": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "fri": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sat": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sun": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ]
+      },
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "PATCH /api/v1/courts/{court_id}": {
+    "summary": "Update a court or its weekly availability (owner or admin)",
+    "query": [],
+    "request": {
+      "name": "string",
+      "sport": "string",
+      "availability": {
+        "mon": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "tue": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "wed": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "thu": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "fri": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sat": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sun": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ]
+      }
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "sport": "string",
+      "availability": {
+        "mon": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "tue": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "wed": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "thu": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "fri": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sat": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sun": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ]
+      },
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "GET /api/v1/matches": {
+    "summary": "List matches",
+    "query": [
+      {
+        "name": "sport",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "date",
+        "required": false,
+        "type": "date"
+      },
+      {
+        "name": "location",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "created_by_me",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "joined_by_me",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "status",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "sort_by",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sport": "string",
+          "location": "string",
+          "date": "2030-01-15",
+          "time": "19:00:00",
+          "players_needed": 1,
+          "skill_level": "string",
+          "status": "string",
+          "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "created_at": "2030-01-15T19:00:00",
+          "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "court_duration_minutes": 1,
+          "court_name": "string",
+          "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "venue_name": "string",
+          "court_booking_status": "string",
+          "joined_count": 1
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/matches": {
+    "summary": "Create a match",
+    "query": [],
+    "request": {
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "status": "string",
+      "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "created_at": "2030-01-15T19:00:00",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1,
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string",
+      "court_booking_status": "string"
+    }
+  },
+  "GET /api/v1/matches/recommended": {
+    "summary": "Get ranked, scored match recommendations",
+    "query": [
+      {
+        "name": "sport",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "date",
+        "required": false,
+        "type": "date"
+      },
+      {
+        "name": "location",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "min_score",
+        "required": false,
+        "type": "number"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sport": "string",
+          "location": "string",
+          "date": "2030-01-15",
+          "time": "19:00:00",
+          "players_needed": 1,
+          "skill_level": "string",
+          "status": "string",
+          "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "created_at": "2030-01-15T19:00:00",
+          "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "court_duration_minutes": 1,
+          "court_name": "string",
+          "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "venue_name": "string",
+          "court_booking_status": "string",
+          "score": 0.5,
+          "joined_count": 1
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "GET /api/v1/matches/{match_id}": {
+    "summary": "Get match detail",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "status": "string",
+      "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "created_at": "2030-01-15T19:00:00",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1,
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string",
+      "court_booking_status": "string",
+      "players": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "joined_at": "2030-01-15T19:00:00"
+        }
+      ]
+    }
+  },
+  "PATCH /api/v1/matches/{match_id}/cancel": {
+    "summary": "Cancel a match (creator only)",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "status": "string",
+      "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "created_at": "2030-01-15T19:00:00",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1,
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string",
+      "court_booking_status": "string",
+      "players": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "joined_at": "2030-01-15T19:00:00"
+        }
+      ]
+    }
+  },
+  "GET /api/v1/matches/{match_id}/chat": {
+    "summary": "Open a match's chat: conversation id (for Realtime) and member names",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "members": [
+        {
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "avatar": "string",
+          "is_creator": true
+        }
+      ]
+    }
+  },
+  "POST /api/v1/matches/{match_id}/join": {
+    "summary": "Join a match",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "status": "string",
+      "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "created_at": "2030-01-15T19:00:00",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1,
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string",
+      "court_booking_status": "string",
+      "players": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "joined_at": "2030-01-15T19:00:00"
+        }
+      ]
+    }
+  },
+  "POST /api/v1/matches/{match_id}/leave": {
+    "summary": "Leave a match",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "status": "string",
+      "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "created_at": "2030-01-15T19:00:00",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1,
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string",
+      "court_booking_status": "string",
+      "players": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "joined_at": "2030-01-15T19:00:00"
+        }
+      ]
+    }
+  },
+  "GET /api/v1/matches/{match_id}/leave-risk-preview": {
+    "summary": "Preview the leave-risk tier without actually leaving",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "risk_level": "string",
+      "hours_remaining": 0.5,
+      "will_restrict": true,
+      "restriction_days": 1
+    }
+  },
+  "GET /api/v1/matches/{match_id}/messages": {
+    "summary": "Read a match's chat history, newest page first (participants only)",
+    "query": [
+      {
+        "name": "before",
+        "required": false,
+        "type": "date-time"
+      },
+      {
+        "name": "limit",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sender_name": "string",
+          "content": "string",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "has_more": true
+    }
+  },
+  "POST /api/v1/matches/{match_id}/messages": {
+    "summary": "Send a message (participants only). Delivery to others happens via Supabase Realtime.",
+    "query": [],
+    "request": {
+      "content": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sender_name": "string",
+      "content": "string",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/matches/{match_id}/waiting-list": {
+    "summary": "Join a full match's waiting list",
+    "query": [],
+    "request": null,
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "position": 1,
+      "status": "string"
+    }
+  },
+  "GET /api/v1/notifications": {
+    "summary": "My notifications, newest first (with unread count)",
+    "query": [
+      {
+        "name": "unread_only",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "type": "string",
+          "payload": {},
+          "read": true,
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "total": 1,
+      "unread_count": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/notifications/read-all": {
+    "summary": "Mark all my notifications as read",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "marked": 1
+    }
+  },
+  "POST /api/v1/notifications/{notification_id}/read": {
+    "summary": "Mark one notification as read",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "type": "string",
+      "payload": {},
+      "read": true,
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/posts": {
+    "summary": "Create a community post",
+    "query": [],
+    "request": {
+      "content": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "author_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "author_name": "string",
+      "author_avatar": "string",
+      "content": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "like_count": 1,
+      "comment_count": 1,
+      "liked_by_me": true
+    }
+  },
+  "GET /api/v1/posts": {
+    "summary": "Community feed, newest first",
+    "query": [
+      {
+        "name": "mine",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "author_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "author_name": "string",
+          "author_avatar": "string",
+          "content": "string",
+          "created_at": "2030-01-15T19:00:00",
+          "like_count": 1,
+          "comment_count": 1,
+          "liked_by_me": true
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "GET /api/v1/posts/{post_id}": {
+    "summary": "Get one post",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "author_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "author_name": "string",
+      "author_avatar": "string",
+      "content": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "like_count": 1,
+      "comment_count": 1,
+      "liked_by_me": true
+    }
+  },
+  "DELETE /api/v1/posts/{post_id}": {
+    "summary": "Delete a post (author, or an admin)",
+    "query": [],
+    "request": null,
+    "status": 204,
+    "response": null
+  },
+  "GET /api/v1/posts/{post_id}/comments": {
+    "summary": "Comments on a post, oldest first",
+    "query": [
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "post_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "author_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "author_name": "string",
+          "author_avatar": "string",
+          "content": "string",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/posts/{post_id}/comments": {
+    "summary": "Comment on a post",
+    "query": [],
+    "request": {
+      "content": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "post_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "author_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "author_name": "string",
+      "author_avatar": "string",
+      "content": "string",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "DELETE /api/v1/posts/{post_id}/comments/{comment_id}": {
+    "summary": "Delete a comment (author, or an admin)",
+    "query": [],
+    "request": null,
+    "status": 204,
+    "response": null
+  },
+  "POST /api/v1/posts/{post_id}/like": {
+    "summary": "Like a post (safe to repeat)",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "liked": true,
+      "like_count": 1
+    }
+  },
+  "DELETE /api/v1/posts/{post_id}/like": {
+    "summary": "Remove my like (safe to repeat)",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "liked": true,
+      "like_count": 1
+    }
+  },
+  "POST /api/v1/posts/{post_id}/report": {
+    "summary": "Report inappropriate content",
+    "query": [],
+    "request": {
+      "reason": "string"
+    },
+    "status": 201,
+    "response": {
+      "status": "string"
+    }
+  },
+  "GET /api/v1/profiles/me": {
+    "summary": "Get the current user's profile",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "role": "string",
+      "avatar": "string",
+      "restricted_until": "2030-01-15T19:00:00",
+      "last_seen_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "PATCH /api/v1/profiles/me": {
+    "summary": "Update the current user's profile",
+    "query": [],
+    "request": {
+      "name": "string",
+      "avatar": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "role": "string",
+      "avatar": "string",
+      "restricted_until": "2030-01-15T19:00:00",
+      "last_seen_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "GET /api/v1/profiles/me/sports": {
+    "summary": "List the current user's sports",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": [
+      {
+        "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "sport": "string",
+        "skill_level": "string"
+      }
+    ]
+  },
+  "POST /api/v1/profiles/me/sports": {
+    "summary": "Add a sport for the current user",
+    "query": [],
+    "request": {
+      "sport": "string",
+      "skill_level": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "skill_level": "string"
+    }
+  },
+  "PATCH /api/v1/profiles/me/sports/{sport_id}": {
+    "summary": "Update one of the current user's sports",
+    "query": [],
+    "request": {
+      "sport": "string",
+      "skill_level": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "skill_level": "string"
+    }
+  },
+  "DELETE /api/v1/profiles/me/sports/{sport_id}": {
+    "summary": "Remove one of the current user's sports",
+    "query": [],
+    "request": null,
+    "status": 204,
+    "response": null
+  },
+  "GET /api/v1/venues": {
+    "summary": "Browse approved venues",
+    "query": [
+      {
+        "name": "q",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "address": "string",
+          "description": "string",
+          "photo_url": "string",
+          "status": "string",
+          "rejection_reason": "string",
+          "reviewed_at": "2030-01-15T19:00:00",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/venues": {
+    "summary": "Register a venue (starts as PAYMENT_PENDING)",
+    "query": [],
+    "request": {
+      "name": "string",
+      "address": "string",
+      "description": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string",
+      "status": "string",
+      "rejection_reason": "string",
+      "reviewed_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "GET /api/v1/venues/mine": {
+    "summary": "List my venues (venue owner)",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": [
+      {
+        "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "name": "string",
+        "address": "string",
+        "description": "string",
+        "photo_url": "string",
+        "status": "string",
+        "rejection_reason": "string",
+        "reviewed_at": "2030-01-15T19:00:00",
+        "created_at": "2030-01-15T19:00:00"
+      }
+    ]
+  },
+  "GET /api/v1/venues/ping": {
+    "summary": "Venue Owner connectivity check",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
+  },
+  "GET /api/v1/venues/{venue_id}": {
+    "summary": "Get a venue",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string",
+      "status": "string",
+      "rejection_reason": "string",
+      "reviewed_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "PATCH /api/v1/venues/{venue_id}": {
+    "summary": "Update venue information (owner only)",
+    "query": [],
+    "request": {
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string",
+      "status": "string",
+      "rejection_reason": "string",
+      "reviewed_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "GET /api/v1/venues/{venue_id}/bookings": {
+    "summary": "Bookings of a venue (owner or admin)",
+    "query": [
+      {
+        "name": "status",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "date",
+        "required": false,
+        "type": "date"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "booked_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "start_time": "2030-01-15T19:00:00",
+          "end_time": "2030-01-15T19:00:00",
+          "status": "string",
+          "created_at": "2030-01-15T19:00:00",
+          "booker_name": "string",
+          "court_name": "string",
+          "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "venue_name": "string"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/venues/{venue_id}/confirm-payment": {
+    "summary": "Confirm payment (stub) and submit the venue for admin review",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "address": "string",
+      "description": "string",
+      "photo_url": "string",
+      "status": "string",
+      "rejection_reason": "string",
+      "reviewed_at": "2030-01-15T19:00:00",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/venues/{venue_id}/courts": {
+    "summary": "Add a court to an approved venue (owner or admin)",
+    "query": [],
+    "request": {
+      "name": "string",
+      "sport": "string",
+      "availability": {
+        "mon": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "tue": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "wed": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "thu": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "fri": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sat": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sun": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ]
+      }
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "sport": "string",
+      "availability": {
+        "mon": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "tue": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "wed": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "thu": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "fri": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sat": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ],
+        "sun": [
+          {
+            "start": "19:00:00",
+            "end": "19:00:00"
+          }
+        ]
+      },
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "GET /api/v1/venues/{venue_id}/courts": {
+    "summary": "List a venue's courts",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": [
+      {
+        "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "name": "string",
+        "sport": "string",
+        "availability": {
+          "mon": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ],
+          "tue": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ],
+          "wed": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ],
+          "thu": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ],
+          "fri": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ],
+          "sat": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ],
+          "sun": [
+            {
+              "start": "19:00:00",
+              "end": "19:00:00"
+            }
+          ]
+        },
+        "created_at": "2030-01-15T19:00:00"
+      }
+    ]
+  },
+  "POST /api/v1/waiting-list/{entry_id}/accept": {
+    "summary": "Accept an offered waiting-list slot",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "status": "string"
+    }
+  },
+  "GET /health": {
+    "summary": "Health",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
+  },
+  "GET /health/db": {
+    "summary": "Health Db",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
+  }
+}
