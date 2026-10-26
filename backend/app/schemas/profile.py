@@ -1,6 +1,11 @@
 from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated
+
+from pydantic import BaseModel, ConfigDict, StringConstraints
+
+ProfileName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+AvatarUrl = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 
 
 class ProfileRead(BaseModel):
@@ -16,5 +21,5 @@ class ProfileRead(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    name: str | None = None
-    avatar: str | None = None
+    name: ProfileName | None = None
+    avatar: AvatarUrl | None = None

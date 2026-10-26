@@ -1,0 +1,7 @@
+[run]
+omit =
+    app/db/seed*.py
+    app/db/diagnose*.py
+    app/db/profile_recommendations.py
+    app/db/apply_sql.py
+    app/db/user_purge.py

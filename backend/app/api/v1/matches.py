@@ -37,6 +37,8 @@ from app.services.leave_risk import (
 from app.services.match_events import notify_player_joined, notify_player_left, notify_restricted
 from app.services.match_participants import participant_ids
 from app.services.notifications import create_notification
+from app.services.join_rules import ensure_not_restricted, ensure_not_started
+from app.services.join_rules import ensure_not_restricted, ensure_not_started
 from app.services.recommendations import build_recommendations
 from app.services.waiting_list_service import (
     count_joined,
@@ -218,6 +220,11 @@ def leave_risk_preview(
     match = db.query(Match).filter(Match.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
+    if match.status in (MatchStatus.CANCELLED, MatchStatus.COMPLETED):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot preview leaving a cancelled or completed match",
+        )
 
     is_participant = (
         db.query(MatchPlayer)
@@ -257,6 +264,8 @@ def join_match(
         raise HTTPException(status_code=404, detail="Match not found")
     if match.status not in (MatchStatus.OPEN, MatchStatus.CONFIRMED):
         raise HTTPException(status_code=400, detail=f"Cannot join a match with status {match.status}")
+    ensure_not_started(match)
+    ensure_not_started(match)
 
     already_joined = (
         db.query(MatchPlayer)
@@ -313,7 +322,11 @@ def leave_match(
     match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-
+    if match.status in (MatchStatus.CANCELLED, MatchStatus.COMPLETED):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot leave a cancelled or completed match",
+    )
     entry = (
         db.query(MatchPlayer)
         .filter(MatchPlayer.match_id == match_id, MatchPlayer.user_id == user["sub"])
@@ -369,6 +382,11 @@ def cancel_match(
         raise HTTPException(status_code=404, detail="Match not found")
     if str(match.created_by) != user["sub"]:
         raise HTTPException(status_code=403, detail="Only the match creator can cancel it")
+    if match.status == MatchStatus.CANCELLED:
+        raise HTTPException(
+            status_code=400,
+            detail="Match is already cancelled",
+    )
 
     booking = (
         db.query(Booking)
@@ -425,12 +443,18 @@ def join_waiting_list(
 ):
     user_id = user["sub"]
 
+    ensure_not_restricted(db, user_id)
+
+    ensure_not_restricted(db, user_id)
+
     # Lock first: positions are max()+1, so two simultaneous waiters must queue up here.
     match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
     if match.status not in (MatchStatus.OPEN, MatchStatus.FULL, MatchStatus.CONFIRMED):
         raise HTTPException(status_code=400, detail=f"Cannot join the waiting list of a {match.status} match")
+    ensure_not_started(match)
+    ensure_not_started(match)
 
     # A match counts as "full" for waiting purposes when nothing is left for this user
     # (all players in, or every free slot is held for someone else's offer).

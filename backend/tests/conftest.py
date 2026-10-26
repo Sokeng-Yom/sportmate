@@ -196,3 +196,15 @@ def make_court(client):
         return response.json()
 
     return _make
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "supabase_auth: needs real Supabase sign-in (RLS and Storage tests)")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "supabase_auth: needs real Supabase sign-in (RLS and Storage tests)")
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "supabase_auth: needs real Supabase sign-in (RLS and Storage tests)")

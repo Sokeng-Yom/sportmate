@@ -141,3 +141,4 @@ def send_message(
     db.commit()
     db.refresh(message)
     return _message_read(message, profile.name)
+

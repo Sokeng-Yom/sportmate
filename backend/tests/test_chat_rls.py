@@ -42,3 +42,12 @@ def test_row_level_security_limits_who_can_read_messages(client, auth_headers_fo
     # the public anon key alone gets nothing
     anonymous = _read_messages(settings.supabase_anon_key, conversation_id)
     assert not (anonymous.status_code == 200 and anonymous.json())
+
+import pytest as _pytest
+pytestmark = _pytest.mark.supabase_auth
+
+import pytest as _pytest
+pytestmark = _pytest.mark.supabase_auth
+
+import pytest as _pytest
+pytestmark = _pytest.mark.supabase_auth

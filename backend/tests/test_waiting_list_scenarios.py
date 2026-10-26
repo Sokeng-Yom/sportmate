@@ -4,7 +4,7 @@ from datetime import time, timedelta
 
 from jose import jwt
 
-from app.core.clock import utc_now, utc_now_naive
+from app.core.clock import local_now_naive, utc_now, utc_now_naive
 from app.db.session import SessionLocal
 from app.models.match import Match
 from app.models.profile import Profile
@@ -73,7 +73,7 @@ def test_freed_slots_are_offered_one_each_and_expiry_cascades(client, auth_heade
 
 def test_critical_leave_restricts_leaver_and_promotes_first_waiter(client, auth_headers_for, db_session):
     creator, leaver, w1, w2 = (auth_headers_for("PLAYER") for _ in range(4))
-    match_id = _create_match(client, creator, 1, starts_at=utc_now_naive() + timedelta(hours=1))
+    match_id = _create_match(client, creator, 1, starts_at=local_now_naive() + timedelta(hours=1))
 
     assert client.post(f"/api/v1/matches/{match_id}/join", headers=leaver).status_code == 200
     entry_ids = [

@@ -25,7 +25,7 @@ def get_my_profile(
 ):
     profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=401, detail="Account not found")
     return profile
 
 
@@ -45,9 +45,11 @@ def update_my_profile(
 ):
     profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=401, detail="Account not found")
 
     update_data = payload.model_dump(exclude_unset=True)
+    if update_data.get("name") is None:
+        update_data.pop("name", None)  # name is required: null means "leave unchanged"
 
     for key, value in update_data.items():
         setattr(profile, key, value)

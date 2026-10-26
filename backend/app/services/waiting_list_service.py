@@ -1,12 +1,13 @@
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.core.clock import utc_now_naive
+from app.core.clock import utc_now, utc_now_naive
 from app.core.constants import NotificationType
 from app.models.match import Match, MatchPlayer
+from app.models.profile import Profile
 from app.models.waiting_list import WaitingList
 from app.services.notifications import create_notification
 
@@ -17,18 +18,6 @@ _OFFERABLE_STATUSES = ("OPEN", "FULL", "CONFIRMED")
 
 def count_joined(db: Session, match_id: UUID) -> int:
     return db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == match_id).scalar()
-
-
-def count_joined_for_matches(db: Session, match_ids: list[UUID]) -> dict[UUID, int]:
-    if not match_ids:
-        return {}
-    rows = (
-        db.query(MatchPlayer.match_id, func.count(MatchPlayer.id))
-        .filter(MatchPlayer.match_id.in_(match_ids))
-        .group_by(MatchPlayer.match_id)
-        .all()
-    )
-    return {match_id: count for match_id, count in rows}
 
 
 def count_active_offers(db: Session, match_id: UUID, exclude_user_id=None) -> int:
@@ -54,20 +43,26 @@ def open_slots(db: Session, match: Match, for_user_id=None) -> int:
 
 def offer_open_slots(db: Session, match: Match) -> int:
     """
-    Offers every currently free slot to the next WAITING entries, in position order, and sends
-    each of them a notification. The caller must hold the match row lock and must have flushed
-    pending changes (autoflush is off). Returns how many offers were made.
+    Offers every free slot to the next WAITING entries in position order (skipping players who
+    are currently restricted) and notifies them. The caller must hold the match row lock and must
+    have flushed pending changes (autoflush is off). Returns how many offers were made.
     """
     if match.status not in _OFFERABLE_STATUSES:
         return 0
 
     slots = open_slots(db, match)
     now = utc_now_naive()
+    now_aware = utc_now()
     offered = 0
     while slots > 0:
         next_entry = (
             db.query(WaitingList)
-            .filter(WaitingList.match_id == match.id, WaitingList.status == "WAITING")
+            .join(Profile, Profile.id == WaitingList.user_id)
+            .filter(
+                WaitingList.match_id == match.id,
+                WaitingList.status == "WAITING",
+                or_(Profile.restricted_until.is_(None), Profile.restricted_until <= now_aware),
+            )
             .order_by(WaitingList.position.asc())
             .first()
         )
@@ -88,3 +83,17 @@ def offer_open_slots(db: Session, match: Match) -> int:
         slots -= 1
         offered += 1
     return offered
+
+
+def count_joined_for_matches(db: Session, match_ids) -> dict:
+    """Players per match for many matches in ONE query: {match_id: count}. Matches with no players are absent."""
+    ids = list(match_ids)
+    if not ids:
+        return {}
+    rows = (
+        db.query(MatchPlayer.match_id, func.count(MatchPlayer.id))
+        .filter(MatchPlayer.match_id.in_(ids))
+        .group_by(MatchPlayer.match_id)
+        .all()
+    )
+    return {match_id: count for match_id, count in rows}

@@ -9,6 +9,7 @@ CLI, from backend/ with the venv active:
     python -m app.db.user_purge --email-regex '^seed-user-[0-9]+@example\.com$'
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from sqlalchemy import text
@@ -45,6 +46,20 @@ _STEPS = [
     ("user_sports", f"delete from user_sports where user_id = {_IDS}"),
 ]
 
+_TABLE_CACHE: set[str] | None = None
+
+
+def _existing_tables(db) -> set[str]:
+    """Which of our tables exist: one query per process, not one per table per test."""
+    global _TABLE_CACHE
+    if _TABLE_CACHE is None:
+        rows = db.execute(
+            text("select tablename from pg_tables where schemaname = 'public' and tablename = any(:names)"),
+            {"names": [table for table, _ in _STEPS]},
+        ).scalars().all()
+        _TABLE_CACHE = set(rows)
+    return _TABLE_CACHE
+
 
 def _delete_auth_users(user_ids: list[str]) -> None:
     key = settings.supabase_service_role_key
@@ -52,10 +67,14 @@ def _delete_auth_users(user_ids: list[str]) -> None:
     with httpx.Client(
         base_url=f"{settings.supabase_url}/auth/v1/admin", headers=headers, timeout=15
     ) as client:
-        for user_id in user_ids:
+
+        def delete(user_id):
             response = client.delete(f"/users/{user_id}")
             if response.status_code not in (200, 204, 404):
                 print(f"  could not delete auth user {user_id}: HTTP {response.status_code}")
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(delete, user_ids))
 
 
 def purge_users(user_ids) -> None:
@@ -64,9 +83,9 @@ def purge_users(user_ids) -> None:
         return
     db = SessionLocal()
     try:
+        existing = _existing_tables(db)
         for table, statement in _STEPS:
-            exists = db.execute(text("select to_regclass(:name)"), {"name": f"public.{table}"}).scalar()
-            if exists is not None:
+            if table in existing:
                 db.execute(text(statement), {"ids": ids})
         db.commit()
     finally:

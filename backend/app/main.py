@@ -16,6 +16,8 @@ from app.core.exceptions import (
 )
 from app.core.logging_config import configure_logging
 from app.db.session import SessionLocal, get_db
+from app.services.match_lifecycle import close_finished_matches
+from app.services.match_lifecycle import close_finished_matches
 from app.services.waiting_list_expiry import expire_stale_waiting_list_entries
 
 # Add your frontend teammate's origin here if it differs (exact scheme + host + port).
@@ -67,8 +69,30 @@ def run_expiry_check():
         db.close()
 
 
+def run_match_lifecycle_check():
+    db = SessionLocal()
+    try:
+        closed = close_finished_matches(db)
+        if closed:
+            logger.info("Closed %d finished matches", closed)
+    finally:
+        db.close()
+
+
+def run_match_lifecycle_check():
+    db = SessionLocal()
+    try:
+        closed = close_finished_matches(db)
+        if closed:
+            logger.info("Closed %d finished matches", closed)
+    finally:
+        db.close()
+
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(run_expiry_check, "interval", minutes=1)
+scheduler.add_job(run_match_lifecycle_check, "interval", minutes=5)
+scheduler.add_job(run_match_lifecycle_check, "interval", minutes=5)
 
 
 @app.on_event("startup")

@@ -65,3 +65,12 @@ def test_only_the_venue_owner_can_upload_venue_photos(auth_headers_for, make_app
     assert _upload(real_access_token(db_session, user_id_of(owner)), "venue-photos", path).status_code == 200
     uploaded.append(("venue-photos", path))
     assert httpx.get(f"{BASE}/public/venue-photos/{path}", timeout=20).status_code == 200
+
+import pytest as _pytest
+pytestmark = _pytest.mark.supabase_auth
+
+import pytest as _pytest
+pytestmark = _pytest.mark.supabase_auth
+
+import pytest as _pytest
+pytestmark = _pytest.mark.supabase_auth

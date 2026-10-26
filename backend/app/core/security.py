@@ -3,6 +3,7 @@ import logging
 import time
 import urllib.request
 from base64 import urlsafe_b64decode
+from uuid import UUID
 
 from fastapi import Header, HTTPException, Depends
 from jose import jwt, JWTError, ExpiredSignatureError
@@ -121,9 +122,28 @@ def _verify_token(token: str) -> dict:
     raise HTTPException(status_code=401, detail="Invalid token")
 
 
+# def get_current_user(authorization: str | None = Header(default=None)) -> dict:
+#     if not authorization or not authorization.startswith("Bearer "):
+#         raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
+
+#     token = authorization.removeprefix("Bearer ").strip()
+#     if not token:
+#         raise HTTPException(status_code=401, detail="Missing bearer token")
+
+#     payload = _verify_token(token)
+
+#     if "sub" not in payload:
+#         raise HTTPException(status_code=401, detail="Token missing required claim")
+
+#     return payload
+
+
 def get_current_user(authorization: str | None = Header(default=None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or malformed Authorization header")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or malformed Authorization header",
+        )
 
     token = authorization.removeprefix("Bearer ").strip()
     if not token:
@@ -131,8 +151,14 @@ def get_current_user(authorization: str | None = Header(default=None)) -> dict:
 
     payload = _verify_token(token)
 
-    if "sub" not in payload:
+    subject = payload.get("sub")
+    if not subject:
         raise HTTPException(status_code=401, detail="Token missing required claim")
+
+    try:
+        UUID(str(subject))
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(status_code=401, detail="Token has an invalid subject")
 
     return payload
 
@@ -144,7 +170,7 @@ def require_role(*allowed_roles: str):
     ) -> dict:
         profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
         if not profile:
-            raise HTTPException(status_code=404, detail="Profile not found")
+            raise HTTPException(status_code=401, detail="Account not found")
         if profile.role not in allowed_roles:
             raise HTTPException(status_code=403, detail="You do not have permission to access this resource")
         return user
