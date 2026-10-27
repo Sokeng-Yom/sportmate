@@ -5,7 +5,7 @@ from app.services.leave_risk import hours_remaining, classify_risk, RISK_NORMAL,
 
 def test_hours_remaining_computation():
     now = datetime(2026, 11, 1, 10, 0)
-    result = hours_remaining(date(2026, 11, 1), time(19, 0), now=now)
+    result = hours_remaining(date(2030, 11, 1), time(19, 0), now=now)
     assert result == 9.0
 
 

@@ -9,7 +9,7 @@ from app.models.match import Match
 def test_create_match(client, auth_headers_for):
     response = client.post(
         "/api/v1/matches",
-        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-11-01", "time": "19:00:00", "players_needed": 4, "skill_level": "INTERMEDIATE"},
+        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-11-01", "time": "19:00:00", "players_needed": 4, "skill_level": "INTERMEDIATE"},
         headers=auth_headers_for("PLAYER"),
     )
     assert response.status_code == 201
@@ -41,7 +41,10 @@ def test_cancelled_matches_are_hidden_from_default_lists_but_retained(
     assert default_list.status_code == 200
     assert all(item["id"] != match_id for item in default_list.json()["items"])
 
-    cancelled_list = client.get("/api/v1/matches?status=CANCELLED", headers=host)
+    cancelled_list = client.get(
+        "/api/v1/matches?status=CANCELLED&created_by_me=true",
+        headers=host,
+    )
     assert cancelled_list.status_code == 200
     assert any(item["id"] == match_id for item in cancelled_list.json()["items"])
 
@@ -155,7 +158,7 @@ def test_match_court_selection_shows_booking_review_status(
         json={
             "sport": "Badminton",
             "location": venue["name"],
-            "date": "2026-11-01",
+            "date": "2030-11-01",
             "time": "19:00:00",
             "players_needed": 1,
             "skill_level": "INTERMEDIATE",
@@ -220,7 +223,7 @@ def test_create_match_rejects_mismatched_court_selection(client, auth_headers_fo
         json={
             "sport": "Tennis",
             "location": venue["name"],
-            "date": "2026-11-01",
+            "date": "2030-11-01",
             "time": "19:00:00",
             "players_needed": 4,
             "skill_level": "INTERMEDIATE",
@@ -234,8 +237,8 @@ def test_create_match_rejects_mismatched_court_selection(client, auth_headers_fo
 
 def test_list_matches_filtered_by_sport(client, auth_headers_for):
     headers = auth_headers_for("PLAYER")
-    client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-11-01", "time": "19:00:00", "players_needed": 4, "skill_level": "BEGINNER"}, headers=headers)
-    client.post("/api/v1/matches", json={"sport": "Tennis", "location": "Phnom Penh", "date": "2026-11-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+    client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-11-01", "time": "19:00:00", "players_needed": 4, "skill_level": "BEGINNER"}, headers=headers)
+    client.post("/api/v1/matches", json={"sport": "Tennis", "location": "Phnom Penh", "date": "2030-11-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
 
     response = client.get("/api/v1/matches?sport=Badminton", headers=headers)
     assert response.status_code == 200
@@ -275,7 +278,7 @@ def test_list_matches_can_sort_by_posted_time(client, auth_headers_for, db_sessi
         json={
             "sport": "Tennis",
             "location": "Phnom Penh",
-            "date": "2026-12-20",
+            "date": "2030-12-20",
             "time": "19:00:00",
             "players_needed": 4,
             "skill_level": "BEGINNER",
@@ -287,7 +290,7 @@ def test_list_matches_can_sort_by_posted_time(client, auth_headers_for, db_sessi
         json={
             "sport": "Tennis",
             "location": "Phnom Penh",
-            "date": "2026-12-15",
+            "date": "2030-12-15",
             "time": "19:00:00",
             "players_needed": 4,
             "skill_level": "BEGINNER",
@@ -320,23 +323,23 @@ def test_get_unknown_match_404(client, auth_headers_for):
 def test_players_needed_minimum_enforced(client, auth_headers_for):
     response = client.post(
         "/api/v1/matches",
-        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-11-01", "time": "19:00:00", "players_needed": 0, "skill_level": "BEGINNER"},
+        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-11-01", "time": "19:00:00", "players_needed": 0, "skill_level": "BEGINNER"},
         headers=auth_headers_for("PLAYER"),
     )
     assert response.status_code == 422
 
 def test_match_date_filter(client, auth_headers_for):
     headers = auth_headers_for("PLAYER")
-    client.post("/api/v1/matches", json={"sport": "Golf", "location": "Siem Reap", "date": "2026-12-15", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
-    client.post("/api/v1/matches", json={"sport": "Golf", "location": "Siem Reap", "date": "2026-12-20", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+    client.post("/api/v1/matches", json={"sport": "Golf", "location": "Siem Reap", "date": "2030-12-15", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+    client.post("/api/v1/matches", json={"sport": "Golf", "location": "Siem Reap", "date": "2030-12-20", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
 
-    response = client.get("/api/v1/matches?date=2026-12-15", headers=headers)
-    assert all(m["date"] == "2026-12-15" for m in response.json()["items"])
+    response = client.get("/api/v1/matches?date=2030-12-15", headers=headers)
+    assert all(m["date"] == "2030-12-15" for m in response.json()["items"])
 
 
 def test_match_location_filter_partial_match(client, auth_headers_for):
     headers = auth_headers_for("PLAYER")
-    client.post("/api/v1/matches", json={"sport": "Volleyball", "location": "Central Court, Phnom Penh", "date": "2026-12-01", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+    client.post("/api/v1/matches", json={"sport": "Volleyball", "location": "Central Court, Phnom Penh", "date": "2030-12-01", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
 
     response = client.get("/api/v1/matches?location=Phnom Penh", headers=headers)
     assert any("Phnom Penh" in m["location"] for m in response.json()["items"])
@@ -345,7 +348,7 @@ def test_match_location_filter_partial_match(client, auth_headers_for):
 def test_pagination_respects_page_size(client, auth_headers_for):
     headers = auth_headers_for("PLAYER")
     for i in range(5):
-        client.post("/api/v1/matches", json={"sport": "Chess", "location": f"Venue {i}", "date": "2026-12-01", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+        client.post("/api/v1/matches", json={"sport": "Chess", "location": f"Venue {i}", "date": "2030-12-01", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
 
     response = client.get("/api/v1/matches?sport=Chess&page=1&page_size=2", headers=headers)
     data = response.json()
@@ -357,7 +360,7 @@ def test_pagination_respects_page_size(client, auth_headers_for):
 def test_pagination_page_2_returns_different_items(client, auth_headers_for):
     headers = auth_headers_for("PLAYER")
     for i in range(5):
-        client.post("/api/v1/matches", json={"sport": "Darts", "location": f"Venue {i}", "date": "2026-12-01", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+        client.post("/api/v1/matches", json={"sport": "Darts", "location": f"Venue {i}", "date": "2030-12-01", "time": "10:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
 
     page_1 = client.get("/api/v1/matches?sport=Darts&page=1&page_size=2", headers=headers).json()
     page_2 = client.get("/api/v1/matches?sport=Darts&page=2&page_size=2", headers=headers).json()
@@ -379,7 +382,7 @@ def test_match_detail_includes_players_list(client, auth_headers_for):
     creator = auth_headers_for("PLAYER")
     joiner = auth_headers_for("PLAYER")
 
-    create = client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-12-01", "time": "19:00:00", "players_needed": 3, "skill_level": "BEGINNER"}, headers=creator)
+    create = client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-12-01", "time": "19:00:00", "players_needed": 3, "skill_level": "BEGINNER"}, headers=creator)
     match_id = create.json()["id"]
     client.post(f"/api/v1/matches/{match_id}/join", headers=joiner)
 
@@ -395,7 +398,7 @@ def test_list_matches_includes_joined_count(client, auth_headers_for):
         json={
             "sport": "Badminton",
             "location": "Phnom Penh",
-            "date": "2026-12-01",
+            "date": "2030-12-01",
             "time": "19:00:00",
             "players_needed": 3,
             "skill_level": "BEGINNER",
@@ -448,7 +451,7 @@ def test_list_matches_can_include_open_and_full_statuses(client, auth_headers_fo
         json={
             "sport": "Badminton",
             "location": "Phnom Penh",
-            "date": "2026-12-01",
+            "date": "2030-12-01",
             "time": "19:00:00",
             "players_needed": 1,
             "skill_level": "BEGINNER",

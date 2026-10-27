@@ -12,7 +12,7 @@ def get_current_profile(
 ) -> Profile:
     profile = db.query(Profile).filter(Profile.id == user["sub"]).first()
     if profile is None:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=401, detail="Account not found")
     return profile
 
 

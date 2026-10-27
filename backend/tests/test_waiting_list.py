@@ -8,7 +8,7 @@ from app.services.waiting_list_expiry import expire_stale_waiting_list_entries
 def create_full_match(client, creator_headers, players_needed=1):
     response = client.post(
         "/api/v1/matches",
-        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-12-01", "time": "19:00:00", "players_needed": players_needed, "skill_level": "BEGINNER"},
+        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-12-01", "time": "19:00:00", "players_needed": players_needed, "skill_level": "BEGINNER"},
         headers=creator_headers,
     )
     return response.json()["id"]
@@ -69,7 +69,7 @@ def test_expiry_promotes_next_entry(db_session, seeded_profile):
         id=uuid.uuid4(),
         sport="Badminton",
         location="Phnom Penh",
-        date=date(2026, 12, 1),
+        date=date(2030, 12, 1),
         time=time(19, 0),
         players_needed=1,
         skill_level="BEGINNER",

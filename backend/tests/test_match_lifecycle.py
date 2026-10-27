@@ -1,7 +1,8 @@
+from app.core.clock import local_now_naive
 def create_test_match(client, headers, players_needed=2):
     response = client.post(
         "/api/v1/matches",
-        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-11-01", "time": "19:00:00", "players_needed": players_needed, "skill_level": "BEGINNER"},
+        json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-11-01", "time": "19:00:00", "players_needed": players_needed, "skill_level": "BEGINNER"},
         headers=headers,
     )
     return response.json()["id"]
@@ -118,7 +119,7 @@ def test_critical_leave_restricts_user(client, auth_headers_for, db_session):
     joiner_headers = auth_headers_for("PLAYER")
 
     # Create a match starting in 1 hour -> leaving now is CRITICAL
-    near_future = datetime.utcnow() + timedelta(hours=1)
+    near_future = local_now_naive() + timedelta(hours=1)
     match_response = client.post(
         "/api/v1/matches",
         json={
@@ -172,7 +173,7 @@ def test_leave_risk_preview_matches_actual_leave_outcome(client, auth_headers_fo
     joiner = auth_headers_for("PLAYER")
 
     # Match starting in 1 hour -> CRITICAL
-    near_future = datetime.utcnow() + timedelta(hours=1)
+    near_future = local_now_naive() + timedelta(hours=1)
     match_response = client.post(
         "/api/v1/matches",
         json={
@@ -206,7 +207,7 @@ def test_leave_risk_preview_normal_tier_far_future_match(client, auth_headers_fo
     creator = auth_headers_for("PLAYER")
     joiner = auth_headers_for("PLAYER")
 
-    match_id = create_test_match(client, creator, players_needed=2)  # uses far-future date "2026-11-01" from helper
+    match_id = create_test_match(client, creator, players_needed=2)  # uses far-future date "2030-11-01" from helper
     client.post(f"/api/v1/matches/{match_id}/join", headers=joiner)
 
     response = client.get(f"/api/v1/matches/{match_id}/leave-risk-preview", headers=joiner)

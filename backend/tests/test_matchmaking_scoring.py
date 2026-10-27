@@ -40,15 +40,15 @@ def test_skill_score_no_user_skill():
 
 
 def test_availability_score_unconstrained():
-    assert availability_score(None, date(2026, 11, 1)) == 1.0
+    assert availability_score(None, date(2030, 11, 1)) == 1.0
 
 
 def test_availability_score_exact_date():
-    assert availability_score(date(2026, 11, 1), date(2026, 11, 1)) == 1.0
+    assert availability_score(date(2030, 11, 1), date(2030, 11, 1)) == 1.0
 
 
 def test_availability_score_far_date():
-    assert availability_score(date(2026, 11, 1), date(2026, 12, 1)) == 0.0
+    assert availability_score(date(2030, 11, 1), date(2030, 12, 1)) == 0.0
 
 
 def test_location_score_unconstrained():
@@ -83,9 +83,9 @@ def test_compute_match_score_perfect_match():
         total_leave_count=0,
         match_sport="Badminton",
         match_skill_level="INTERMEDIATE",
-        match_date=date(2026, 11, 1),
+        match_date=date(2030, 11, 1),
         match_location="Phnom Penh",
-        preferred_date=date(2026, 11, 1),
+        preferred_date=date(2030, 11, 1),
         preferred_location="Phnom Penh",
     )
     # 1.0*0.30 + 1.0*0.25 + 1.0*0.20 + 1.0*0.15 + 1.0*0.10 = 1.0
@@ -100,7 +100,7 @@ def test_compute_match_score_no_sport_match_caps_score():
         total_leave_count=0,
         match_sport="Badminton",
         match_skill_level="INTERMEDIATE",
-        match_date=date(2026, 11, 1),
+        match_date=date(2030, 11, 1),
         match_location="Phnom Penh",
     )
     # sport=0, skill=0 (no user skill for badminton), availability=1*0.20, location=1*0.15, reliability=1*0.10
@@ -112,8 +112,8 @@ def test_recommended_endpoint_sorted_descending(client, auth_headers_for):
 
     client.post("/api/v1/profiles/me/sports", json={"sport": "Badminton", "skill_level": "INTERMEDIATE"}, headers=searcher)
 
-    client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Phnom Penh", "date": "2026-12-01", "time": "19:00:00", "players_needed": 4, "skill_level": "INTERMEDIATE"}, headers=other_creator)
-    client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Siem Reap", "date": "2026-12-01", "time": "19:00:00", "players_needed": 4, "skill_level": "ADVANCED"}, headers=other_creator)
+    client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Phnom Penh", "date": "2030-12-01", "time": "19:00:00", "players_needed": 4, "skill_level": "INTERMEDIATE"}, headers=other_creator)
+    client.post("/api/v1/matches", json={"sport": "Badminton", "location": "Siem Reap", "date": "2030-12-01", "time": "19:00:00", "players_needed": 4, "skill_level": "ADVANCED"}, headers=other_creator)
 
     response = client.get("/api/v1/matches/recommended?sport=Badminton", headers=searcher)
     assert response.status_code == 200
@@ -125,7 +125,7 @@ def test_recommended_endpoint_sorted_descending(client, auth_headers_for):
 def test_recommended_endpoint_excludes_own_matches(client, auth_headers_for):
     headers = auth_headers_for("PLAYER")
     client.post("/api/v1/profiles/me/sports", json={"sport": "Tennis", "skill_level": "BEGINNER"}, headers=headers)
-    create = client.post("/api/v1/matches", json={"sport": "Tennis", "location": "Phnom Penh", "date": "2026-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
+    create = client.post("/api/v1/matches", json={"sport": "Tennis", "location": "Phnom Penh", "date": "2030-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=headers)
     own_match_id = create.json()["id"]
 
     response = client.get("/api/v1/matches/recommended?sport=Tennis", headers=headers)
@@ -138,7 +138,7 @@ def test_recommended_endpoint_excludes_already_joined(client, auth_headers_for):
     creator = auth_headers_for("PLAYER")
 
     client.post("/api/v1/profiles/me/sports", json={"sport": "Squash", "skill_level": "BEGINNER"}, headers=searcher)
-    create = client.post("/api/v1/matches", json={"sport": "Squash", "location": "Phnom Penh", "date": "2026-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=creator)
+    create = client.post("/api/v1/matches", json={"sport": "Squash", "location": "Phnom Penh", "date": "2030-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=creator)
     match_id = create.json()["id"]
     client.post(f"/api/v1/matches/{match_id}/join", headers=searcher)
 
@@ -153,7 +153,7 @@ def test_recommended_endpoint_pagination(client, auth_headers_for):
     client.post("/api/v1/profiles/me/sports", json={"sport": "Volleyball", "skill_level": "BEGINNER"}, headers=searcher)
 
     for i in range(5):
-        client.post("/api/v1/matches", json={"sport": "Volleyball", "location": f"Court {i}", "date": "2026-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=creator)
+        client.post("/api/v1/matches", json={"sport": "Volleyball", "location": f"Court {i}", "date": "2030-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=creator)
 
     response = client.get("/api/v1/matches/recommended?sport=Volleyball&page=1&page_size=2", headers=searcher)
     data = response.json()
@@ -165,7 +165,7 @@ def test_recommended_endpoint_min_score_filter(client, auth_headers_for):
     searcher = auth_headers_for("PLAYER")
     creator = auth_headers_for("PLAYER")
     # Searcher has no sports logged at all -> every match scores low (no sport match)
-    client.post("/api/v1/matches", json={"sport": "Cricket", "location": "Phnom Penh", "date": "2026-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=creator)
+    client.post("/api/v1/matches", json={"sport": "Cricket", "location": "Phnom Penh", "date": "2030-12-01", "time": "19:00:00", "players_needed": 2, "skill_level": "BEGINNER"}, headers=creator)
 
     response = client.get("/api/v1/matches/recommended?sport=Cricket&min_score=0.9", headers=searcher)
     assert response.status_code == 200
