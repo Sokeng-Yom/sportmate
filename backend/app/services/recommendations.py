@@ -1,7 +1,7 @@
 from datetime import date as date_type
 
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.clock import local_now_naive
 from app.core.enums import MatchStatus
@@ -11,7 +11,10 @@ from app.models.user_sport import UserSport
 from app.schemas.match import MatchRead
 from app.services.leave_risk import RISK_CRITICAL
 from app.services.matchmaking import compute_match_score
-from app.services.waiting_list_service import count_joined_for_matches
+from app.services.waiting_list_service import (
+    count_joined_excluding_hosts_for_matches,
+    count_joined_for_matches,
+)
 
 # Scoring happens in Python, so the work per request is capped. Candidates are the
 # soonest upcoming matches; the cap only matters once thousands of matches are open at once.
@@ -46,7 +49,7 @@ def build_recommendations(
 
     already_joined = select(MatchPlayer.match_id).where(MatchPlayer.user_id == user_id)
 
-    query = db.query(Match).filter(
+    query = db.query(Match).options(joinedload(Match.creator)).filter(
         Match.status == MatchStatus.OPEN,
         Match.created_by != user_id,
         Match.date >= today,
@@ -82,11 +85,15 @@ def build_recommendations(
     start = (page - 1) * page_size
     selected = scored[start : start + page_size]
     joined_counts = count_joined_for_matches(db, [match.id for _, match in selected])
+    joined_counts_excluding_hosts = count_joined_excluding_hosts_for_matches(
+        db, [match.id for _, match in selected]
+    )
     items = []
     for score, match in selected:
         item = MatchRead.model_validate(match).model_dump()
         item["score"] = score
         item["joined_count"] = joined_counts.get(match.id, 0)
+        item["joined_count_excluding_host"] = joined_counts_excluding_hosts.get(match.id, 0)
         items.append(item)
 
     return {"items": items, "total": len(scored), "page": page, "page_size": page_size}

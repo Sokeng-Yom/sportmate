@@ -77,8 +77,10 @@ export interface MatchRead {
   skill_level: string;
   status: MatchStatus;
   created_by: string;
+  host_name: string | null;
   created_at: string;
   joined_count?: number;
+  joined_count_excluding_host?: number;
   court_id: string | null;
   court_duration_minutes: number | null;
   court_name: string | null;
@@ -111,6 +113,11 @@ export interface MatchCreate {
   court_id?: string;
   court_duration_minutes?: number;
 }
+
+export type MatchUpdate = Pick<
+  MatchCreate,
+  "sport" | "location" | "date" | "time" | "players_needed" | "skill_level"
+>;
 
 export interface LeaveRiskPreview {
   risk_level: string;
@@ -164,6 +171,52 @@ export interface VenueUpdate {
   address?: string | null;
   description?: string | null;
   photo_url?: string | null;
+}
+
+export interface VenueDiscountRead {
+  id: string;
+  venue_id: string;
+  title: string;
+  description: string;
+  percent_off: number | null;
+  code: string | null;
+  valid_until: string;
+  created_at: string;
+}
+
+export interface VenueDiscountCreate {
+  title: string;
+  description: string;
+  percent_off?: number | null;
+  code?: string | null;
+  valid_until: string;
+}
+
+export interface VenueEventRead {
+  id: string;
+  venue_id: string;
+  title: string;
+  description: string;
+  event_date: string;
+  event_time: string;
+  sport: string;
+  price_label: string;
+  created_at: string;
+}
+
+export interface VenueEventCreate {
+  title: string;
+  description: string;
+  event_date: string;
+  event_time: string;
+  sport: string;
+  price_label: string;
+}
+
+export interface VenueBrowseRead extends VenueRead {
+  courts: CourtRead[];
+  discounts: VenueDiscountRead[];
+  events: VenueEventRead[];
 }
 
 // ---------------------------------------------------------------------------
@@ -241,6 +294,10 @@ export interface MessagePage {
   conversation_id: string;
   items: MessageRead[];
   has_more: boolean;
+}
+
+export interface UnreadMessageCount {
+  unread_count: number;
 }
 
 export interface MessageCreate {

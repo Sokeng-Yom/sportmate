@@ -21,11 +21,16 @@ const SPORT_COLORS: Record<string, string> = {
     Running: "bg-green-100 text-green-700",
 };
 
-const today = new Date().toISOString().split("T")[0];
+function localDate(): string {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 
 export function VenueCard({ venue }: VenueCardProps) {
-    const activeDiscounts = venue.discounts.filter((d) => d.validUntil >= today);
-    const upcomingEvents = venue.events.filter((e) => e.date >= today);
+    const today = localDate();
+    const activeDiscounts = venue.discounts.filter((d) => d.valid_until >= today);
+    const upcomingEvents = venue.events.filter((e) => e.event_date >= today);
+    const sports = Array.from(new Set(venue.courts.map((court) => court.sport)));
 
     return (
         <motion.div
@@ -41,7 +46,7 @@ export function VenueCard({ venue }: VenueCardProps) {
                             {venue.name}
                         </h3>
                         <p className="text-emerald-600 font-bold text-sm mt-0.5">
-                            ${venue.pricePerHour} / hr
+                        {venue.courts.length} court{venue.courts.length !== 1 ? "s" : ""}
                         </p>
                     </div>
                     {/* Discount + event badges */}
@@ -64,12 +69,12 @@ export function VenueCard({ venue }: VenueCardProps) {
                 {/* Address */}
                 <p className="flex items-center gap-1.5 text-sm text-slate-500 mb-3">
                     <MapPin size={13} className="text-emerald-500 flex-shrink-0" />
-                    {venue.address}, {venue.city}
+                    {venue.address}
                 </p>
 
                 {/* Sport tags */}
                 <div className="flex flex-wrap gap-1.5">
-                    {venue.sports.map((sport) => (
+                    {sports.map((sport) => (
                         <span
                             key={sport}
                             className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${SPORT_COLORS[sport] ?? "bg-gray-100 text-gray-600"}`}

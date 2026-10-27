@@ -29,7 +29,7 @@ from app.services.match_participants import is_match_participant, participant_id
 from app.services.notifications import create_notification
 from app.services.security_log import log_security_event
 from app.services.venue_access import can_manage, get_venue_or_404
-from app.services.waiting_list_service import count_joined
+from app.services.waiting_list_service import count_joined_excluding_host
 
 router = APIRouter(prefix="/api/v1", tags=["bookings"])
 
@@ -346,7 +346,7 @@ def cancel_booking(
     booking.status = BookingStatus.CANCELLED
     if match is not None and was_confirmed:
         if match.status == MatchStatus.CONFIRMED:
-            joined = count_joined(db, match.id)
+            joined = count_joined_excluding_host(db, match.id)
             match.status = MatchStatus.FULL if joined >= match.players_needed else MatchStatus.OPEN
         for user_id in participant_ids(db, match):
             create_notification(

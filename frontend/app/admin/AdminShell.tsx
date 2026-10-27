@@ -8,7 +8,7 @@ import {
   ClipboardList, Gamepad2, LayoutDashboard, Menu, Search, Settings, ShieldAlert,
   ShieldCheck, Users, X, MapPin, Building2,
 } from "lucide-react";
-import { useAuth } from "../../lib/auth";
+import UserProfileMenu from "../components/UserProfileMenu";
 
 const navigation = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -78,18 +78,14 @@ function AdminSidebar({ onNavigate, mobile = false }: { onNavigate?: () => void;
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { profile } = useAuth();
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const current = navigation.find((item) => item.href === pathname) ?? navigation.find((item) => item.href !== "/admin" && pathname.startsWith(item.href));
   const matches = search.trim()
     ? searchItems.filter((item) => item.label.toLowerCase().includes(search.toLowerCase())).slice(0, 5)
     : [];
-  const name = profile?.name || "Administrator";
-
   return (
     <div className="min-h-screen bg-[#f5f7f6] text-slate-800">
       <AdminSidebar />
@@ -111,18 +107,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <div className="relative">
-              <button aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen(!notificationsOpen); setProfileOpen(false); }} className="relative grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+              <button aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen(!notificationsOpen)} className="relative grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800">
                 <Bell size={18} /><span className="absolute right-2 top-2 h-2 w-2 rounded-full border-2 border-white bg-rose-500" />
               </button>
               {notificationsOpen && <div className="absolute right-0 top-12 z-50 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"><div className="flex justify-between"><p className="text-sm font-bold">Notifications</p><button aria-label="Close notifications" onClick={() => setNotificationsOpen(false)}><X size={15} /></button></div><p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">5 venue applications and 12 reports are waiting for review.</p><Link href="/admin/reports" onClick={() => setNotificationsOpen(false)} className="mt-3 block text-xs font-semibold text-emerald-700">Review reports →</Link></div>}
             </div>
-            <div className="relative border-l border-slate-200 pl-3 sm:pl-4">
-              <button aria-expanded={profileOpen} onClick={() => { setProfileOpen(!profileOpen); setNotificationsOpen(false); }} className="flex items-center gap-2.5 rounded-lg py-1 text-left hover:bg-slate-50">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#d8f2e7] text-xs font-bold text-emerald-800">{name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase()}</span>
-                <span className="hidden sm:block"><span className="block max-w-32 truncate text-xs font-bold text-slate-800">{name}</span><span className="mt-0.5 block text-[10px] text-slate-500">Administrator</span></span>
-                <ChevronDown size={15} className="hidden text-slate-400 sm:block" />
-              </button>
-              {profileOpen && <div className="absolute right-0 top-12 z-50 w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"><Link href="/admin/settings" onClick={() => setProfileOpen(false)} className="block rounded-lg px-3 py-2.5 text-xs font-medium hover:bg-slate-50">Profile & settings</Link><div className="border-t border-slate-100 px-3 py-2 text-[10px] text-slate-400">Admin preview mode</div></div>}
+            <div className="border-l border-slate-200 pl-3 sm:pl-4">
+              <UserProfileMenu />
             </div>
           </div>
         </header>

@@ -1,193 +1,142 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { Search, MapPin, X, Tag } from "lucide-react";
-import { venues } from "../../lib/venues";
+import { useEffect, useMemo, useState } from "react";
+import { Search, MapPin, X, Tag, RefreshCw } from "lucide-react";
+import { ApiError } from "../../../lib/apiClient";
+import { browseVenues } from "../../../lib/api";
+import type { PublicVenue } from "../../lib/venues";
 import { VenueCard } from "./components/VenueCard";
 import { EmptyState } from "./components/EmptyState";
 
-// ─── Skeleton loader ─────────────────────────────────────────────────────────
+function localDate(): string {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
+
 function SkeletonCard() {
     return (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3 animate-pulse">
-            <div className="flex justify-between items-start">
-                <div className="space-y-2">
-                    <div className="h-4 w-40 bg-gray-200 rounded" />
-                    <div className="h-3 w-20 bg-gray-100 rounded" />
-                </div>
-                <div className="h-5 w-16 bg-amber-100 rounded-full" />
-            </div>
-            <div className="h-3 w-48 bg-gray-100 rounded" />
-            <div className="flex gap-2">
-                <div className="h-5 w-16 bg-emerald-100 rounded-full" />
-                <div className="h-5 w-16 bg-yellow-100 rounded-full" />
-            </div>
+        <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-5 animate-pulse">
+            <div className="h-4 w-40 rounded bg-gray-200" />
+            <div className="h-3 w-52 rounded bg-gray-100" />
+            <div className="h-5 w-24 rounded bg-emerald-100" />
         </div>
     );
 }
-
-// ─── Derive unique sports list ────────────────────────────────────────────────
-const ALL_SPORTS = Array.from(
-    new Set(venues.flatMap((v) => v.sports))
-).sort();
-
-const today = new Date().toISOString().split("T")[0];
 
 export default function VenuesListPage() {
     const [search, setSearch] = useState("");
     const [sport, setSport] = useState("");
     const [hasDiscounts, setHasDiscounts] = useState(false);
+    const [venues, setVenues] = useState<PublicVenue[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
-    // Simulate brief data fetch
     useEffect(() => {
-        const timer = setTimeout(() => setLoading(false), 700);
-        return () => clearTimeout(timer);
-    }, []);
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const page = await browseVenues({ q: search.trim() || undefined, page_size: 100 });
+                if (!cancelled) setVenues(page.items);
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err instanceof ApiError ? err.message : "Could not load venues.");
+                    setVenues([]);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        }, 250);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [search, reloadKey]);
 
+    const sports = useMemo(
+        () => Array.from(new Set(venues.flatMap((venue) => venue.courts.map((court) => court.sport)))).sort(),
+        [venues],
+    );
     const filtered = useMemo(() => {
-        const q = search.toLowerCase();
-        return venues.filter((v) => {
-            const matchSearch =
-                !q ||
-                v.name.toLowerCase().includes(q) ||
-                v.address.toLowerCase().includes(q) ||
-                v.city.toLowerCase().includes(q);
-            const matchSport = !sport || v.sports.includes(sport);
-            const matchDiscount =
-                !hasDiscounts ||
-                v.discounts.some((d) => d.validUntil >= today);
-            return matchSearch && matchSport && matchDiscount;
+        const today = localDate();
+        return venues.filter((venue) => {
+            const matchesSport = !sport || venue.courts.some((court) => court.sport === sport);
+            const matchesDiscount = !hasDiscounts || venue.discounts.some((discount) => discount.valid_until >= today);
+            return matchesSport && matchesDiscount;
         });
-    }, [search, sport, hasDiscounts]);
+    }, [venues, sport, hasDiscounts]);
 
     const clearFilters = () => {
         setSearch("");
         setSport("");
         setHasDiscounts(false);
     };
-
-    const activeFilterCount =
-        (search ? 1 : 0) + (sport ? 1 : 0) + (hasDiscounts ? 1 : 0);
+    const activeFilterCount = (search ? 1 : 0) + (sport ? 1 : 0) + (hasDiscounts ? 1 : 0);
 
     return (
         <div className="min-h-screen bg-[#F8F5F0] pb-20">
-            {/* ── Hero header ── */}
-            <section className="pt-16 pb-10 px-6 text-center">
-                <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-3">
-                    Discover Venues
-                </h1>
-                <p className="text-slate-500 text-lg max-w-xl mx-auto">
-                    Find the perfect court or ground near you. Some offer exclusive
-                    discounts and upcoming events.
+            <section className="px-6 pb-10 pt-16 text-center">
+                <h1 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">Discover Venues</h1>
+                <p className="mx-auto max-w-xl text-lg text-slate-500">
+                    Browse approved venues, courts, current discounts, and upcoming events.
                 </p>
             </section>
 
-            {/* ── Filter bar ── */}
-            <section className="max-w-5xl mx-auto px-6 mb-10">
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    {/* Search */}
-                    <div className="flex-1 flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2.5 border border-gray-200 focus-within:ring-2 focus-within:ring-emerald-400 focus-within:border-transparent transition-all">
-                        <Search size={16} className="text-slate-400 flex-shrink-0" />
+            <section className="mx-auto mb-10 max-w-5xl px-6">
+                <div className="flex flex-col items-stretch gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+                    <div className="flex flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 focus-within:ring-2 focus-within:ring-emerald-400">
+                        <Search size={16} className="shrink-0 text-slate-400" />
                         <input
-                            id="venue-search"
-                            type="text"
-                            aria-label="Search venues"
+                            type="search"
+                            aria-label="Search venues by name or location"
                             placeholder="Search by name or location…"
                             value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="bg-transparent flex-1 outline-none text-sm text-slate-700 placeholder:text-slate-400"
+                            onChange={(event) => setSearch(event.target.value)}
+                            className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
                         />
-                        {search && (
-                            <button
-                                onClick={() => setSearch("")}
-                                aria-label="Clear search"
-                                className="text-slate-400 hover:text-slate-600"
-                            >
-                                <X size={14} />
-                            </button>
-                        )}
+                        {search && <button onClick={() => setSearch("")} aria-label="Clear search" className="text-slate-400 hover:text-slate-600"><X size={14} /></button>}
                     </div>
-
-                    {/* Sport dropdown */}
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2.5 border border-gray-200 focus-within:ring-2 focus-within:ring-emerald-400 transition-all">
-                        <label htmlFor="sport-filter" className="sr-only">Filter by sport</label>
-                        <select
-                            id="sport-filter"
-                            value={sport}
-                            onChange={(e) => setSport(e.target.value)}
-                            className="bg-transparent outline-none text-sm text-slate-700 appearance-none cursor-pointer pr-2 min-w-[120px]"
-                        >
-                            <option value="">All sports</option>
-                            {ALL_SPORTS.map((s) => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Has discounts checkbox */}
-                    <label
-                        htmlFor="has-discounts"
-                        className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer px-2 select-none"
-                    >
-                        <input
-                            id="has-discounts"
-                            type="checkbox"
-                            checked={hasDiscounts}
-                            onChange={(e) => setHasDiscounts(e.target.checked)}
-                            className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
-                        />
+                    <select aria-label="Filter by sport" value={sport} onChange={(event) => setSport(event.target.value)} className="min-w-36 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-slate-700">
+                        <option value="">All sports</option>
+                        {sports.map((item) => <option key={item} value={item}>{item}</option>)}
+                    </select>
+                    <label className="flex cursor-pointer select-none items-center gap-2 px-2 text-sm font-medium text-slate-700">
+                        <input type="checkbox" checked={hasDiscounts} onChange={(event) => setHasDiscounts(event.target.checked)} className="h-4 w-4 cursor-pointer accent-emerald-600" />
                         <Tag size={14} className="text-amber-500" />
                         Has discounts
                     </label>
                 </div>
             </section>
 
-            {/* ── Results ── */}
-            <section className="max-w-5xl mx-auto px-6">
-                {/* Results count */}
-                <div className="flex items-center justify-between mb-5">
-                    <p className="text-sm text-slate-500 font-medium">
-                        {loading ? "" : `${filtered.length} venue${filtered.length !== 1 ? "s" : ""} found`}
+            <section className="mx-auto max-w-5xl px-6">
+                <div className="mb-5 flex items-center justify-between">
+                    <p className="text-sm font-medium text-slate-500">
+                        {loading ? "Loading venues…" : `${filtered.length} venue${filtered.length !== 1 ? "s" : ""} found`}
                     </p>
-                    {activeFilterCount > 0 && !loading && (
-                        <button
-                            onClick={clearFilters}
-                            className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"
-                        >
-                            <X size={12} />
-                            Clear filters
-                        </button>
-                    )}
+                    <div className="flex items-center gap-4">
+                        {activeFilterCount > 0 && !loading && <button onClick={clearFilters} className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700"><X size={12} /> Clear filters</button>}
+                        {error && <button onClick={() => setReloadKey((key) => key + 1)} className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><RefreshCw size={12} /> Retry</button>}
+                    </div>
                 </div>
 
-                {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <SkeletonCard key={i} />
-                        ))}
-                    </div>
+                {error ? (
+                    <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</div>
+                ) : loading ? (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 5 }).map((_, index) => <SkeletonCard key={index} />)}</div>
                 ) : filtered.length === 0 ? (
-                    <div className="bg-white rounded-2xl border border-gray-100">
+                    <div className="rounded-2xl border border-gray-100 bg-white">
                         <EmptyState
                             icon={<MapPin size={24} />}
                             title="No venues match"
-                            description="Try changing your search or filters to find a venue."
-                            action={
-                                <button
-                                    onClick={clearFilters}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-full text-sm transition-all active:scale-95"
-                                >
-                                    Clear filters
-                                </button>
-                            }
+                            description="Try changing your search or filters to find an approved venue."
+                            action={<button onClick={clearFilters} className="rounded-full bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Clear filters</button>}
                         />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.map((venue) => (
-                            <VenueCard key={venue.id} venue={venue} />
-                        ))}
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {filtered.map((venue) => <VenueCard key={venue.id} venue={venue} />)}
                     </div>
                 )}
             </section>

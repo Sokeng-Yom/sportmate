@@ -78,9 +78,11 @@ function MatchCard({
     busy: boolean;
 }) {
     const joinedCount = match.joined_count ?? 0;
+    const otherPlayersJoined = match.joined_count_excluding_host ?? joinedCount;
     const playerCapacity = Math.max(match.players_needed, 1);
-    const progressPercent = Math.min((joinedCount / playerCapacity) * 100, 100);
-    const isFull = match.status === "FULL" || joinedCount >= playerCapacity;
+    const isFull = otherPlayersJoined >= playerCapacity
+        || (match.status === "FULL" && match.joined_count_excluding_host === undefined);
+    const progressPercent = Math.min((otherPlayersJoined / playerCapacity) * 100, 100);
 
     return (
         <article className="rounded-2xl border border-[#E8E3DE] bg-white p-5 shadow-sm sm:p-6">
@@ -91,7 +93,9 @@ function MatchCard({
                 <div className="min-w-0 flex-1">
                     <div className="mb-2 flex items-start justify-between gap-3">
                         <h3 className="text-lg font-bold text-slate-950 sm:text-xl">
-                            {match.sport} — {isFull ? "Hosting full" : gameStatusLabel(match.status)}
+                            {match.sport} — {isFull
+                                ? "Hosting full"
+                                : gameStatusLabel(match.status === "FULL" ? "OPEN" : match.status)}
                         </h3>
                         <span className="shrink-0 rounded-full bg-[#FFF0E1] px-3 py-1.5 text-xs font-semibold text-[#B85D14]">
                             {skillLabel(match.skill_level)}
@@ -99,6 +103,7 @@ function MatchCard({
                     </div>
 
                     <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
+                        <p><span className="font-semibold text-slate-950">Host:</span> {match.host_name ?? "Unknown host"}</p>
                         <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
                         {match.court_id && (
                             <p>
@@ -112,25 +117,25 @@ function MatchCard({
                         <p><span className="font-semibold text-slate-950">Date:</span> {formatDate(match.date)}</p>
                         <p><span className="font-semibold text-slate-950">Time:</span> {formatTime(match.time)}</p>
                         <p><span className="font-semibold text-slate-950">Posted:</span> {formatPostedDateTime(match.created_at)}</p>
-                        <p><span className="font-semibold text-slate-950">Players needed:</span> {playerCapacity}</p>
+                        <p><span className="font-semibold text-slate-950">Additional players needed:</span> {playerCapacity}</p>
                     </div>
 
-                    <div className="mt-4" aria-label={`${joinedCount} of ${playerCapacity} players joined`}>
+                    <div className="mt-4" aria-label={`${otherPlayersJoined} of ${playerCapacity} additional players joined`}>
                         <div
                             role="progressbar"
                             aria-valuemin={0}
                             aria-valuemax={playerCapacity}
-                            aria-valuenow={Math.min(joinedCount, playerCapacity)}
-                            aria-label="Players joined"
+                            aria-valuenow={Math.min(otherPlayersJoined, playerCapacity)}
+                            aria-label="Additional players joined"
                             className="h-2.5 overflow-hidden rounded-full bg-[#F0ECE8]"
                         >
                             <div
-                                className={`h-full rounded-full transition-[width] ${isFull ? "bg-red-500" : "bg-[#D97736]"}`}
+                                className={`h-full rounded-full transition-[width] ${isFull ? "bg-red-500" : match.status === "OPEN" ? "bg-emerald-500" : "bg-[#D97736]"}`}
                                 style={{ width: `${progressPercent}%` }}
                             />
                         </div>
                         <p className="mt-2 text-sm font-semibold text-slate-700">
-                            {joinedCount}/{playerCapacity} joined
+                            {otherPlayersJoined}/{playerCapacity} additional players joined
                         </p>
                     </div>
 
@@ -215,6 +220,7 @@ export default function PlayerDashboard() {
             const params = {
                 status: "OPEN,FULL",
                 ...(sport !== "Any sport" ? { sport } : {}),
+                ...(skill !== "Any level" ? { skill_level: skill.toUpperCase() } : {}),
                 ...(location.trim() ? { location: location.trim() } : {}),
             };
             const [open, rec, joined] = await Promise.all([
@@ -231,7 +237,7 @@ export default function PlayerDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [sport, location, applied]);
+    }, [sport, skill, location, applied]);
 
     const confirmedJoinedMatches = joinedMatches.filter(
         (match) => match.status === "CONFIRMED" && !matches.some((openMatch) => openMatch.id === match.id),
@@ -246,7 +252,7 @@ export default function PlayerDashboard() {
         setNotice(null);
         try {
             await joinMatch(id);
-            setJoinedIds((prev) => new Set(prev).add(id));
+            await load();
             setNotice("You joined the match!");
         } catch (err) {
             setNotice(err instanceof ApiError ? err.message : "Could not join the match");
@@ -260,12 +266,7 @@ export default function PlayerDashboard() {
         setNotice(null);
         try {
             await leaveMatch(id);
-            setJoinedIds((prev) => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-            });
-            setJoinedMatches((prev) => prev.filter((match) => match.id !== id));
+            await load();
             setNotice("You left the match.");
         } catch (err) {
             setNotice(err instanceof ApiError ? err.message : "Could not leave the match");

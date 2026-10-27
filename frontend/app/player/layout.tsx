@@ -2,15 +2,57 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
-import { User } from "lucide-react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { RouteGuard, useAuth } from "../../lib/auth";
+import { getUnreadMessageCount } from "../../lib/api";
+import { supabase } from "../../lib/supabaseClient";
 import NotificationsBell from "../components/NotificationsBell";
+import UserProfileMenu from "../components/UserProfileMenu";
 import { VenueOwnerDataProvider } from "../venue-owner/context/VenueOwnerContext";
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const { profile, signOut } = useAuth();
+    const { profile } = useAuth();
+    const [unreadMessages, setUnreadMessages] = useState(0);
+
+    const refreshUnreadMessages = useCallback(async () => {
+        try {
+            const result = await getUnreadMessageCount();
+            setUnreadMessages(result.unread_count);
+        } catch (error) {
+            console.error("Failed to load unread message count:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+
+        void refreshUnreadMessages();
+        const channel = supabase
+            .channel(`player-unread-messages-${profile.id}`)
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "messages" },
+                () => void refreshUnreadMessages(),
+            )
+            .subscribe();
+        const intervalId = window.setInterval(() => void refreshUnreadMessages(), 15000);
+        const refreshOnFocus = () => {
+            if (document.visibilityState === "visible") void refreshUnreadMessages();
+        };
+        const refreshOnChatRead = () => void refreshUnreadMessages();
+        window.addEventListener("focus", refreshOnFocus);
+        window.addEventListener("sportmate:chat-read", refreshOnChatRead);
+        document.addEventListener("visibilitychange", refreshOnFocus);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", refreshOnFocus);
+            window.removeEventListener("sportmate:chat-read", refreshOnChatRead);
+            document.removeEventListener("visibilitychange", refreshOnFocus);
+            void supabase.removeChannel(channel);
+        };
+    }, [profile?.id, refreshUnreadMessages]);
 
     const navLinks = [
         { name: "Explore", href: "/player/dashboard" },
@@ -46,12 +88,23 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                             <Link
                                 key={link.name}
                                 href={link.href}
+                                aria-label={link.name === "Messages" && unreadMessages > 0
+                                    ? `Messages, ${unreadMessages} unread`
+                                    : link.name}
                                 className={`${pathname === link.href
                                         ? "text-slate-900 font-bold"
                                         : "text-slate-600 hover:text-slate-900"
                                     } transition-colors`}
                             >
-                                {link.name}
+                                <span className="relative">
+                                    {link.name}
+                                    {link.name === "Messages" && unreadMessages > 0 && pathname !== link.href && (
+                                        <span
+                                            aria-hidden="true"
+                                            className="absolute -right-2 -top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500"
+                                        />
+                                    )}
+                                </span>
                             </Link>
                         ))}
                     </nav>
@@ -60,26 +113,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     <div className="flex items-center gap-6">
                         <NotificationsBell />
 
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm cursor-pointer">
-                                {profile?.avatar ? (
-                                    <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-slate-500">
-                                        <User size={18} />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="hidden sm:block">
-                                <p className="text-sm font-bold text-slate-900 leading-tight">{profile?.name ?? "Player"}</p>
-                                <button
-                                    onClick={() => signOut()}
-                                    className="text-[11px] text-slate-400 hover:text-slate-600 font-medium"
-                                >
-                                    Sign out
-                                </button>
-                            </div>
-                        </div>
+                        <UserProfileMenu />
                     </div>
                 </header>
 

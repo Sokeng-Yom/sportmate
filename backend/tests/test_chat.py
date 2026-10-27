@@ -43,6 +43,34 @@ def test_chat_info_lists_the_members_with_names(client, auth_headers_for, new_ma
     assert again["conversation_id"] == info["conversation_id"]  # one conversation per match
 
 
+def test_unread_messages_count_and_mark_read_are_per_user_and_conversation(
+    client, auth_headers_for, new_match
+):
+    creator, player, outsider = (
+        auth_headers_for("PLAYER"),
+        auth_headers_for("PLAYER"),
+        auth_headers_for("PLAYER"),
+    )
+    match_id, _ = new_match(creator, players_needed=3)
+    _join(client, match_id, player)
+    unread_url = "/api/v1/matches/chat/unread-count"
+
+    assert client.get(unread_url, headers=creator).json()["unread_count"] == 0
+    assert _send(client, match_id, player).status_code == 201
+    assert client.get(unread_url, headers=creator).json()["unread_count"] == 1
+    assert client.get(unread_url, headers=player).json()["unread_count"] == 0
+
+    assert client.post(f"/api/v1/matches/{match_id}/chat/read", headers=creator).status_code == 200
+    assert client.get(unread_url, headers=creator).json()["unread_count"] == 0
+
+    assert _send(client, match_id, creator, "reply").status_code == 201
+    assert client.get(unread_url, headers=player).json()["unread_count"] == 1
+    assert client.post(f"/api/v1/matches/{match_id}/chat/read", headers=player).status_code == 200
+    assert client.get(unread_url, headers=player).json()["unread_count"] == 0
+    assert client.get(unread_url, headers=outsider).json()["unread_count"] == 0
+    assert client.post(f"/api/v1/matches/{match_id}/chat/read", headers=outsider).status_code == 403
+
+
 def test_non_participants_are_locked_out_and_logged(client, auth_headers_for, new_match, db_session, user_id_of):
     creator, outsider = auth_headers_for("PLAYER"), auth_headers_for("PLAYER")
     match_id, _ = new_match(creator, players_needed=3)

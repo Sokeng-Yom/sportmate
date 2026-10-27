@@ -27,6 +27,18 @@ class ConversationMember(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id"), nullable=False)
 
 
+class ConversationReadState(Base):
+    __tablename__ = "conversation_read_states"
+
+    conversation_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("profiles.id", ondelete="CASCADE"), primary_key=True)
+    last_read_at = Column(DateTime, nullable=False)
+
+
 class Message(Base):
     __tablename__ = "messages"
     __table_args__ = (

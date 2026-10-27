@@ -7,7 +7,7 @@ import {
     PenLine, Info, CheckCircle2, Footprints, ShieldCheck, DollarSign
 } from "lucide-react";
 import { ApiError } from "../../../lib/apiClient";
-import { createBooking, createMatch, joinMatch, listVenueCourts, listVenues } from "../../../lib/api";
+import { createMatch, joinMatch, listVenueCourts, listVenues } from "../../../lib/api";
 import type { CourtRead, VenueRead } from "../../../lib/types";
 
 const SPORTS = [
@@ -145,32 +145,16 @@ function HostPageContent() {
                     : {}),
             });
 
-            // The creator joins their own match so they can chat and (once it's
-            // full) book a court. Best-effort: the match itself is already live.
-            let creatorJoined = false;
+            // The creator joins separately from the additional player slots.
+            // Best-effort: the match itself is already live.
             try {
                 await joinMatch(match.id);
-                creatorJoined = true;
-            } catch {
-                /* ignore — creator can still manage the match */
-            }
-
-            // Court Booking: if the match is already full (e.g. a 1-player match)
-            // and a court was picked, reserve it right away.
-            if (bookingType === "Court Booking" && creatorJoined && selectedCourt && playersNeeded <= 1) {
-                try {
-                    await createBooking({
-                        match_id: match.id,
-                        court_id: selectedCourt.id,
-                        duration_minutes: durationMin[form.duration] ?? 60,
-                    });
-                } catch (err) {
-                    setSubmitError(
-                        `Your game was posted, but the court booking failed: ${
-                            err instanceof ApiError ? err.message : "Please try booking again from My listings."
-                        }`,
-                    );
-                }
+            } catch (err) {
+                setSubmitError(
+                    `Your game was posted, but you could not join it: ${
+                        err instanceof ApiError ? err.message : "Please open My listings and retry."
+                    }`,
+                );
             }
 
             setSubmitted(true);
@@ -429,7 +413,7 @@ function HostPageContent() {
                                         <Users size={20} className="text-slate-400 mt-3 flex-shrink-0" />
                                         <div className="flex-1">
                                             <label className="block text-sm font-semibold text-slate-700 mb-2">
-                                                Players Needed
+                                                Additional Players Needed
                                             </label>
                                             <input
                                                 name="playersNeeded"
@@ -442,6 +426,9 @@ function HostPageContent() {
                                                 placeholder="e.g. 2"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 placeholder:text-slate-400"
                                             />
+                                            <p className="mt-2 text-xs text-slate-500">
+                                                How many people can join in addition to you as the host.
+                                            </p>
                                         </div>
                                     </div>
 

@@ -1,320 +1,181 @@
 "use client";
 
-import React, { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
     ArrowLeft,
-    MapPin,
-    Phone,
-    Clock,
-    DollarSign,
-    Tag,
     CalendarDays,
+    Clock,
     ExternalLink,
-    ChevronRight,
+    MapPin,
+    RefreshCw,
+    Tag,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { getVenue } from "../../../lib/venues";
+import { ApiError } from "../../../../lib/apiClient";
+import { getVenue, listVenueCourts, listVenueDiscounts, listVenueEvents } from "../../../../lib/api";
+import type { CourtRead, VenueDiscountRead, VenueEventRead, VenueRead } from "../../../../lib/types";
 import { DiscountCard } from "../components/DiscountCard";
 import { EventCard } from "../components/EventCard";
 import { EmptyState } from "../components/EmptyState";
 
-const today = new Date().toISOString().split("T")[0];
-
-const SPORT_COLORS: Record<string, string> = {
-    Badminton: "bg-emerald-100 text-emerald-700",
-    Tennis: "bg-yellow-100 text-yellow-700",
-    Football: "bg-blue-100 text-blue-700",
-    Futsal: "bg-blue-100 text-blue-700",
-    Basketball: "bg-orange-100 text-orange-700",
-    Volleyball: "bg-purple-100 text-purple-700",
-    Swimming: "bg-cyan-100 text-cyan-700",
-    Squash: "bg-red-100 text-red-700",
-    Running: "bg-green-100 text-green-700",
-};
-
 type Tab = "about" | "discounts" | "events";
 
-export default function VenueDetailPage({
-    params,
-}: {
-    params: { venueId: string };
-}) {
-    const { venueId } = params;
-    const venue = getVenue(venueId);
-    const [activeTab, setActiveTab] = useState<Tab>("about");
+function localDate(): string {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
+}
 
-    // ── Not found ─────────────────────────────────────────────────────────────
-    if (!venue) {
+export default function VenueDetailPage({ params }: { params: { venueId: string } }) {
+    const { venueId } = params;
+    const [venue, setVenue] = useState<VenueRead | null>(null);
+    const [courts, setCourts] = useState<CourtRead[]>([]);
+    const [discounts, setDiscounts] = useState<VenueDiscountRead[]>([]);
+    const [events, setEvents] = useState<VenueEventRead[]>([]);
+    const [activeTab, setActiveTab] = useState<Tab>("about");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const [venueData, courtRows, discountRows, eventRows] = await Promise.all([
+                getVenue(venueId),
+                listVenueCourts(venueId),
+                listVenueDiscounts(venueId),
+                listVenueEvents(venueId),
+            ]);
+            setVenue(venueData);
+            setCourts(courtRows);
+            setDiscounts(discountRows);
+            setEvents(eventRows);
+        } catch (err) {
+            setVenue(null);
+            setError(err instanceof ApiError ? err.message : "Could not load this venue.");
+        } finally {
+            setLoading(false);
+        }
+    }, [venueId]);
+
+    useEffect(() => {
+        void load();
+    }, [load, reloadKey]);
+
+    const today = localDate();
+    const activeDiscounts = useMemo(
+        () => discounts.filter((discount) => discount.valid_until >= today),
+        [discounts, today],
+    );
+    const upcomingEvents = useMemo(
+        () => events.filter((event) => event.event_date >= today),
+        [events, today],
+    );
+    const sports = Array.from(new Set(courts.map((court) => court.sport))).sort();
+
+    if (loading) {
+        return <div className="mx-auto max-w-4xl px-6 py-16 text-center text-slate-500">Loading venue…</div>;
+    }
+
+    if (error || !venue) {
+        const notFound = error?.toLowerCase().includes("not found");
         return (
-            <div className="min-h-screen bg-[#F8F5F0] flex flex-col items-center justify-center gap-6 px-6 text-center">
-                <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                    <MapPin size={28} className="text-slate-400" />
-                </div>
-                <h1 className="text-2xl font-extrabold text-slate-900">Venue not found</h1>
-                <p className="text-slate-500 max-w-xs">
-                    We couldn't find a venue with that ID. It may have been removed or the
-                    link might be incorrect.
-                </p>
-                <Link
-                    href="/player/venues"
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-full text-sm transition-all active:scale-95"
-                >
-                    <ArrowLeft size={16} />
-                    Back to Venues
-                </Link>
+            <div className="flex min-h-[60vh] flex-col items-center justify-center gap-5 px-6 text-center">
+                <MapPin size={28} className="text-slate-400" />
+                <h1 className="text-2xl font-extrabold text-slate-900">{notFound ? "Venue not found" : "Could not load venue"}</h1>
+                <p role="alert" className="max-w-md text-sm text-slate-500">{error ?? "This venue is unavailable."}</p>
+                {!notFound && <button onClick={() => setReloadKey((key) => key + 1)} className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white"><RefreshCw size={14} /> Try again</button>}
+                <Link href="/player/venues" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-700"><ArrowLeft size={15} /> Back to venues</Link>
             </div>
         );
     }
-
-    const activeDiscounts = venue.discounts.filter((d) => d.validUntil >= today);
-    const upcomingEvents = venue.events
-        .filter((e) => e.date >= today)
-        .sort((a, b) => a.date.localeCompare(b.date));
 
     const tabs: { key: Tab; label: string; count?: number }[] = [
         { key: "about", label: "About" },
         { key: "discounts", label: "Discounts", count: activeDiscounts.length },
         { key: "events", label: "Events", count: upcomingEvents.length },
     ];
+    const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`;
 
     return (
         <div className="min-h-screen bg-[#F8F5F0] pb-20">
-            {/* ── Sticky header ── */}
-            <header className="bg-white border-b border-gray-100 shadow-sm">
-                <div className="max-w-4xl mx-auto px-6 py-5">
-                    {/* Back + title row */}
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                            <Link
-                                href="/player/venues"
-                                className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-emerald-600 mb-2 transition-colors"
-                            >
-                                <ArrowLeft size={14} />
-                                All Venues
+            <header className="border-b border-gray-100 bg-white shadow-sm">
+                <div className="mx-auto max-w-4xl px-6 py-5">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                            <Link href="/player/venues" className="mb-2 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-emerald-600">
+                                <ArrowLeft size={14} /> All venues
                             </Link>
-                            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 leading-tight">
-                                {venue.name}
-                            </h1>
-                            <p className="flex items-center gap-1.5 text-slate-500 text-sm mt-1">
-                                <MapPin size={13} className="text-emerald-500 flex-shrink-0" />
-                                {venue.address}, {venue.city}
-                            </p>
+                            <h1 className="text-2xl font-extrabold leading-tight text-slate-900 md:text-3xl">{venue.name}</h1>
+                            <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500"><MapPin size={13} className="shrink-0 text-emerald-500" />{venue.address}</p>
                         </div>
-
-                        {/* Book here CTA */}
-                        <Link
-                            href={`/player/host?venueId=${venue.id}`}
-                            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-3 rounded-full shadow-md transition-all active:scale-95 text-sm self-start"
-                        >
+                        <Link href={`/player/host?venueId=${venue.id}`} className="self-start rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700">
                             Book here
-                            <ChevronRight size={16} />
                         </Link>
                     </div>
                 </div>
             </header>
 
-            {/* ── Tabs ── */}
-            <div className="max-w-4xl mx-auto px-6 mt-6">
-                <div
-                    role="tablist"
-                    aria-label="Venue sections"
-                    className="flex gap-1 bg-white rounded-2xl border border-gray-100 p-1 w-fit shadow-sm"
-                >
+            <div className="mx-auto mt-6 max-w-4xl px-6">
+                <div role="tablist" aria-label="Venue sections" className="flex w-fit gap-1 rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
                     {tabs.map((tab) => (
-                        <button
-                            key={tab.key}
-                            role="tab"
-                            id={`tab-${tab.key}`}
-                            aria-selected={activeTab === tab.key}
-                            aria-controls={`panel-${tab.key}`}
-                            onClick={() => setActiveTab(tab.key)}
-                            className={`flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.key
-                                ? "bg-emerald-600 text-white shadow"
-                                : "text-slate-600 hover:text-slate-900 hover:bg-gray-50"
-                                }`}
-                        >
+                        <button key={tab.key} role="tab" aria-selected={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold ${activeTab === tab.key ? "bg-emerald-600 text-white shadow" : "text-slate-600 hover:bg-gray-50"}`}>
                             {tab.label}
-                            {tab.count !== undefined && tab.count > 0 && (
-                                <span
-                                    className={`text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none ${activeTab === tab.key
-                                        ? "bg-white/20"
-                                        : "bg-slate-100"
-                                        }`}
-                                >
-                                    {tab.count}
-                                </span>
-                            )}
+                            {tab.count !== undefined && <span className={`rounded-full px-1.5 text-xs ${activeTab === tab.key ? "bg-white/20" : "bg-slate-100"}`}>{tab.count}</span>}
                         </button>
                     ))}
                 </div>
 
-                {/* ── Tab panels ── */}
                 <div className="mt-6">
-                    <AnimatePresence mode="wait" initial={false}>
-                        <motion.div
-                            key={activeTab}
-                            id={`panel-${activeTab}`}
-                            role="tabpanel"
-                            aria-labelledby={`tab-${activeTab}`}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            transition={{ duration: 0.18 }}
-                        >
-                            {/* ── ABOUT ── */}
-                            {activeTab === "about" && (
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    {/* Info panel */}
-                                    <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
-                                        <h2 className="font-extrabold text-slate-900 text-lg">Details</h2>
-
-                                        <InfoRow
-                                            icon={<Clock size={16} className="text-emerald-500" />}
-                                            label="Open hours"
-                                            value={venue.openHours}
-                                        />
-                                        <InfoRow
-                                            icon={<DollarSign size={16} className="text-emerald-500" />}
-                                            label="Price"
-                                            value={`$${venue.pricePerHour} / hour`}
-                                        />
-                                        {venue.phone && (
-                                            <InfoRow
-                                                icon={<Phone size={16} className="text-emerald-500" />}
-                                                label="Phone"
-                                                value={venue.phone}
-                                            />
-                                        )}
-
-                                        {/* Sports */}
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                                Sports
-                                            </p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {venue.sports.map((s) => (
-                                                    <span
-                                                        key={s}
-                                                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${SPORT_COLORS[s] ?? "bg-gray-100 text-gray-600"}`}
-                                                    >
-                                                        {s}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Amenities */}
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                                                Amenities
-                                            </p>
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {venue.amenities.map((a) => (
-                                                    <span
-                                                        key={a}
-                                                        className="text-xs font-medium bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full"
-                                                    >
-                                                        {a}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Map panel */}
-                                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden flex flex-col">
-                                        <iframe
-                                            title={`Map showing location of ${venue.name}`}
-                                            src={`https://maps.google.com/maps?q=${venue.lat},${venue.lng}&z=15&output=embed`}
-                                            className="w-full flex-1 min-h-64"
-                                            loading="lazy"
-                                            referrerPolicy="no-referrer-when-downgrade"
-                                            aria-label={`Embedded Google Map for ${venue.name}`}
-                                        />
-                                        <div className="p-4 border-t border-gray-100">
-                                            <a
-                                                href={`https://www.google.com/maps/dir/?api=1&destination=${venue.lat},${venue.lng}`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-                                            >
-                                                <ExternalLink size={14} />
-                                                Get directions
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ── DISCOUNTS ── */}
-                            {activeTab === "discounts" && (
+                    {activeTab === "about" && (
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <section className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6">
+                                <h2 className="text-lg font-extrabold text-slate-900">Venue details</h2>
+                                <InfoRow icon={<MapPin size={16} className="text-emerald-500" />} label="Address" value={venue.address} />
+                                <InfoRow icon={<Clock size={16} className="text-emerald-500" />} label="Courts" value={`${courts.length} available court${courts.length === 1 ? "" : "s"}`} />
+                                {venue.description && <p className="text-sm leading-relaxed text-slate-600">{venue.description}</p>}
                                 <div>
-                                    {activeDiscounts.length === 0 ? (
-                                        <div className="bg-white rounded-2xl border border-gray-100">
-                                            <EmptyState
-                                                icon={<Tag size={24} />}
-                                                title="No discounts right now"
-                                                description="Check back later — new offers are added regularly."
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="grid sm:grid-cols-2 gap-4">
-                                            {activeDiscounts.map((d) => (
-                                                <DiscountCard key={d.id} discount={d} />
-                                            ))}
-                                        </div>
-                                    )}
+                                    <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Sports</p>
+                                    {sports.length ? <div className="flex flex-wrap gap-2">{sports.map((item) => <span key={item} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{item}</span>)}</div> : <p className="text-sm text-slate-500">No courts listed yet.</p>}
                                 </div>
-                            )}
+                                {courts.length > 0 && (
+                                    <div>
+                                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Courts</p>
+                                        <ul className="space-y-2">{courts.map((court) => <li key={court.id} className="rounded-xl bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold text-slate-800">{court.name}</span><span className="ml-2 text-slate-500">{court.sport}</span></li>)}</ul>
+                                    </div>
+                                )}
+                            </section>
+                            <section className="flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white">
+                                <iframe title={`Map showing location of ${venue.name}`} src={`https://maps.google.com/maps?q=${encodeURIComponent(venue.address)}&z=15&output=embed`} className="min-h-64 w-full flex-1" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+                                <div className="border-t border-gray-100 p-4">
+                                    <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-600 hover:text-emerald-700"><ExternalLink size={14} /> Get directions</a>
+                                </div>
+                            </section>
+                        </div>
+                    )}
 
-                            {/* ── EVENTS ── */}
-                            {activeTab === "events" && (
-                                <div>
-                                    {upcomingEvents.length === 0 ? (
-                                        <div className="bg-white rounded-2xl border border-gray-100">
-                                            <EmptyState
-                                                icon={<CalendarDays size={24} />}
-                                                title="No upcoming events"
-                                                description="There are no events scheduled here at the moment."
-                                            />
-                                        </div>
-                                    ) : (
-                                        <div className="grid sm:grid-cols-2 gap-4">
-                                            {upcomingEvents.map((e) => (
-                                                <EventCard key={e.id} event={e} />
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </motion.div>
-                    </AnimatePresence>
+                    {activeTab === "discounts" && (activeDiscounts.length === 0 ? (
+                        <div className="rounded-2xl border border-gray-100 bg-white"><EmptyState icon={<Tag size={24} />} title="No discounts right now" description="Check back later for current offers." /></div>
+                    ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">{activeDiscounts.map((discount) => <DiscountCard key={discount.id} discount={discount} />)}</div>
+                    ))}
+
+                    {activeTab === "events" && (upcomingEvents.length === 0 ? (
+                        <div className="rounded-2xl border border-gray-100 bg-white"><EmptyState icon={<CalendarDays size={24} />} title="No upcoming events" description="Check back later to see what's happening at this venue." /></div>
+                    ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">{upcomingEvents.map((event) => <EventCard key={event.id} event={event} />)}</div>
+                    ))}
                 </div>
             </div>
         </div>
     );
 }
 
-// ─── Helper sub-component ─────────────────────────────────────────────────────
-function InfoRow({
-    icon,
-    label,
-    value,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    value: string;
-}) {
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
     return (
         <div className="flex items-start gap-3">
             <div className="mt-0.5">{icon}</div>
-            <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    {label}
-                </p>
-                <p className="text-sm font-semibold text-slate-800 mt-0.5">{value}</p>
-            </div>
+            <div><p className="text-xs font-bold uppercase tracking-wider text-slate-400">{label}</p><p className="mt-0.5 text-sm font-semibold text-slate-800">{value}</p></div>
         </div>
     );
 }

@@ -207,20 +207,20 @@ function BookingsContent() {
                                 {b.status === "Confirmed" && (
                                     <button onClick={() => handleCancel(b.id)} className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-xl hover:bg-red-600 transition-colors">Cancel booking</button>
                                 )}
-                                <ConfirmModal
-                                    open={review !== null}
-                                    title={review?.action === "Confirmed" ? "Approve this booking?" : "Reject this booking request?"}
-                                    description={review?.action === "Confirmed"
-                                        ? "The court reservation will be confirmed and the players will be notified."
-                                        : "The players will be notified that this booking request was declined."}
-                                    confirmLabel={review?.action === "Confirmed" ? "Approve booking" : "Reject request"}
-                                    danger={review?.action === "Rejected"}
-                                    onCancel={() => setReview(null)}
-                                    onConfirm={() => { void handleReview(); }}
-                                />
                             </div>
                         ))}
                     </div>
+                    <ConfirmModal
+                        open={review !== null}
+                        title={review?.action === "Confirmed" ? "Approve this booking?" : "Reject this booking request?"}
+                        description={review?.action === "Confirmed"
+                            ? "The court reservation will be confirmed and the players will be notified."
+                            : "The players will be notified that this booking request was declined."}
+                        confirmLabel={review?.action === "Confirmed" ? "Approve booking" : "Reject request"}
+                        danger={review?.action === "Rejected"}
+                        onCancel={() => setReview(null)}
+                        onConfirm={() => { void handleReview(); }}
+                    />
                 </>
             )}
         </div>

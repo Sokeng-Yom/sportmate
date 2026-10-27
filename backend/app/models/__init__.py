@@ -4,7 +4,8 @@ from app.models.match import Match, MatchPlayer
 from app.models.waiting_list import WaitingList
 from app.models.match_leave import MatchLeave
 from app.models.venue import Venue, Court
+from app.models.venue_marketing import VenueDiscount, VenueEvent
 from app.models.booking import Booking
-from app.models.chat import Conversation, ConversationMember, Message
+from app.models.chat import Conversation, ConversationMember, ConversationReadState, Message
 from app.models.community import Post, Comment, PostLike
 from app.models.system import Notification, SecurityLog

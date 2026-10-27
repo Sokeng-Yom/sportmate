@@ -16,8 +16,41 @@ OFFER_WINDOW_MINUTES = 30
 _OFFERABLE_STATUSES = ("OPEN", "FULL", "CONFIRMED")
 
 
-def count_joined(db: Session, match_id: UUID) -> int:
-    return db.query(func.count()).select_from(MatchPlayer).filter(MatchPlayer.match_id == match_id).scalar()
+def count_joined_excluding_host(db: Session, match_id: UUID) -> int:
+    return (
+        db.query(func.count(MatchPlayer.id))
+        .join(Match, Match.id == MatchPlayer.match_id)
+        .filter(MatchPlayer.match_id == match_id, MatchPlayer.user_id != Match.created_by)
+        .scalar()
+    )
+
+
+def count_joined_for_matches(db: Session, match_ids: list[UUID]) -> dict[UUID, int]:
+    if not match_ids:
+        return {}
+    rows = (
+        db.query(MatchPlayer.match_id, func.count(MatchPlayer.id))
+        .filter(MatchPlayer.match_id.in_(match_ids))
+        .group_by(MatchPlayer.match_id)
+        .all()
+    )
+    return {match_id: count for match_id, count in rows}
+
+
+def count_joined_excluding_hosts_for_matches(db: Session, match_ids: list[UUID]) -> dict[UUID, int]:
+    if not match_ids:
+        return {}
+    rows = (
+        db.query(MatchPlayer.match_id, func.count(MatchPlayer.id))
+        .join(Match, Match.id == MatchPlayer.match_id)
+        .filter(
+            MatchPlayer.match_id.in_(match_ids),
+            MatchPlayer.user_id != Match.created_by,
+        )
+        .group_by(MatchPlayer.match_id)
+        .all()
+    )
+    return {match_id: count for match_id, count in rows}
 
 
 def count_active_offers(db: Session, match_id: UUID, exclude_user_id=None) -> int:
@@ -36,7 +69,7 @@ def open_slots(db: Session, match: Match, for_user_id=None) -> int:
     """Slots a given user could take right now (slots held for OTHER waiters don't count)."""
     return (
         match.players_needed
-        - count_joined(db, match.id)
+        - count_joined_excluding_host(db, match.id)
         - count_active_offers(db, match.id, exclude_user_id=for_user_id)
     )
 
@@ -83,17 +116,3 @@ def offer_open_slots(db: Session, match: Match) -> int:
         slots -= 1
         offered += 1
     return offered
-
-
-def count_joined_for_matches(db: Session, match_ids) -> dict:
-    """Players per match for many matches in ONE query: {match_id: count}. Matches with no players are absent."""
-    ids = list(match_ids)
-    if not ids:
-        return {}
-    rows = (
-        db.query(MatchPlayer.match_id, func.count(MatchPlayer.id))
-        .filter(MatchPlayer.match_id.in_(ids))
-        .group_by(MatchPlayer.match_id)
-        .all()
-    )
-    return {match_id: count for match_id, count in rows}

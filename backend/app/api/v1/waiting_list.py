@@ -11,9 +11,8 @@ from app.db.session import get_db
 from app.models.match import Match, MatchPlayer
 from app.models.waiting_list import WaitingList
 from app.schemas.lifecycle import WaitingListAccepted
+from app.services.waiting_list_service import count_joined_excluding_host
 from app.services.join_rules import ensure_not_restricted
-from app.services.join_rules import ensure_not_restricted
-from app.services.waiting_list_service import count_joined
 
 router = APIRouter(prefix="/api/v1/waiting-list", tags=["waiting-list"])
 
@@ -34,7 +33,6 @@ def accept_waiting_list_entry(
     if str(entry.user_id) != user["sub"]:
         raise HTTPException(status_code=403, detail="This waiting list entry does not belong to you")
     ensure_not_restricted(db, entry.user_id)
-    ensure_not_restricted(db, entry.user_id)
     if entry.status != "NOTIFIED":
         raise HTTPException(status_code=400, detail=f"Cannot accept an entry with status {entry.status}")
     if entry.expires_at and entry.expires_at < utc_now_naive():
@@ -45,7 +43,7 @@ def accept_waiting_list_entry(
     match = db.query(Match).filter(Match.id == entry.match_id).with_for_update().first()
     if match.status not in (MatchStatus.OPEN, MatchStatus.FULL, MatchStatus.CONFIRMED):
         raise HTTPException(status_code=400, detail="This match is closed")
-    joined = count_joined(db, entry.match_id)
+    joined = count_joined_excluding_host(db, entry.match_id)
     if joined >= match.players_needed:
         raise HTTPException(status_code=400, detail="Match is already full")
 

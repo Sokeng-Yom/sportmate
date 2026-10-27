@@ -34,6 +34,7 @@ class Match(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     players = relationship("MatchPlayer", back_populates="match", cascade="all, delete-orphan")
+    creator = relationship("Profile", foreign_keys=[created_by])
     court = relationship("Court", foreign_keys=[court_id])
     bookings = relationship(
         "Booking",
@@ -58,6 +59,10 @@ class Match(Base):
         if self.court_id is None:
             return None
         return self.bookings[0].status if self.bookings else "AVAILABLE"
+
+    @property
+    def host_name(self):
+        return self.creator.name if self.creator else None
 
 
 class MatchPlayer(Base):
