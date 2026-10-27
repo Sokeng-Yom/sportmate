@@ -13,6 +13,7 @@ from app.api.v1 import (
     posts,
     profiles,
     sports,
+    venue_marketing,
     venues,
     waiting_list,
 )
@@ -23,6 +24,6 @@ api_router = APIRouter()
 # must be included before routers with /{id} paths on the same prefix.
 for module in (
     profiles, admin, admin_venues, admin_posts, venues, court_search, courts, bookings, sports,
-    matches, chat, waiting_list, posts, notifications,
+    matches, chat, waiting_list, venue_marketing, posts, notifications,
 ):
     api_router.include_router(module.router)

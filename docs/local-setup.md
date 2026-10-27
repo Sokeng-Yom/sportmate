@@ -10,7 +10,8 @@
    1. `cd backend && python -m venv venv && source venv/bin/activate`
    2. `pip install -r requirements.txt`
    3. Copy `.env.example` to `.env` and fill in your real Supabase values.
-   4. `uvicorn app.main:app --reload`
+   4. Apply database migrations with `alembic upgrade head`.
+   5. `uvicorn app.main:app --reload`
 
    ## Frontend
    1. `cd frontend && npm install`

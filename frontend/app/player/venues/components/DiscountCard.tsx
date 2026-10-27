@@ -19,7 +19,7 @@ export function DiscountCard({ discount }: DiscountCardProps) {
         });
     };
 
-    const validDate = new Date(discount.validUntil).toLocaleDateString("en-US", {
+    const validDate = new Date(`${discount.valid_until}T00:00:00`).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -33,9 +33,9 @@ export function DiscountCard({ discount }: DiscountCardProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900">{discount.title}</p>
-                    {discount.percentOff && (
+                    {discount.percent_off && (
                         <p className="text-2xl font-extrabold text-emerald-600 leading-tight">
-                            {discount.percentOff}% off
+                            {discount.percent_off}% off
                         </p>
                     )}
                     <p className="text-sm text-slate-500 mt-1">{discount.description}</p>

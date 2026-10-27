@@ -3,13 +3,16 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import and_, func, or_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from app.core.clock import utc_now_naive
 from app.core.deps import get_current_profile
 from app.core.enums import MatchStatus
 from app.db.session import get_db
-from app.models.chat import Message
-from app.models.match import Match
+from app.models.chat import Conversation, ConversationReadState, Message
+from app.models.match import Match, MatchPlayer
 from app.models.profile import Profile
 from app.schemas.chat import ChatInfo, MessageCreate, MessagePage, MessageRead
 from app.services.chat import get_or_create_conversation
@@ -41,6 +44,63 @@ def _message_read(message: Message, sender_name: str) -> dict:
     data = MessageRead.model_validate(message).model_dump()
     data["sender_name"] = sender_name
     return data
+
+
+@router.get("/chat/unread-count", summary="Count unread incoming messages for the current user")
+def unread_message_count(
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+):
+    is_participant = or_(
+        Match.created_by == profile.id,
+        db.query(MatchPlayer.id)
+        .filter(MatchPlayer.match_id == Match.id, MatchPlayer.user_id == profile.id)
+        .exists(),
+    )
+    count = (
+        db.query(func.count(Message.id))
+        .join(Conversation, Conversation.id == Message.conversation_id)
+        .join(Match, Match.id == Conversation.match_id)
+        .outerjoin(
+            ConversationReadState,
+            and_(
+                ConversationReadState.conversation_id == Conversation.id,
+                ConversationReadState.user_id == profile.id,
+            ),
+        )
+        .filter(
+            Message.sender_id != profile.id,
+            is_participant,
+            or_(
+                ConversationReadState.last_read_at.is_(None),
+                Message.created_at > ConversationReadState.last_read_at,
+            ),
+        )
+        .scalar()
+    )
+    return {"unread_count": count or 0}
+
+
+@router.post("/{match_id}/chat/read", summary="Mark incoming messages in a match chat as read")
+def mark_chat_read(
+    match_id: UUID,
+    request: Request,
+    profile: Profile = Depends(get_current_profile),
+    db: Session = Depends(get_db),
+):
+    _participant_match(db, match_id, profile, request)
+    conversation = get_or_create_conversation(db, match_id)
+    now = utc_now_naive()
+    db.execute(
+        pg_insert(ConversationReadState)
+        .values(conversation_id=conversation.id, user_id=profile.id, last_read_at=now)
+        .on_conflict_do_update(
+            index_elements=["conversation_id", "user_id"],
+            set_={"last_read_at": func.greatest(ConversationReadState.last_read_at, now)},
+        )
+    )
+    db.commit()
+    return {"marked": True}
 
 
 @router.get(

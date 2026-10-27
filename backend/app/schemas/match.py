@@ -1,4 +1,6 @@
-from datetime import date, datetime, time
+from datetime import date as date_type
+from datetime import datetime
+from datetime import time as time_type
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -9,9 +11,9 @@ from app.core.enums import SkillLevel
 class MatchCreate(BaseModel):
     sport: str
     location: str
-    date: date
-    time: time
-    players_needed: int
+    date: date_type
+    time: time_type
+    players_needed: int = Field(description="Number of additional players needed, excluding the host")
     skill_level: str
     court_id: UUID | None = None
     court_duration_minutes: int | None = Field(default=None, ge=30, le=240)
@@ -45,6 +47,44 @@ class MatchCreate(BaseModel):
         return v
 
 
+class MatchUpdate(BaseModel):
+    sport: str | None = None
+    location: str | None = None
+    date: date_type | None = None
+    time: time_type | None = None
+    players_needed: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of additional players needed, excluding the host",
+    )
+    skill_level: str | None = None
+
+    @model_validator(mode="after")
+    def validate_update(self):
+        if not self.model_fields_set:
+            raise ValueError("At least one match field must be provided")
+        if any(getattr(self, field) is None for field in self.model_fields_set):
+            raise ValueError("Match fields cannot be null")
+        return self
+
+    @field_validator("skill_level")
+    @classmethod
+    def validate_skill_level(cls, v: str | None) -> str | None:
+        if v is not None and v not in SkillLevel.ALL:
+            raise ValueError(f"skill_level must be one of {SkillLevel.ALL}")
+        return v
+
+    @field_validator("sport", "location")
+    @classmethod
+    def validate_not_empty(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("must not be empty")
+        return v
+
+
 class MatchPlayerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
@@ -57,12 +97,13 @@ class MatchRead(BaseModel):
     id: UUID
     sport: str
     location: str
-    date: date
-    time: time
+    date: date_type
+    time: time_type
     players_needed: int
     skill_level: str
     status: str
     created_by: UUID
+    host_name: str | None = None
     created_at: datetime
     court_id: UUID | None = None
     court_duration_minutes: int | None = None
@@ -74,6 +115,7 @@ class MatchRead(BaseModel):
 
 class MatchListRead(MatchRead):
     joined_count: int
+    joined_count_excluding_host: int
 
 
 class MatchDetailRead(MatchRead):
@@ -89,6 +131,7 @@ class PaginatedMatches(BaseModel):
 class RecommendedMatch(MatchRead):
     score: float
     joined_count: int
+    joined_count_excluding_host: int
 
 class PaginatedRecommendedMatches(BaseModel):
     items: list[RecommendedMatch]

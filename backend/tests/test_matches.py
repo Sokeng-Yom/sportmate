@@ -1,5 +1,8 @@
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
+from uuid import UUID
 
+from app.models.booking import Booking
 from app.models.match import Match
 
 
@@ -11,6 +14,133 @@ def test_create_match(client, auth_headers_for):
     )
     assert response.status_code == 201
     assert response.json()["status"] == "OPEN"
+
+
+def test_match_list_includes_host_name(client, auth_headers_for, new_match):
+    host = auth_headers_for("PLAYER")
+    match_id, _ = new_match(host)
+
+    response = client.get("/api/v1/matches?created_by_me=true", headers=host)
+
+    assert response.status_code == 200, response.text
+    match = next(item for item in response.json()["items"] if item["id"] == match_id)
+    assert match["host_name"] == "Test PLAYER"
+
+
+def test_cancelled_matches_are_hidden_from_default_lists_but_retained(
+    client, auth_headers_for, new_match, db_session
+):
+    host = auth_headers_for("PLAYER")
+    match_id, _ = new_match(host)
+
+    cancelled = client.patch(f"/api/v1/matches/{match_id}/cancel", headers=host)
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "CANCELLED"
+
+    default_list = client.get("/api/v1/matches", headers=host)
+    assert default_list.status_code == 200
+    assert all(item["id"] != match_id for item in default_list.json()["items"])
+
+    cancelled_list = client.get("/api/v1/matches?status=CANCELLED", headers=host)
+    assert cancelled_list.status_code == 200
+    assert any(item["id"] == match_id for item in cancelled_list.json()["items"])
+
+    stored_match = db_session.query(Match).filter(Match.id == uuid.UUID(match_id)).one()
+    assert stored_match.status == "CANCELLED"
+
+
+def test_match_creator_can_edit_match_but_other_users_cannot(client, auth_headers_for, new_match):
+    host_headers = auth_headers_for("PLAYER")
+    match_id, _ = new_match(host_headers, players_needed=3)
+
+    response = client.patch(
+        f"/api/v1/matches/{match_id}",
+        json={
+            "sport": "Tennis",
+            "location": "Updated court",
+            "date": "2020-01-01",
+            "time": "20:00",
+            "players_needed": 4,
+            "skill_level": "ADVANCED",
+        },
+        headers=host_headers,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["sport"] == "Tennis"
+    assert response.json()["location"] == "Updated court"
+    assert response.json()["date"] == "2020-01-01"
+    assert response.json()["players_needed"] == 4
+    assert response.json()["skill_level"] == "ADVANCED"
+
+    rejected = client.patch(
+        f"/api/v1/matches/{match_id}",
+        json={"location": "Not the host"},
+        headers=auth_headers_for("VENUE_OWNER"),
+    )
+    assert rejected.status_code == 403
+
+
+def test_players_needed_is_additional_to_the_host(client, auth_headers_for, new_match, db_session):
+    host = auth_headers_for("PLAYER")
+    match_id, _ = new_match(host, players_needed=2)
+
+    host_joined = client.post(f"/api/v1/matches/{match_id}/join", headers=host)
+    assert host_joined.status_code == 200
+    assert host_joined.json()["status"] == "OPEN"
+    db_session.query(Match).filter(Match.id == match_id).update({"status": "FULL"})
+    db_session.commit()
+
+    first_player = client.post(
+        f"/api/v1/matches/{match_id}/join",
+        headers=auth_headers_for("PLAYER"),
+    )
+    assert first_player.status_code == 200
+    assert first_player.json()["status"] == "OPEN"
+
+    second_player = client.post(
+        f"/api/v1/matches/{match_id}/join",
+        headers=auth_headers_for("PLAYER"),
+    )
+    assert second_player.status_code == 200
+    assert second_player.json()["status"] == "FULL"
+
+    extra_player = client.post(
+        f"/api/v1/matches/{match_id}/join",
+        headers=auth_headers_for("PLAYER"),
+    )
+    assert extra_player.status_code == 400
+
+
+def test_pending_court_booking_does_not_block_remaining_player_slots(
+    client, auth_headers_for, new_match, db_session, make_approved_venue, make_court, user_id_of
+):
+    host = auth_headers_for("PLAYER")
+    first_player = auth_headers_for("PLAYER")
+    second_player = auth_headers_for("PLAYER")
+    match_id, start = new_match(host, players_needed=2)
+    owner, venue = make_approved_venue()
+    court = make_court(owner, venue["id"])
+
+    assert client.post(f"/api/v1/matches/{match_id}/join", headers=host).status_code == 200
+    assert client.post(f"/api/v1/matches/{match_id}/join", headers=first_player).status_code == 200
+
+    db_session.query(Match).filter(Match.id == match_id).update({"status": "FULL"})
+    db_session.add(
+        Booking(
+            id=uuid.uuid4(),
+            court_id=UUID(court["id"]),
+            match_id=UUID(match_id),
+            booked_by=UUID(user_id_of(host)),
+            start_time=start,
+            end_time=start + timedelta(minutes=60),
+            status="PENDING",
+        )
+    )
+    db_session.commit()
+
+    second_join = client.post(f"/api/v1/matches/{match_id}/join", headers=second_player)
+    assert second_join.status_code == 200, second_join.text
+    assert second_join.json()["status"] == "FULL"
 
 
 def test_match_court_selection_shows_booking_review_status(
@@ -110,6 +240,32 @@ def test_list_matches_filtered_by_sport(client, auth_headers_for):
     response = client.get("/api/v1/matches?sport=Badminton", headers=headers)
     assert response.status_code == 200
     assert all(m["sport"] == "Badminton" for m in response.json()["items"])
+
+
+def test_list_matches_filters_by_skill_level_case_insensitively(client, auth_headers_for):
+    headers = auth_headers_for("PLAYER")
+    for level in ("BEGINNER", "ADVANCED"):
+        response = client.post(
+            "/api/v1/matches",
+            json={
+                "sport": "Tennis",
+                "location": "Phnom Penh",
+                "date": "2026-11-01",
+                "time": "19:00:00",
+                "players_needed": 4,
+                "skill_level": level,
+            },
+            headers=headers,
+        )
+        assert response.status_code == 201, response.text
+
+    response = client.get(
+        "/api/v1/matches?skill_level=advanced&created_by_me=true",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["skill_level"] == "ADVANCED"
 
 
 def test_list_matches_can_sort_by_posted_time(client, auth_headers_for, db_session):
@@ -252,6 +408,36 @@ def test_list_matches_includes_joined_count(client, auth_headers_for):
     response = client.get("/api/v1/matches?created_by_me=true", headers=creator)
     listed_match = next(item for item in response.json()["items"] if item["id"] == match_id)
     assert listed_match["joined_count"] == 1
+
+
+def test_list_matches_count_excludes_host_from_other_player_count(client, auth_headers_for):
+    creator, first_player, second_player = (
+        auth_headers_for("PLAYER"),
+        auth_headers_for("PLAYER"),
+        auth_headers_for("PLAYER"),
+    )
+    create = client.post(
+        "/api/v1/matches",
+        json={
+            "sport": "Badminton",
+            "location": "Phnom Penh",
+            "date": "2026-12-01",
+            "time": "19:00:00",
+            "players_needed": 4,
+            "skill_level": "BEGINNER",
+        },
+        headers=creator,
+    )
+    match_id = create.json()["id"]
+
+    for headers in (creator, first_player, second_player):
+        joined = client.post(f"/api/v1/matches/{match_id}/join", headers=headers)
+        assert joined.status_code == 200, joined.text
+
+    response = client.get("/api/v1/matches?created_by_me=true", headers=creator)
+    listed_match = next(item for item in response.json()["items"] if item["id"] == match_id)
+    assert listed_match["joined_count"] == 3
+    assert listed_match["joined_count_excluding_host"] == 2
 
 
 def test_list_matches_can_include_open_and_full_statuses(client, auth_headers_for):

@@ -19,6 +19,7 @@ import type {
   MatchCreate,
   MatchDetailRead,
   MatchRead,
+  MatchUpdate,
   MessagePage,
   NotificationPage,
   Paginated,
@@ -27,7 +28,13 @@ import type {
   RecommendedMatch,
   UserSport,
   UserSportCreate,
+  UnreadMessageCount,
   VenueCreate,
+  VenueBrowseRead,
+  VenueDiscountCreate,
+  VenueDiscountRead,
+  VenueEventCreate,
+  VenueEventRead,
   VenueRead,
   VenueUpdate,
   WaitingListJoined,
@@ -71,6 +78,7 @@ export const deleteMySport = (sportId: string) =>
 
 export interface MatchListParams {
   sport?: string;
+  skill_level?: string;
   date?: string;
   location?: string;
   created_by_me?: boolean;
@@ -91,6 +99,9 @@ export const getMatch = (matchId: string) =>
 
 export const createMatch = (payload: MatchCreate) =>
   apiClient.post<MatchRead>("/api/v1/matches", payload);
+
+export const updateMatch = (matchId: string, payload: MatchUpdate) =>
+  apiClient.patch<MatchDetailRead>(`/api/v1/matches/${matchId}`, payload);
 
 export const joinMatch = (matchId: string) =>
   apiClient.post<MatchDetailRead>(`/api/v1/matches/${matchId}/join`);
@@ -123,6 +134,9 @@ export interface VenueListParams {
 export const listVenues = (params?: VenueListParams) =>
   apiClient.get<Paginated<VenueRead>>(`/api/v1/venues${qs(params)}`);
 
+export const browseVenues = (params?: VenueListParams) =>
+  apiClient.get<Paginated<VenueBrowseRead>>(`/api/v1/venues/browse${qs(params)}`);
+
 export const listMyVenues = () => apiClient.get<VenueRead[]>("/api/v1/venues/mine");
 
 export const createVenue = (payload: VenueCreate) =>
@@ -136,6 +150,36 @@ export const updateVenue = (venueId: string, payload: VenueUpdate) =>
 
 export const confirmVenuePayment = (venueId: string) =>
   apiClient.post<VenueRead>(`/api/v1/venues/${venueId}/confirm-payment`);
+
+export const listVenueDiscounts = (venueId: string) =>
+  apiClient.get<VenueDiscountRead[]>(`/api/v1/venues/${venueId}/discounts`);
+
+export const createVenueDiscount = (venueId: string, payload: VenueDiscountCreate) =>
+  apiClient.post<VenueDiscountRead>(`/api/v1/venues/${venueId}/discounts`, payload);
+
+export const updateVenueDiscount = (
+  venueId: string,
+  discountId: string,
+  payload: Partial<VenueDiscountCreate>,
+) => apiClient.patch<VenueDiscountRead>(`/api/v1/venues/${venueId}/discounts/${discountId}`, payload);
+
+export const deleteVenueDiscount = (venueId: string, discountId: string) =>
+  apiClient.delete<void>(`/api/v1/venues/${venueId}/discounts/${discountId}`);
+
+export const listVenueEvents = (venueId: string) =>
+  apiClient.get<VenueEventRead[]>(`/api/v1/venues/${venueId}/events`);
+
+export const createVenueEvent = (venueId: string, payload: VenueEventCreate) =>
+  apiClient.post<VenueEventRead>(`/api/v1/venues/${venueId}/events`, payload);
+
+export const updateVenueEvent = (
+  venueId: string,
+  eventId: string,
+  payload: Partial<VenueEventCreate>,
+) => apiClient.patch<VenueEventRead>(`/api/v1/venues/${venueId}/events/${eventId}`, payload);
+
+export const deleteVenueEvent = (venueId: string, eventId: string) =>
+  apiClient.delete<void>(`/api/v1/venues/${venueId}/events/${eventId}`);
 
 // ---------------------------------------------------------------------------
 // Courts
@@ -215,6 +259,12 @@ export const listMessages = (matchId: string, params?: { before?: string; limit?
 
 export const sendMessage = (matchId: string, payload: { content: string }) =>
   apiClient.post<MessagePage["items"][number]>(`/api/v1/matches/${matchId}/messages`, payload);
+
+export const getUnreadMessageCount = () =>
+  apiClient.get<UnreadMessageCount>("/api/v1/matches/chat/unread-count");
+
+export const markChatRead = (matchId: string) =>
+  apiClient.post<{ marked: boolean }>(`/api/v1/matches/${matchId}/chat/read`);
 
 // ---------------------------------------------------------------------------
 // Community posts

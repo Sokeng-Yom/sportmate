@@ -19,7 +19,7 @@ const SPORT_COLORS: Record<string, string> = {
 };
 
 export function EventCard({ event }: EventCardProps) {
-    const formattedDate = new Date(event.date).toLocaleDateString("en-US", {
+    const formattedDate = new Date(`${event.event_date}T00:00:00`).toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
         day: "numeric",
@@ -46,11 +46,11 @@ export function EventCard({ event }: EventCardProps) {
                 </span>
                 <span className="flex items-center gap-1">
                     <Clock size={12} className="text-emerald-500" />
-                    {event.time}
+                    {event.event_time.slice(0, 5)}
                 </span>
                 <span className="flex items-center gap-1 font-semibold text-emerald-700">
                     <DollarSign size={12} className="text-emerald-500" />
-                    {event.priceLabel}
+                    {event.price_label}
                 </span>
             </div>
         </div>

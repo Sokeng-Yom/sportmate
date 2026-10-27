@@ -11,7 +11,7 @@ from app.db.session import get_db
 from app.models.match import Match, MatchPlayer
 from app.models.waiting_list import WaitingList
 from app.schemas.lifecycle import WaitingListAccepted
-from app.services.waiting_list_service import count_joined
+from app.services.waiting_list_service import count_joined_excluding_host
 
 router = APIRouter(prefix="/api/v1/waiting-list", tags=["waiting-list"])
 
@@ -39,7 +39,7 @@ def accept_waiting_list_entry(
         raise HTTPException(status_code=400, detail="This offer has expired")
 
     match = db.query(Match).filter(Match.id == entry.match_id).with_for_update().first()
-    joined = count_joined(db, entry.match_id)
+    joined = count_joined_excluding_host(db, entry.match_id)
     if joined >= match.players_needed:
         raise HTTPException(status_code=400, detail="Match is already full")
 

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { VenueOwnerDataProvider } from "./context/VenueOwnerContext";
 import { RouteGuard, useAuth } from "../../lib/auth";
 import NotificationsBell from "../components/NotificationsBell";
+import UserProfileMenu from "../components/UserProfileMenu";
 import { Suspense } from "react";
 import {
     LayoutDashboard,
@@ -13,18 +14,19 @@ import {
     MessageSquare,
     Star,
     Settings,
+    Tag,
     ChevronDown,
     ArrowRight
 } from "lucide-react";
 
 export default function VenueOwnerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const { profile } = useAuth();
 
     const sidebarLinks = [
         { name: "Dashboard", href: "/venue-owner", icon: LayoutDashboard },
         { name: "My Venues", href: "/venue-owner/venues", icon: Building2 },
         { name: "Bookings", href: "/venue-owner/bookings", icon: CalendarCheck },
+        { name: "Offers & Events", href: "/venue-owner/offers", icon: Tag },
         { name: "Messages", href: "/venue-owner/messages", icon: MessageSquare },
         { name: "Reviews", href: "/venue-owner/reviews", icon: Star },
         { name: "Settings", href: "/venue-owner/settings", icon: Settings },
@@ -35,6 +37,7 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
         if (pathname.includes("/add-venue")) return "Add Venue";
         if (pathname.includes("/venues")) return "My Venues";
         if (pathname.includes("/bookings")) return "Bookings";
+        if (pathname.includes("/offers")) return "Offers & Events";
         if (pathname.includes("/messages")) return "Messages";
         if (pathname.includes("/reviews")) return "Reviews";
         if (pathname.includes("/settings")) return "Settings";
@@ -117,12 +120,7 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
                     <div className="flex items-center gap-6">
                         <NotificationsBell />
 
-                        <div className="flex items-center gap-2 cursor-pointer">
-                            <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden border border-gray-100">
-                                <img src={profile?.avatar ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.name ?? "owner"}`} alt="Avatar" className="w-full h-full object-cover" />
-                            </div>
-                            <ChevronDown size={16} className="text-slate-400" />
-                        </div>
+                        <UserProfileMenu />
                     </div>
                 </header>
 

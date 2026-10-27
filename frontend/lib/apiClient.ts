@@ -1,8 +1,6 @@
 import { supabase } from "./supabaseClient";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_BASE_URL) {
+if (!process.env.NEXT_PUBLIC_API_URL) {
   throw new Error(
     "Missing NEXT_PUBLIC_API_URL. Check frontend/.env.local against .env.local.example.",
   );
@@ -66,7 +64,7 @@ async function request<T>(
     // correctly reject with 401 — we don't need to guess here.
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(path, {
     ...rest,
     cache: rest.cache ?? "no-store",
     headers: finalHeaders,

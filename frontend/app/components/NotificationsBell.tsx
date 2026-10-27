@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck, X } from "lucide-react";
 import { listNotifications, markAllNotificationsRead } from "../../lib/api";
 import { ApiError } from "../../lib/apiClient";
 import type { NotificationRead } from "../../lib/types";
@@ -49,21 +49,64 @@ export default function NotificationsBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<NotificationRead | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const knownIdsRef = useRef<Set<string> | null>(null);
+  const requestInFlightRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (options: { announceNew?: boolean; showLoading?: boolean } = {}) => {
+    if (requestInFlightRef.current) return;
+    requestInFlightRef.current = true;
+    if (options.showLoading) setLoading(true);
     try {
       const page = await listNotifications({ page: 1, page_size: 20 });
       setItems(page.items);
       setUnreadCount(page.unread_count);
+      const knownIds = knownIdsRef.current;
+      if (knownIds) {
+        const latestNewNotification = page.items.find(
+          (item) => !knownIds.has(item.id) && !item.read,
+        );
+        if (options.announceNew && latestNewNotification) {
+          setToast(latestNewNotification);
+        }
+        page.items.forEach((item) => knownIds.add(item.id));
+      } else {
+        knownIdsRef.current = new Set(page.items.map((item) => item.id));
+      }
+      setError(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load notifications");
     } finally {
-      setLoading(false);
+      requestInFlightRef.current = false;
+      if (options.showLoading) setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void load({ showLoading: true });
+
+    const refresh = () => {
+      if (document.visibilityState === "visible") {
+        void load({ announceNew: true });
+      }
+    };
+    const intervalId = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeoutId = window.setTimeout(() => setToast(null), 7000);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
 
   // Close when clicking outside.
   useEffect(() => {
@@ -77,7 +120,7 @@ export default function NotificationsBell() {
   const toggle = () => {
     const next = !open;
     setOpen(next);
-    if (next) load();
+    if (next) void load({ showLoading: true });
   };
 
   const markAll = async () => {
@@ -85,8 +128,8 @@ export default function NotificationsBell() {
       await markAllNotificationsRead();
       setUnreadCount(0);
       setItems((prev) => prev.map((n) => ({ ...n, read: true })));
-    } catch {
-      /* ignore — the dropdown still refreshes next time */
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update notifications");
     }
   };
 
@@ -104,6 +147,27 @@ export default function NotificationsBell() {
           </span>
         )}
       </button>
+
+      {toast && (
+        <div role="status" aria-live="polite" className="fixed right-4 top-20 z-[60] flex w-[min(24rem,calc(100vw-2rem))] items-start gap-3 rounded-xl border border-emerald-100 bg-white p-4 shadow-xl">
+          <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">New notification</p>
+            <p className="mt-1 text-sm font-semibold text-slate-900">
+              {notificationLabel(toast.type, toast.payload)}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">{timeAgo(toast.created_at)}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss notification"
+            onClick={() => setToast(null)}
+            className="shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {open && (
         <div className="absolute right-0 mt-3 w-80 max-w-[90vw] bg-white rounded-2xl border border-gray-100 shadow-xl z-50 overflow-hidden">
@@ -123,7 +187,7 @@ export default function NotificationsBell() {
             ) : error ? (
               <div className="px-4 py-8 text-center">
                 <p className="text-sm text-red-500">{error}</p>
-                <button onClick={load} className="mt-2 text-xs font-semibold text-brand hover:underline">
+                <button onClick={() => void load({ showLoading: true })} className="mt-2 text-xs font-semibold text-brand hover:underline">
                   Retry
                 </button>
               </div>

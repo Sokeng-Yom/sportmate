@@ -4,6 +4,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
+from app.schemas.court import CourtRead
+from app.schemas.venue_marketing import VenueDiscountRead, VenueEventRead
+
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
@@ -45,6 +48,19 @@ class VenueRead(BaseModel):
 
 class PaginatedVenues(BaseModel):
     items: list[VenueRead]
+    total: int
+    page: int
+    page_size: int
+
+
+class VenueBrowseRead(VenueRead):
+    courts: list[CourtRead]
+    discounts: list[VenueDiscountRead]
+    events: list[VenueEventRead]
+
+
+class PaginatedVenueBrowse(BaseModel):
+    items: list[VenueBrowseRead]
     total: int
     page: int
     page_size: int

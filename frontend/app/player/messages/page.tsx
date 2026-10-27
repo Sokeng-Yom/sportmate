@@ -1,241 +1,280 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Search, Pencil, Mail, ChevronRight } from "lucide-react";
-import { useVenueOwnerData } from "../../venue-owner/context/VenueOwnerContext";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { ArrowLeft, MessageSquare, Search, Send } from "lucide-react";
+import { ApiError } from "../../../lib/apiClient";
+import { listMatches, listMessages, markChatRead, openChat, sendMessage } from "../../../lib/api";
+import { useAuth } from "../../../lib/auth";
+import { supabase } from "../../../lib/supabaseClient";
+import type { ChatMember, MatchRead, MessageRead } from "../../../lib/types";
 
-// Mock conversations — empty to match the screenshot
-const conversations: {
-  id: number;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
-  unread: number;
-}[] = [];
-
-// ── Shared UserAvatar component ──────────────────────────────────────────────
-function UserAvatar({
-  name,
-  avatarUrl,
-  showOnlineDot = false,
-  size = 9,
-}: {
-  name: string;
-  avatarUrl?: string;
-  showOnlineDot?: boolean;
-  size?: number;
-}) {
-  const initial = name?.trim()?.[0]?.toUpperCase() ?? "?";
-  const [imgFailed, setImgFailed] = useState(false);
-
-  return (
-    <div className="relative flex-shrink-0">
-      <div
-        className={`w-${size} h-${size} rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-sm overflow-hidden`}
-      >
-        {avatarUrl && !imgFailed ? (
-          <img
-            src={avatarUrl}
-            alt={`${name} avatar`}
-            className="w-full h-full object-cover"
-            onError={() => setImgFailed(true)}
-          />
-        ) : (
-          <span>{initial}</span>
-        )}
-      </div>
-      {showOnlineDot && (
-        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#F2E8D9]" />
-      )}
-    </div>
-  );
+interface ConversationSummary {
+  match: MatchRead;
+  conversationId: string;
+  members: ChatMember[];
+  lastMessage: MessageRead | null;
 }
 
-// ── Sidebar footer — reads from the same auth context as the header ───────────
-function SidebarUserFooter() {
-  const { profile } = useVenueOwnerData();
-
-  // While the auth state is still resolving, show a subtle skeleton
-  const isLoading = !profile.name && !profile.email;
-  if (isLoading) {
-    return (
-      <div className="border-t border-[#E5D5C0] px-4 py-4 flex items-center gap-3 animate-pulse">
-        <div className="w-9 h-9 rounded-full bg-slate-300 flex-shrink-0" />
-        <div className="flex-1 space-y-1.5">
-          <div className="h-2.5 bg-slate-300 rounded w-20" />
-          <div className="h-2 bg-slate-200 rounded w-14" />
-        </div>
-      </div>
-    );
-  }
-
-  // Display name: prefer name, fall back to email prefix
-  const displayName =
-    profile.name?.trim() || profile.email?.split("@")[0]?.trim() || "Account";
-
-  return (
-    <div className="border-t border-[#E5D5C0] px-4 py-4 flex items-center gap-3">
-      <UserAvatar
-        name={displayName}
-        avatarUrl={profile.avatar}
-        showOnlineDot
-        size={9}
-      />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-slate-800 truncate">
-          {displayName}
-        </p>
-        <Link
-          href="/player/dashboard"
-          className="text-xs text-slate-500 hover:text-emerald-600 transition-colors truncate"
-        >
-          View profile
-        </Link>
-      </div>
-      <ChevronRight size={16} className="text-slate-400 flex-shrink-0" />
-    </div>
-  );
+function matchTitle(match: MatchRead): string {
+  const date = new Date(`${match.date}T00:00:00`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  return `${match.sport} · ${date}`;
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
+function formatTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 export default function MessagesPage() {
+  const { profile } = useAuth();
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [messages, setMessages] = useState<MessageRead[]>([]);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [liveUpdatesActive, setLiveUpdatesActive] = useState(false);
+  const [liveUpdateError, setLiveUpdateError] = useState<string | null>(null);
 
-  const filtered = conversations.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase()),
-  );
+  const loadConversations = useCallback(async () => {
+    try {
+      const joined = await listMatches({ joined_by_me: true, page_size: 100 });
+      const rows = await Promise.all(joined.items.map(async (match) => {
+        const [chat, page] = await Promise.all([
+          openChat(match.id),
+          listMessages(match.id, { limit: 1 }),
+        ]);
+        return {
+          match,
+          conversationId: chat.conversation_id,
+          members: chat.members,
+          lastMessage: page.items.at(-1) ?? null,
+        };
+      }));
+      rows.sort((left, right) => {
+        const leftDate = left.lastMessage?.created_at ?? left.match.created_at;
+        const rightDate = right.lastMessage?.created_at ?? right.match.created_at;
+        return rightDate.localeCompare(leftDate);
+      });
+      setConversations(rows);
+      setError(null);
+      setSelectedMatchId((current) => current && rows.some((row) => row.match.id === current)
+        ? current
+        : rows[0]?.match.id ?? null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not load your conversations.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const selected = conversations.find((c) => c.id === selectedId) ?? null;
+  useEffect(() => {
+    void loadConversations();
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") void loadConversations();
+    };
+    window.addEventListener("focus", refreshOnFocus);
+    return () => window.removeEventListener("focus", refreshOnFocus);
+  }, [loadConversations]);
+
+  const selected = conversations.find((item) => item.match.id === selectedMatchId) ?? null;
+
+  useEffect(() => {
+    if (!selected) {
+      setMessages([]);
+      setLiveUpdatesActive(false);
+      return;
+    }
+    let cancelled = false;
+    setLiveUpdatesActive(false);
+    setLiveUpdateError(null);
+    const refreshMessages = async () => {
+      let page: Awaited<ReturnType<typeof listMessages>>;
+      try {
+        page = await listMessages(selected.match.id, { limit: 100 });
+      } catch (err) {
+        if (!cancelled) {
+          setLiveUpdateError(
+            err instanceof ApiError
+              ? err.message
+              : "Could not connect to the server while loading messages.",
+          );
+        }
+        return;
+      }
+
+      if (cancelled) return;
+      setMessages(page.items);
+
+      try {
+        await markChatRead(selected.match.id);
+        if (!cancelled) window.dispatchEvent(new Event("sportmate:chat-read"));
+      } catch (err) {
+        console.error("Failed to update chat read status:", err);
+      }
+    };
+    void refreshMessages();
+    const channel = supabase
+      .channel(`player-match-chat-${selected.conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${selected.conversationId}`,
+        },
+        () => {
+          void refreshMessages();
+          void loadConversations();
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setLiveUpdatesActive(true);
+          setLiveUpdateError(null);
+          void refreshMessages();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setLiveUpdatesActive(false);
+          setLiveUpdateError("Live message updates are unavailable. Check your connection or refresh.");
+        }
+      });
+    const refreshOnVisibility = () => {
+      if (document.visibilityState === "visible") void refreshMessages();
+    };
+    document.addEventListener("visibilitychange", refreshOnVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", refreshOnVisibility);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadConversations, selected?.match.id, selected?.conversationId]);
+
+  const otherMembers = selected?.members.filter((member) => member.user_id !== profile?.id) ?? [];
+  const filtered = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    return conversations.filter(({ match, members }) =>
+      !value || matchTitle(match).toLowerCase().includes(value) ||
+      match.location.toLowerCase().includes(value) ||
+      members.some((member) => member.name.toLowerCase().includes(value)),
+    );
+  }, [conversations, query]);
+
+  const submitMessage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const content = draft.trim();
+    if (!content || !selectedMatchId) return;
+    setSending(true);
+    setSendError(null);
+    try {
+      const message = await sendMessage(selectedMatchId, { content });
+      setMessages((items) => items.some((item) => item.id === message.id) ? items : [...items, message]);
+      setDraft("");
+      await loadConversations();
+    } catch (err) {
+      setSendError(err instanceof ApiError ? err.message : "Could not send the message.");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] bg-[#F2E8D9]">
-      {/* ── Left Sidebar ── */}
-      <aside className="w-64 flex-shrink-0 flex flex-col bg-[#F2E8D9] border-r border-[#E5D5C0]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-6 pb-4">
-          <h2 className="text-lg font-extrabold text-slate-900">Messages</h2>
-          <button className="text-slate-400 hover:text-slate-700 transition-colors">
-            <Pencil size={16} />
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="px-4 pb-4">
-          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
-            <Search size={14} className="text-slate-400 flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Search messages..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="text-sm bg-transparent outline-none w-full text-slate-700 placeholder:text-slate-400"
-            />
+    <div className="flex h-[calc(100vh-64px)] min-h-[500px] bg-[#F2E8D9]">
+      <aside className={`${selectedMatchId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r border-[#E5D5C0] bg-[#F2E8D9] md:w-80`}>
+        <div className="px-5 pb-4 pt-6">
+          <h1 className="mb-4 text-lg font-extrabold text-slate-900">Match messages</h1>
+          <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
+            <Search size={14} className="shrink-0 text-slate-400" />
+            <input type="search" aria-label="Search conversations" placeholder="Search matches or players…" value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent text-sm text-slate-700 outline-none" />
           </div>
         </div>
 
-        {/* Conversation list or empty state */}
-        <div className="flex-1 overflow-y-auto px-4">
-          {filtered.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center mt-6 leading-relaxed">
-              You do not have any conversations yet.
-            </p>
+        <div className="flex-1 overflow-y-auto px-3">
+          {loading && conversations.length === 0 ? (
+            <p className="px-3 py-5 text-sm text-slate-400">Loading conversations…</p>
+          ) : error ? (
+            <div role="alert" className="px-3 py-5 text-sm text-red-700">{error}<button onClick={() => void loadConversations()} className="ml-2 font-semibold underline">Retry</button></div>
+          ) : filtered.length === 0 ? (
+            <div className="px-3 py-8 text-center text-sm text-slate-400">
+              <MessageSquare className="mx-auto mb-3" size={24} />
+              You do not have any match conversations yet. Join a game to start chatting.
+            </div>
           ) : (
             <ul className="space-y-1">
-              {filtered.map((conv) => (
-                <li key={conv.id}>
-                  <button
-                    onClick={() => setSelectedId(conv.id)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-colors ${
-                      selectedId === conv.id
-                        ? "bg-white shadow-sm"
-                        : "hover:bg-white/60"
-                    }`}
-                  >
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-emerald-500 flex-shrink-0 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
-                      <img
-                        src={conv.avatar}
-                        alt={conv.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    {/* Text */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-baseline">
-                        <p className="font-semibold text-slate-800 text-sm truncate">
-                          {conv.name}
-                        </p>
-                        <span className="text-xs text-slate-400 ml-2 flex-shrink-0">
-                          {conv.time}
-                        </span>
+              {filtered.map((conversation) => {
+                const participantNames = conversation.members
+                  .filter((member) => member.user_id !== profile?.id)
+                  .map((member) => member.name);
+                return (
+                  <li key={conversation.match.id}>
+                    <button onClick={() => setSelectedMatchId(conversation.match.id)} className={`w-full rounded-2xl px-3 py-3 text-left transition-colors ${selectedMatchId === conversation.match.id ? "bg-white shadow-sm" : "hover:bg-white/60"}`}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-slate-800">{matchTitle(conversation.match)}</p>
+                        <span className="shrink-0 text-xs text-slate-400">{conversation.lastMessage ? formatTime(conversation.lastMessage.created_at) : ""}</span>
                       </div>
-                      <p className="text-xs text-slate-500 truncate">
-                        {conv.lastMessage}
-                      </p>
-                    </div>
-                    {/* Unread badge */}
-                    {conv.unread > 0 && (
-                      <span className="w-5 h-5 rounded-full bg-[#D97736] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                        {conv.unread}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
+                      <p className="mt-1 truncate text-xs text-slate-500">{participantNames.join(", ") || conversation.match.location}</p>
+                      <p className="mt-1 truncate text-xs text-slate-500">{conversation.lastMessage?.content ?? "No messages yet"}</p>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
-
-        {/* ── User Profile Footer — live from auth context ── */}
-        <SidebarUserFooter />
       </aside>
 
-      {/* ── Right Panel ── */}
-      <main className="flex-1 bg-white rounded-tl-3xl rounded-bl-none shadow-inner flex items-center justify-center">
+      <main className={`${selectedMatchId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col rounded-l-3xl bg-white shadow-inner`}>
         {selected ? (
-          /* Chat view — placeholder for when a conversation is selected */
-          <div className="flex flex-col h-full w-full p-8">
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-4 mb-6">
-              <div className="w-10 h-10 rounded-full bg-emerald-500 overflow-hidden">
-                <img
-                  src={selected.avatar}
-                  alt={selected.name}
-                  className="w-full h-full object-cover"
-                />
+          <>
+            <header className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
+              <button aria-label="Back to conversations" onClick={() => setSelectedMatchId(null)} className="text-slate-500 md:hidden"><ArrowLeft size={20} /></button>
+              <div className="min-w-0">
+                <h2 className="truncate font-extrabold text-slate-900">{matchTitle(selected.match)}</h2>
+                <p className="truncate text-xs text-slate-500">{selected.match.location} · {otherMembers.map((member) => member.name).join(", ") || "Just you"}</p>
               </div>
-              <p className="font-extrabold text-slate-900">{selected.name}</p>
+              <span className={`ml-auto inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold ${liveUpdatesActive ? "text-emerald-700" : "text-slate-500"}`}>
+                <span className={`h-2 w-2 rounded-full ${liveUpdatesActive ? "bg-emerald-500" : "bg-slate-300"}`} />
+                {liveUpdatesActive ? "Live" : liveUpdateError ? "Offline" : "Connecting"}
+              </span>
+            </header>
+            <div className="flex-1 space-y-3 overflow-y-auto p-5">
+              {messages.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-slate-400">Start the conversation for this match.</div>
+              ) : messages.map((message) => {
+                const mine = message.sender_id === profile?.id;
+                return (
+                  <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${mine ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-800"}`}>
+                      {!mine && <p className="mb-1 text-xs font-bold opacity-70">{message.sender_name}</p>}
+                      <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
+                      <p className={`mt-1 text-right text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>{formatTime(message.created_at)}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
-              Start of your conversation with {selected.name}
-            </div>
-            <div className="flex gap-3 pt-4 border-t border-gray-100">
-              <input
-                type="text"
-                placeholder="Type a message…"
-                className="flex-1 px-4 py-3 rounded-full border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              />
-              <button className="bg-[#D97736] hover:bg-[#c26529] text-white font-bold px-6 py-3 rounded-full text-sm transition-colors">
-                Send
-              </button>
-            </div>
-          </div>
+            <form onSubmit={submitMessage} className="border-t border-gray-100 p-4">
+              {liveUpdateError && <p role="status" className="mb-2 text-sm text-amber-700">{liveUpdateError}</p>}
+              {sendError && <p role="alert" className="mb-2 text-sm text-red-600">{sendError}</p>}
+              <div className="flex gap-3">
+                <input maxLength={2000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Type a message…" aria-label="Message" className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                <button type="submit" disabled={sending || !draft.trim()} aria-label="Send message" className="inline-flex items-center gap-2 rounded-full bg-[#D97736] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#c26529] disabled:opacity-50"><Send size={15} /><span className="hidden sm:inline">Send</span></button>
+              </div>
+            </form>
+          </>
         ) : (
-          /* Empty / no selection state */
-          <div className="flex flex-col items-center gap-4 text-center px-8">
-            <div className="w-16 h-16 rounded-full bg-[#F6EBE5] flex items-center justify-center">
-              <Mail size={28} className="text-[#D97736]" />
-            </div>
-            <h3 className="text-xl font-extrabold text-slate-800">
-              Select a conversation
-            </h3>
-            <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
-              Choose a conversation to start chatting with{" "}
-              <span className="text-[#D97736] font-semibold">your</span> sports
-              partner.
-            </p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center text-slate-400">
+            <MessageSquare size={30} />
+            <h2 className="text-lg font-extrabold text-slate-800">Select a match conversation</h2>
+            <p className="max-w-xs text-sm">Messages are shared with participants of each match.</p>
           </div>
         )}
       </main>

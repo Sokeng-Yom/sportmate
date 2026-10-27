@@ -25,6 +25,7 @@ from app.schemas.match import (
     MatchCreate,
     MatchDetailRead,
     MatchRead,
+    MatchUpdate,
     PaginatedMatches,
     PaginatedRecommendedMatches,
 )
@@ -39,7 +40,8 @@ from app.services.match_participants import participant_ids
 from app.services.notifications import create_notification
 from app.services.recommendations import build_recommendations
 from app.services.waiting_list_service import (
-    count_joined,
+    count_joined_excluding_host,
+    count_joined_excluding_hosts_for_matches,
     count_joined_for_matches,
     offer_open_slots,
     open_slots,
@@ -65,6 +67,7 @@ def list_matches(
     sport: str | None = None,
     date: date_type | None = None,
     location: str | None = None,
+    skill_level: str | None = None,
     created_by_me: bool = False,
     joined_by_me: bool = False,
     status: str | None = None,
@@ -81,9 +84,13 @@ def list_matches(
         query = query.filter(Match.date == date)
     if location:
         query = query.filter(Match.location.ilike(f"%{location}%"))
+    if skill_level:
+        query = query.filter(func.lower(Match.skill_level) == skill_level.strip().lower())
     if status:
         statuses = [value.strip() for value in status.split(",") if value.strip()]
         query = query.filter(Match.status.in_(statuses))
+    else:
+        query = query.filter(Match.status != MatchStatus.CANCELLED)
     if created_by_me:
         query = query.filter(Match.created_by == user["sub"])
     if joined_by_me:
@@ -101,16 +108,21 @@ def list_matches(
         else (Match.date, Match.time, Match.id)
     )
     matches = (
-        query.order_by(*ordering)
+        query.options(joinedload(Match.creator))
+        .order_by(*ordering)
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
     )
     joined_counts = count_joined_for_matches(db, [match.id for match in matches])
+    joined_counts_excluding_hosts = count_joined_excluding_hosts_for_matches(
+        db, [match.id for match in matches]
+    )
     items = [
         {
             **MatchRead.model_validate(match).model_dump(),
             "joined_count": joined_counts.get(match.id, 0),
+            "joined_count_excluding_host": joined_counts_excluding_hosts.get(match.id, 0),
         }
         for match in matches
     ]
@@ -196,12 +208,77 @@ def get_match(
 ):
     match = (
         db.query(Match)
-        .options(joinedload(Match.players))
+        .options(joinedload(Match.players), joinedload(Match.creator))
         .filter(Match.id == match_id)
         .first()
     )
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
+    return match
+
+
+@router.patch("/{match_id}", response_model=MatchDetailRead, summary="Update a hosted match")
+def update_match(
+    match_id: UUID,
+    payload: MatchUpdate,
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
+    if match is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+    if str(match.created_by) != user["sub"]:
+        raise HTTPException(status_code=403, detail="Only the match creator can edit it")
+    if match.status in (MatchStatus.CANCELLED, MatchStatus.COMPLETED):
+        raise HTTPException(status_code=400, detail="A cancelled or completed match cannot be edited")
+    updates = payload.model_dump(exclude_unset=True)
+    proposed_sport = updates.get("sport", match.sport)
+    proposed_date = updates.get("date", match.date)
+    proposed_time = updates.get("time", match.time)
+
+    joined_count = count_joined_excluding_host(db, match.id)
+    if updates.get("players_needed", match.players_needed) < joined_count:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Players needed cannot be fewer than the {joined_count} players already joined",
+        )
+
+    active_booking = (
+        db.query(Booking.id)
+        .filter(
+            Booking.match_id == match.id,
+            Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
+        )
+        .first()
+        is not None
+    )
+    if match.court_id is not None:
+        court = db.query(Court).filter(Court.id == match.court_id).first()
+        if court is not None and court.sport.strip().lower() != proposed_sport.strip().lower():
+            raise HTTPException(
+                status_code=400,
+                detail=f"This court is for {court.sport}, but the match is {proposed_sport}",
+            )
+    if active_booking and (
+        proposed_sport != match.sport
+        or proposed_date != match.date
+        or proposed_time != match.time
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Cancel the active court booking before changing the sport, date, or time",
+        )
+
+    for field, value in updates.items():
+        setattr(match, field, value)
+    if match.status != MatchStatus.CONFIRMED:
+        match.status = (
+            MatchStatus.FULL
+            if joined_count >= match.players_needed
+            else MatchStatus.OPEN
+        )
+    db.commit()
+    db.refresh(match)
     return match
 
 
@@ -255,7 +332,7 @@ def join_match(
     match = db.query(Match).filter(Match.id == match_id).with_for_update().first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
-    if match.status not in (MatchStatus.OPEN, MatchStatus.CONFIRMED):
+    if match.status not in (MatchStatus.OPEN, MatchStatus.FULL, MatchStatus.CONFIRMED):
         raise HTTPException(status_code=400, detail=f"Cannot join a match with status {match.status}")
 
     already_joined = (
@@ -266,7 +343,9 @@ def join_match(
     if already_joined:
         raise HTTPException(status_code=400, detail="You have already joined this match")
 
-    joined = count_joined(db, match_id)
+    joined = count_joined_excluding_host(db, match_id)
+    if match.status == MatchStatus.FULL and joined < match.players_needed:
+        match.status = MatchStatus.OPEN
     if joined >= match.players_needed:
         raise HTTPException(status_code=400, detail="Match is full")
     if open_slots(db, match, for_user_id=user_id) <= 0:
