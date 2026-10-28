@@ -40,6 +40,12 @@ import type {
   WaitingListJoined,
   PostCreate,
   PostRead,
+  DismissResult,
+  ReportedPostRead,
+  VenueRejectionPayload,
+  AdminUserRead,
+  RestrictUserPayload,
+  SecurityLogRead,
 } from "./types";
 
 /** Builds a query string from an object, skipping undefined/null/empty-string values. */
@@ -275,3 +281,59 @@ export const createPost = (payload: PostCreate) =>
 
 export const listPosts = (params?: { mine?: boolean; page?: number; page_size?: number }) =>
   apiClient.get<Paginated<PostRead>>(`/api/v1/posts${qs(params)}`);
+
+// ---------------------------------------------------------------------------
+// Admin
+// ---------------------------------------------------------------------------
+
+export interface AdminVenueListParams {
+  status?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export const listAdminVenues = (params?: AdminVenueListParams) =>
+  apiClient.get<Paginated<VenueRead>>(`/api/v1/admin/venues${qs(params)}`);
+
+export const approveAdminVenue = (venueId: string) =>
+  apiClient.post<VenueRead>(`/api/v1/admin/venues/${venueId}/approve`);
+
+export const rejectAdminVenue = (venueId: string, payload: VenueRejectionPayload) =>
+  apiClient.post<VenueRead>(`/api/v1/admin/venues/${venueId}/reject`, payload);
+
+export const listReportedPosts = (params?: { page?: number; page_size?: number }) =>
+  apiClient.get<Paginated<ReportedPostRead>>(`/api/v1/admin/posts/reported${qs(params)}`);
+
+export const dismissPostReports = (postId: string) =>
+  apiClient.post<DismissResult>(`/api/v1/admin/posts/${postId}/dismiss-reports`);
+
+export const deleteAdminPost = (postId: string) =>
+  apiClient.delete<void>(`/api/v1/admin/posts/${postId}`);
+
+export interface AdminUserListParams {
+  q?: string;
+  role?: "PLAYER" | "VENUE_OWNER" | "ADMIN" | string;
+  restricted?: boolean;
+  page?: number;
+  page_size?: number;
+}
+
+export const listAdminUsers = (params?: AdminUserListParams) =>
+  apiClient.get<Paginated<AdminUserRead>>(`/api/v1/admin/users${qs(params)}`);
+
+export const restrictAdminUser = (userId: string, payload: RestrictUserPayload) =>
+  apiClient.post<AdminUserRead>(`/api/v1/admin/users/${userId}/restrict`, payload);
+
+export const unrestrictAdminUser = (userId: string) =>
+  apiClient.post<AdminUserRead>(`/api/v1/admin/users/${userId}/unrestrict`);
+
+export interface AdminSecurityLogListParams {
+  action?: string;
+  user_id?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export const listAdminSecurityLogs = (params?: AdminSecurityLogListParams) =>
+  apiClient.get<Paginated<SecurityLogRead>>(`/api/v1/admin/security-logs${qs(params)}`);
+

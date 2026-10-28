@@ -174,7 +174,7 @@ export function AuthLoading() {
 const ROLE_HOME: Record<Role, string> = {
   PLAYER: "/player/dashboard",
   VENUE_OWNER: "/venue-owner",
-  ADMIN: "/venue-owner",
+  ADMIN: "/admin",
 };
 
 /**

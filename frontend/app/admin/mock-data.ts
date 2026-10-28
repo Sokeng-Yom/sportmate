@@ -12,6 +12,7 @@ export type AdminRecord = {
   reason?: string;
   target?: string;
   result?: string;
+  [key: string]: unknown;
 };
 
 export type AdminSection = {

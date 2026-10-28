@@ -1,5 +1,5 @@
-import AdminDataPage from "../AdminDataPage";
+import ReportedPostsPage from "../reported-posts/page";
 
 export default function ReportsPage() {
-  return <AdminDataPage section="reports" />;
+  return <ReportedPostsPage />;
 }
