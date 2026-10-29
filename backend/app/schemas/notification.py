@@ -3,13 +3,15 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.core.clock import UtcDateTime
+
 
 class NotificationRead(BaseModel):
     id: UUID
     type: str
     payload: dict | None = None
     read: bool
-    created_at: datetime
+    created_at: UtcDateTime
 
 
 class NotificationPage(BaseModel):

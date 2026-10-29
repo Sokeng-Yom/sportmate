@@ -5,6 +5,7 @@ import { Bell, CheckCheck, X } from "lucide-react";
 import { listNotifications, markAllNotificationsRead } from "../../lib/api";
 import { ApiError } from "../../lib/apiClient";
 import type { NotificationRead } from "../../lib/types";
+import { formatTimeAgo } from "../../lib/dateUtils";
 
 /** Human-friendly label for a notification type. */
 function notificationLabel(type: string, payload: Record<string, unknown> | null): string {
@@ -32,15 +33,7 @@ function notificationLabel(type: string, payload: Record<string, unknown> | null
 }
 
 function timeAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const minutes = Math.floor((Date.now() - then) / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return formatTimeAgo(iso);
 }
 
 export default function NotificationsBell() {

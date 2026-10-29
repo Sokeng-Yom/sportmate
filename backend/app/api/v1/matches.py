@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -155,6 +155,72 @@ def recommended_matches(
         page=page,
         page_size=page_size,
     )
+
+
+
+@router.get(
+    "/mine",
+    response_model=PaginatedMatches,
+    summary="List matches created by or joined by the current user",
+)
+def list_my_matches(
+    role: Literal["all", "created", "joined"] = "all",
+    status: str | None = None,
+    sort_by: MatchSort = "game_time",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Match)
+    user_id = user["sub"]
+    if role == "created":
+        query = query.filter(Match.created_by == user_id)
+    elif role == "joined":
+        joined_ids = [
+            row.match_id
+            for row in db.query(MatchPlayer).filter(MatchPlayer.user_id == user_id).all()
+        ]
+        query = query.filter(Match.id.in_(joined_ids))
+    else:
+        joined_ids = [
+            row.match_id
+            for row in db.query(MatchPlayer).filter(MatchPlayer.user_id == user_id).all()
+        ]
+        query = query.filter(or_(Match.created_by == user_id, Match.id.in_(joined_ids)))
+
+    if status:
+        statuses = [value.strip() for value in status.split(",") if value.strip()]
+        query = query.filter(Match.status.in_(statuses))
+    else:
+        query = query.filter(Match.status != MatchStatus.CANCELLED)
+
+    total = query.count()
+    ordering = (
+        (Match.created_at.desc(), Match.id)
+        if sort_by == "posted_at"
+        else (Match.date, Match.time, Match.id)
+    )
+    matches = (
+        query.options(joinedload(Match.creator))
+        .order_by(*ordering)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    joined_counts = count_joined_for_matches(db, [match.id for match in matches])
+    joined_counts_excluding_hosts = count_joined_excluding_hosts_for_matches(
+        db, [match.id for match in matches]
+    )
+    items = [
+        {
+            **MatchRead.model_validate(match).model_dump(),
+            "joined_count": joined_counts.get(match.id, 0),
+            "joined_count_excluding_host": joined_counts_excluding_hosts.get(match.id, 0),
+        }
+        for match in matches
+    ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", response_model=MatchRead, status_code=201, summary="Create a match")

@@ -9,6 +9,7 @@ import {
 import { ApiError } from "../../../lib/apiClient";
 import { joinMatch, leaveMatch, listMatches, listRecommendedMatches, searchCourts } from "../../../lib/api";
 import type { MatchRead, RecommendedMatch, CourtSearchItem } from "../../../lib/types";
+import { formatUtcDateTime, formatLocalDateString } from "../../../lib/dateUtils";
 
 const SPORTS = ["Any sport", "Badminton", "Football", "Tennis", "Basketball", "Volleyball"];
 
@@ -18,21 +19,21 @@ function formatTime(time: string): string {
 }
 
 function formatDate(date: string): string {
-    const d = new Date(`${date}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return date;
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return formatLocalDateString(date, { weekday: "short" });
+
+
 }
 
 function formatPostedDateTime(dateTime: string): string {
-    const d = new Date(dateTime);
-    if (Number.isNaN(d.getTime())) return dateTime;
-    return d.toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
+    return formatUtcDateTime(dateTime);
+
+
+
+
+
+
+
+
 }
 
 function skillLabel(level: string): string {

@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { listAdminVenues, listReportedPosts } from "../../lib/api";
+import { formatUtcDateTime } from "../../lib/dateUtils";
 import type { ReportedPostRead, VenueRead } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 
@@ -89,12 +90,12 @@ export default function AdminDashboard() {
 
   const formatDate = (isoString: string) => {
     try {
-      return new Intl.DateTimeFormat("en-US", {
+      return formatUtcDateTime(isoString, {
         month: "short",
         day: "numeric",
         hour: "numeric",
         minute: "numeric",
-      }).format(new Date(isoString));
+      });
     } catch {
       return isoString;
     }

@@ -8,7 +8,7 @@ import { getUnreadMessageCount } from "../../lib/api";
 import { supabase } from "../../lib/supabaseClient";
 import NotificationsBell from "../components/NotificationsBell";
 import UserProfileMenu from "../components/UserProfileMenu";
-import { VenueOwnerDataProvider } from "../venue-owner/context/VenueOwnerContext";
+
 
 export default function PlayerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -64,7 +64,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
 
     return (
         <RouteGuard roles={["PLAYER"]}>
-            <VenueOwnerDataProvider>
+
                 <div className="min-h-screen bg-[#F8F5F0] text-slate-900 font-sans">
                 {/* Top Navigation */}
                 <header className="bg-white px-8 py-4 flex items-center justify-between border-b border-gray-100 shadow-sm sticky top-0 z-50">
@@ -124,7 +124,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                     </Suspense>
                 </main>
                 </div>
-            </VenueOwnerDataProvider>
+
         </RouteGuard>
     );
 }

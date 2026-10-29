@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CalendarCheck, X, Search, ChevronDown, Footprints, ShieldCheck, Check, XCircle, RefreshCw } from "lucide-react";
 import { useVenueOwnerData, Booking } from "../context/VenueOwnerContext";
 import { ConfirmModal, EmptyState, StatusBadge, ToastProvider, useToast } from "../components/ui";
+import { formatLocalDateString } from "../../../lib/dateUtils";
 
 type Status = Booking["status"] | "All";
 const STATUSES: Status[] = ["All", "Pending", "Confirmed", "Rejected", "Completed", "Cancelled"];
@@ -146,7 +147,7 @@ function BookingsContent() {
                                                 <p className="font-medium text-slate-800">{getVenueName(b.venueId)}</p>
                                                 <p className="text-xs text-slate-400">{getCourtName(b.courtId)}</p>
                                             </td>
-                                            <td className="px-5 py-3.5 text-sm text-slate-600">{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                                            <td className="px-5 py-3.5 text-sm text-slate-600">{formatLocalDateString(b.date)}</td>
                                             <td className="px-5 py-3.5 text-sm text-slate-600">{b.startTime} – {b.endTime}</td>
                                             <td className="px-5 py-3.5 text-sm font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</td>
                                             <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
@@ -195,7 +196,7 @@ function BookingsContent() {
                                     </div>
                                 </div>
                                 <div className="flex items-center justify-between text-xs text-slate-500">
-                                    <span>{new Date(b.date).toLocaleDateString()} · {b.startTime}–{b.endTime}</span>
+                                    <span>{formatLocalDateString(b.date)} · {b.startTime}–{b.endTime}</span>
                                     <span className="font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</span>
                                 </div>
                                 {b.status === "Pending" && (

@@ -25,6 +25,7 @@ import {
   rejectAdminVenue,
 } from "../../../lib/api";
 import { ApiError } from "../../../lib/apiClient";
+import { formatUtcDateTime } from "../../../lib/dateUtils";
 import type { VenueRead } from "../../../lib/types";
 import { useAdminToast } from "../components/AdminToast";
 import { ConfirmModal } from "../components/ConfirmModal";
@@ -207,14 +208,14 @@ export default function VenueApplicationsPage() {
 
   const formatDate = (isoString: string) => {
     try {
-      const date = new Date(isoString);
-      return new Intl.DateTimeFormat("en-US", {
+      return formatUtcDateTime(isoString, {
+
         month: "short",
         day: "numeric",
         year: "numeric",
         hour: "numeric",
         minute: "numeric",
-      }).format(date);
+      });
     } catch {
       return isoString;
     }

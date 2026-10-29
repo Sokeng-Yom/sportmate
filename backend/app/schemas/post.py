@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, StringConstraints
 
+from app.core.clock import UtcDateTime
+
 PostContent = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 CommentContent = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 ReportReason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
@@ -27,7 +29,7 @@ class PostRead(BaseModel):
     author_name: str
     author_avatar: str | None = None
     content: str
-    created_at: datetime
+    created_at: UtcDateTime
     like_count: int
     comment_count: int
     liked_by_me: bool
@@ -45,7 +47,7 @@ class CommentRead(BaseModel):
     author_name: str
     author_avatar: str | None = None
     content: str
-    created_at: datetime
+    created_at: UtcDateTime
 
 
 class PaginatedPosts(BaseModel):

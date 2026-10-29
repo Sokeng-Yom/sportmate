@@ -4,6 +4,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
+from app.core.clock import UtcDateTime
+
 ProfileName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
 AvatarUrl = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 
@@ -15,9 +17,9 @@ class ProfileRead(BaseModel):
     name: str
     role: str
     avatar: str | None = None
-    restricted_until: datetime | None = None
-    last_seen_at: datetime | None = None
-    created_at: datetime
+    restricted_until: UtcDateTime | None = None
+    last_seen_at: UtcDateTime | None = None
+    created_at: UtcDateTime
 
 
 class ProfileUpdate(BaseModel):

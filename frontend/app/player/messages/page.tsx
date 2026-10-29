@@ -7,6 +7,7 @@ import { listMatches, listMessages, markChatRead, openChat, sendMessage } from "
 import { useAuth } from "../../../lib/auth";
 import { supabase } from "../../../lib/supabaseClient";
 import type { ChatMember, MatchRead, MessageRead } from "../../../lib/types";
+import { formatUtcTime } from "../../../lib/dateUtils";
 
 interface ConversationSummary {
   match: MatchRead;
@@ -24,10 +25,10 @@ function matchTitle(match: MatchRead): string {
 }
 
 function formatTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ""
-    : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return formatUtcTime(value);
+
+
+
 }
 
 export default function MessagesPage() {

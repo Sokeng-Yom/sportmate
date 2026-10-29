@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
 
+from app.core.clock import UtcDateTime
+
 from app.services.court_availability import DAY_KEYS
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
@@ -59,7 +61,7 @@ class CourtRead(BaseModel):
     name: str
     sport: str
     availability: WeeklyAvailability | None = None
-    created_at: datetime
+    created_at: UtcDateTime
 
 
 class CourtSearchItem(CourtRead):

@@ -6,6 +6,7 @@ import { Plus, ClipboardList, RefreshCw, XCircle, Loader2, User, X, Pencil } fro
 import { ApiError } from "../../../lib/apiClient";
 import { cancelMatch, createBooking, listMatches, updateMatch } from "../../../lib/api";
 import type { MatchRead } from "../../../lib/types";
+import { formatUtcDateTime, formatLocalDateString } from "../../../lib/dateUtils";
 import { useAuth } from "../../../lib/auth";
 import { supabase } from "../../../lib/supabaseClient";
 
@@ -28,9 +29,9 @@ const SKILL_LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 type Notice = { message: string; kind: "info" | "success" | "error" };
 
 function formatGameDate(dateStr: string): string {
-    const d = new Date(`${dateStr}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    return formatLocalDateString(dateStr);
+
+
 }
 
 function hasMatchStarted(date: string, time: string): boolean {
@@ -39,15 +40,15 @@ function hasMatchStarted(date: string, time: string): boolean {
 }
 
 function formatPostedDateTime(dateTime: string): string {
-    const d = new Date(dateTime);
-    if (Number.isNaN(d.getTime())) return dateTime;
-    return d.toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
+    return formatUtcDateTime(dateTime);
+
+
+
+
+
+
+
+
 }
 
 function skillLabel(level: string): string {

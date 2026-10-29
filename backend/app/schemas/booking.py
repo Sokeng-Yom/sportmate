@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.clock import UtcDateTime
+
 
 class BookingCreate(BaseModel):
     match_id: UUID
@@ -20,7 +22,7 @@ class BookingRead(BaseModel):
     start_time: datetime
     end_time: datetime
     status: str
-    created_at: datetime
+    created_at: UtcDateTime
     booker_name: str | None = None
     court_name: str | None = None
     venue_id: UUID | None = None

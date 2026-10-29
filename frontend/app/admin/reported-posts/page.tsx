@@ -27,6 +27,7 @@ import {
 } from "../../../lib/api";
 import { ApiError } from "../../../lib/apiClient";
 import type { ReportedPostRead } from "../../../lib/types";
+import { formatUtcDateTime } from "../../../lib/dateUtils";
 import { useAdminToast } from "../components/AdminToast";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { EmptyState } from "../components/EmptyState";
@@ -160,18 +161,7 @@ export default function ReportedPostsPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const formatDate = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      return new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-      }).format(date);
-    } catch {
-      return isoString;
-    }
+    return formatUtcDateTime(isoString);
   };
 
   return (
