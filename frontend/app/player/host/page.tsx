@@ -65,9 +65,11 @@ function HostPageContent() {
             return;
         }
         setBookingType("Court Booking");
-        setForm((current) => current.venueId
-            ? current
-            : { ...current, venueId: requestedVenueId });
+        setForm((current) => {
+            if (current.venueId) return current;
+            const venue = venues.find((v) => v.id === requestedVenueId);
+            return { ...current, venueId: requestedVenueId, location: venue?.address ?? current.location };
+        });
     }, [requestedVenueId, venues]);
 
     // Players can book any approved venue, not only venues they own.
@@ -102,12 +104,19 @@ function HostPageContent() {
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
     ) => {
         const { name, value } = e.target;
-        setForm((prev) => ({
-            ...prev,
-            [name]: value,
-            // reset court when venue changes
-            ...(name === "venueId" || name === "sport" ? { courtId: "" } : {}),
-        }));
+        setForm((prev) => {
+            const next = { ...prev, [name]: value };
+            // reset court when venue or sport changes
+            if (name === "venueId" || name === "sport") {
+                next.courtId = "";
+            }
+            // auto-fill location with the venue's full address
+            if (name === "venueId" && bookingType === "Court Booking") {
+                const venue = venues.find((v) => v.id === value);
+                if (venue) next.location = venue.address;
+            }
+            return next;
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -123,10 +132,10 @@ function HostPageContent() {
         const [gameDate, gameTime] = form.datetime.split("T");
         const playersNeeded = Number(form.playersNeeded) || 1;
 
-        // For court bookings the match lives at the chosen venue.
+        // For court bookings the match lives at the chosen venue's full address.
         const matchLocation =
             bookingType === "Court Booking" && selectedVenue
-                ? selectedVenue.name
+                ? selectedVenue.address
                 : form.location.trim() || "TBC";
 
         try {
@@ -151,8 +160,7 @@ function HostPageContent() {
                 await joinMatch(match.id);
             } catch (err) {
                 setSubmitError(
-                    `Your game was posted, but you could not join it: ${
-                        err instanceof ApiError ? err.message : "Please open My listings and retry."
+                    `Your game was posted, but you could not join it: ${err instanceof ApiError ? err.message : "Please open My listings and retry."
                     }`,
                 );
             }
@@ -313,7 +321,7 @@ function HostPageContent() {
                                                 >
                                                     <option value="" disabled>Choose a venue…</option>
                                                     {venues.map((v) => (
-                                                        <option key={v.id} value={v.id}>{v.name}</option>
+                                                        <option key={v.id} value={v.id}>{v.name} — {v.address}</option>
                                                     ))}
                                                 </select>
                                                 {venues.length === 0 && !venueLoadError && (
@@ -331,7 +339,7 @@ function HostPageContent() {
                                                         {courts
                                                             .filter((court) => !form.sport || court.sport.toLowerCase() === form.sport.toLowerCase())
                                                             .map((c) => (
-                                                            <option key={c.id} value={c.id}>{c.name} — {c.sport}</option>
+                                                                <option key={c.id} value={c.id}>{c.name} — {c.sport}</option>
                                                             ))}
                                                     </select>
                                                 )}
@@ -364,9 +372,19 @@ function HostPageContent() {
                                                 onChange={handleChange}
                                                 type="text"
                                                 required
+                                                readOnly={bookingType === "Court Booking" && !!selectedVenue}
                                                 placeholder="Downtown Park, YMCA, etc…"
-                                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-slate-700 placeholder:text-slate-400"
+                                                className={`w-full px-4 py-2.5 rounded-xl border text-slate-700 placeholder:text-slate-400 ${bookingType === "Court Booking" && selectedVenue
+                                                    ? "border-emerald-200 bg-emerald-50 cursor-not-allowed"
+                                                    : "border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent"
+                                                    }`}
                                             />
+                                            {bookingType === "Court Booking" && selectedVenue && (
+                                                <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1">
+                                                    <MapPin size={12} />
+                                                    Auto-filled from venue address
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
 
