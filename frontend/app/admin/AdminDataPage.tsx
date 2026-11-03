@@ -5,11 +5,14 @@ import {
   AlertCircle,
   ArrowDown,
   ArrowUp,
+  Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Eye,
+  Plus,
   RefreshCw,
   Search,
   Settings2,
@@ -20,15 +23,96 @@ import {
 import { adminSections, type AdminRecord } from "./mock-data";
 import {
   approveAdminVenue,
+  approveBooking,
+  cancelBooking,
+  createCourt,
+  deleteCourt,
+  listAdminBookings,
+  listAdminCourts,
   listAdminSecurityLogs,
   listAdminUsers,
   listAdminVenues,
   listMatches,
   rejectAdminVenue,
+  rejectBooking,
   restrictAdminUser,
   unrestrictAdminUser,
+  updateCourt,
 } from "../../lib/api";
 import { ApiError } from "../../lib/apiClient";
+import { formatLocalDateString, formatUtcDateTime } from "../../lib/dateUtils";
+import type { VenueRead, WeeklyAvailability } from "../../lib/types";
+
+function formatTime12h(timeStr?: string): string {
+  if (!timeStr) return "";
+  const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return timeStr;
+  let h = parseInt(match[1], 10);
+  const m = match[2];
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+function formatBookingSlot(startTime?: string, endTime?: string): string {
+  if (!startTime) return "—";
+  const datePart = startTime.slice(0, 10);
+  const formattedDate = formatLocalDateString(datePart);
+  const startT = startTime.includes("T") ? startTime.split("T")[1] : startTime.slice(11);
+  const endT = endTime && (endTime.includes("T") ? endTime.split("T")[1] : endTime.slice(11));
+  const timeSlot = endT
+    ? `${formatTime12h(startT)} – ${formatTime12h(endT)}`
+    : formatTime12h(startT);
+  return `${formattedDate} · ${timeSlot}`;
+}
+
+function calculateDuration(start?: string, end?: string): string {
+  if (!start || !end) return "—";
+  const sStr = start.endsWith("Z") ? start : `${start}Z`;
+  const eStr = end.endsWith("Z") ? end : `${end}Z`;
+  const s = new Date(sStr).getTime();
+  const e = new Date(eStr).getTime();
+  const diffMs = e - s;
+  if (isNaN(diffMs) || diffMs <= 0) return "—";
+  const mins = Math.round(diffMs / 60000);
+  if (mins >= 60) {
+    const hrs = (mins / 60).toFixed(mins % 60 === 0 ? 0 : 1);
+    return `${hrs} hr${hrs === "1" ? "" : "s"} (${mins}m)`;
+  }
+  return `${mins} mins`;
+}
+
+function formatWeeklyAvailability(availability?: WeeklyAvailability | null): string {
+  if (!availability) return "No schedule configured";
+  const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+  const summary: string[] = [];
+  for (const day of days) {
+    const windows = availability[day];
+    if (windows && windows.length > 0) {
+      const winStrs = windows.map((w) => `${formatTime12h(w.start)}–${formatTime12h(w.end)}`).join(", ");
+      summary.push(`${day.toUpperCase()}: ${winStrs}`);
+    }
+  }
+  return summary.length > 0 ? summary.join(" | ") : "No open hours";
+}
+
+function buildWeeklyAvailability(
+  openTime: string,
+  closeTime: string,
+  isAvailable: boolean
+): WeeklyAvailability | null {
+  if (!isAvailable || !openTime || !closeTime) return null;
+  const window = { start: openTime, end: closeTime };
+  return {
+    mon: [window],
+    tue: [window],
+    wed: [window],
+    thu: [window],
+    fri: [window],
+    sat: [window],
+    sun: [window],
+  };
+}
 
 type AdminDataPageProps = { section: string };
 
@@ -104,9 +188,14 @@ function Dialog({
 }
 
 export default function AdminDataPage({ section }: AdminDataPageProps) {
-  const isRealDataSection = ["users", "venues", "activity-logs", "listings"].includes(
-    section
-  );
+  const isRealDataSection = [
+    "users",
+    "venues",
+    "activity-logs",
+    "listings",
+    "bookings",
+    "courts",
+  ].includes(section);
 
   const config = adminSections[section];
   const [records, setRecords] = useState<AdminRecord[]>(config?.records ?? []);
@@ -134,6 +223,25 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
     email: true,
     security: true,
     weekly: false,
+  });
+
+  const [editingCourt, setEditingCourt] = useState<AdminRecord | null>(null);
+  const [showAddCourtModal, setShowAddCourtModal] = useState(false);
+  const [approvedVenues, setApprovedVenues] = useState<VenueRead[]>([]);
+  const [courtForm, setCourtForm] = useState({
+    venueId: "",
+    name: "",
+    sport: "Football",
+    openTime: "08:00",
+    closeTime: "22:00",
+    isAvailable: true,
+  });
+  const [editCourtForm, setEditCourtForm] = useState({
+    name: "",
+    sport: "Football",
+    openTime: "08:00",
+    closeTime: "22:00",
+    isAvailable: true,
   });
   const pageSize = 8;
 
@@ -365,6 +473,104 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 : m.status,
             sport: m.sport,
           }));
+
+          setRecords(mapped);
+          setTotalCount(res.total);
+        } else if (section === "bookings") {
+          let statusParam: string | undefined = undefined;
+          if (filters.status) statusParam = filters.status.toUpperCase();
+
+          const res = await listAdminBookings({
+            q: debouncedSearch.trim() || undefined,
+            status: statusParam,
+            page,
+            page_size: pageSize,
+          });
+
+          const mapped: AdminRecord[] = res.items.map((b) => {
+            const duration = calculateDuration(b.start_time, b.end_time);
+            const slotDisplay = formatBookingSlot(b.start_time, b.end_time);
+            return {
+              id: b.id,
+              title: `${b.court_name || "Court"} · ${b.venue_name || "Venue"}`,
+              owner:
+                b.booker_name ||
+                (b.booked_by ? `User (${b.booked_by.slice(0, 8)})` : "—"),
+              date: slotDisplay,
+              category: duration,
+              status:
+                b.status === "PENDING"
+                  ? "Pending"
+                  : b.status === "CONFIRMED"
+                  ? "Confirmed"
+                  : b.status === "CANCELLED"
+                  ? "Cancelled"
+                  : b.status === "REJECTED"
+                  ? "Rejected"
+                  : b.status,
+              courtName: b.court_name || "—",
+              venueName: b.venue_name || "—",
+              venueId: b.venue_id || "—",
+              bookerName: b.booker_name || "—",
+              bookerId: b.booked_by,
+              timeSlot: slotDisplay,
+              duration,
+              matchId: b.match_id || "Direct Court Reservation",
+              created: b.created_at ? formatUtcDateTime(b.created_at) : "—",
+            };
+          });
+
+          setRecords(mapped);
+          setTotalCount(res.total);
+        } else if (section === "courts") {
+          const res = await listAdminCourts({
+            q: debouncedSearch.trim() || undefined,
+            sport: filters.category || undefined,
+            page,
+            page_size: pageSize,
+          });
+
+          let items = res.items;
+          if (filters.status === "Available") {
+            items = items.filter((c) => {
+              if (!c.availability) return false;
+              return Object.values(c.availability).some(
+                (arr) => Array.isArray(arr) && arr.length > 0
+              );
+            });
+          } else if (filters.status === "Unavailable") {
+            items = items.filter((c) => {
+              if (!c.availability) return true;
+              return !Object.values(c.availability).some(
+                (arr) => Array.isArray(arr) && arr.length > 0
+              );
+            });
+          }
+
+          const mapped: AdminRecord[] = items.map((c) => {
+            const hasHours =
+              c.availability &&
+              Object.values(c.availability).some(
+                (arr) => Array.isArray(arr) && arr.length > 0
+              );
+            const scheduleText = formatWeeklyAvailability(c.availability);
+            return {
+              id: c.id,
+              title: c.name,
+              owner: c.venue_name || "—",
+              category: c.sport,
+              location: c.venue_address || "—",
+              status: hasHours ? "Available" : "Unavailable",
+              courtId: c.id,
+              courtName: c.name,
+              venueName: c.venue_name || "—",
+              venueId: c.venue_id,
+              venueAddress: c.venue_address || "—",
+              sport: c.sport,
+              operatingHours: scheduleText,
+              created: c.created_at ? formatUtcDateTime(c.created_at) : "—",
+            };
+          });
 
           setRecords(mapped);
           setTotalCount(res.total);
@@ -619,6 +825,94 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
     );
   };
 
+  const openAddCourt = async () => {
+    try {
+      const venuesRes = await listAdminVenues({ status: "APPROVED", page_size: 100 });
+      setApprovedVenues(venuesRes.items);
+      if (venuesRes.items.length > 0) {
+        setCourtForm({
+          venueId: venuesRes.items[0].id,
+          name: "",
+          sport: "Football",
+          openTime: "08:00",
+          closeTime: "22:00",
+          isAvailable: true,
+        });
+        setShowAddCourtModal(true);
+      } else {
+        setToast("No approved venues available. Please approve a venue first.");
+      }
+    } catch {
+      setToast("Could not load venues for court creation.");
+    }
+  };
+
+  const handleCreateCourtSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!courtForm.name.trim()) {
+      setToast("Court name is required.");
+      return;
+    }
+    setIsPerforming(true);
+    try {
+      const availability = buildWeeklyAvailability(
+        courtForm.openTime,
+        courtForm.closeTime,
+        courtForm.isAvailable
+      );
+      await createCourt(courtForm.venueId, {
+        name: courtForm.name.trim(),
+        sport: courtForm.sport,
+        availability: availability ?? undefined,
+      });
+      setShowAddCourtModal(false);
+      setToast(`Court "${courtForm.name}" created successfully.`);
+      void fetchData(true);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to create court.";
+      setToast(`Error: ${msg}`);
+    } finally {
+      setIsPerforming(false);
+    }
+  };
+
+  const handleStartEditCourt = (record: AdminRecord) => {
+    setEditingCourt(record);
+    setEditCourtForm({
+      name: record.title || "",
+      sport: (record.category as string) || "Football",
+      openTime: "08:00",
+      closeTime: "22:00",
+      isAvailable: record.status !== "Unavailable",
+    });
+  };
+
+  const handleUpdateCourtSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourt || !editCourtForm.name.trim()) return;
+    setIsPerforming(true);
+    try {
+      const availability = buildWeeklyAvailability(
+        editCourtForm.openTime,
+        editCourtForm.closeTime,
+        editCourtForm.isAvailable
+      );
+      await updateCourt(editingCourt.id, {
+        name: editCourtForm.name.trim(),
+        sport: editCourtForm.sport,
+        availability: availability ?? undefined,
+      });
+      setEditingCourt(null);
+      setToast(`Court "${editCourtForm.name}" updated successfully.`);
+      void fetchData(true);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "Failed to update court.";
+      setToast(`Error: ${msg}`);
+    } finally {
+      setIsPerforming(false);
+    }
+  };
+
   const performAction = async () => {
     if (!pending) return;
     setIsPerforming(true);
@@ -672,6 +966,47 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
             )
           );
           setToast(`${pending.record.title}: venue rejected.`);
+        }
+      } else if (section === "bookings") {
+        if (pending.action === "Approve booking") {
+          await approveBooking(pending.record.id);
+          setRecords((current) =>
+            current.map((record) =>
+              record.id === pending.record.id
+                ? { ...record, status: "Confirmed" }
+                : record
+            )
+          );
+          setToast(`${pending.record.title}: booking approved.`);
+        } else if (pending.action === "Reject booking") {
+          await rejectBooking(pending.record.id);
+          setRecords((current) =>
+            current.map((record) =>
+              record.id === pending.record.id
+                ? { ...record, status: "Rejected" }
+                : record
+            )
+          );
+          setToast(`${pending.record.title}: booking rejected.`);
+        } else if (pending.action === "Cancel booking") {
+          await cancelBooking(pending.record.id);
+          setRecords((current) =>
+            current.map((record) =>
+              record.id === pending.record.id
+                ? { ...record, status: "Cancelled" }
+                : record
+            )
+          );
+          setToast(`${pending.record.title}: booking cancelled.`);
+        }
+      } else if (section === "courts") {
+        if (pending.action === "Delete court") {
+          await deleteCourt(pending.record.id);
+          setRecords((current) =>
+            current.filter((record) => record.id !== pending.record.id)
+          );
+          setTotalCount((c) => Math.max(0, c - 1));
+          setToast(`${pending.record.title}: court deleted successfully.`);
         }
       } else {
         const nextStatus =
@@ -804,6 +1139,17 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                   size={13}
                   className={isRefreshing ? "animate-spin text-emerald-600" : ""}
                 />
+              </button>
+            )}
+
+            {section === "courts" && (
+              <button
+                type="button"
+                onClick={() => void openAddCourt()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
+              >
+                <Plus size={13} />
+                <span>Add Court</span>
               </button>
             )}
 
@@ -1000,6 +1346,56 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                             Remove
                           </button>
                         )}
+                        {section === "bookings" && record.status === "Pending" && (
+                          <>
+                            <button
+                              onClick={() =>
+                                setPending({ record, action: "Approve booking" })
+                              }
+                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() =>
+                                setPending({ record, action: "Reject booking" })
+                              }
+                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {section === "bookings" &&
+                          (record.status === "Pending" ||
+                            record.status === "Confirmed") && (
+                            <button
+                              onClick={() =>
+                                setPending({ record, action: "Cancel booking" })
+                              }
+                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-50"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        {section === "courts" && (
+                          <>
+                            <button
+                              onClick={() => handleStartEditCourt(record)}
+                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                setPending({ record, action: "Delete court" })
+                              }
+                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1108,7 +1504,10 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           </p>
           <div className="mt-4 space-y-3">
             {Object.entries(selected)
-              .filter(([key, value]) => key !== "id" && value)
+              .filter(
+                ([key, value]) =>
+                  key !== "id" && value && typeof value !== "object"
+              )
               .map(([key, value]) => (
                 <div
                   key={key}
@@ -1170,6 +1569,231 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
               Confirm
             </button>
           </div>
+        </Dialog>
+      )}
+
+      {showAddCourtModal && (
+        <Dialog
+          title="Add New Court"
+          onClose={() => !isPerforming && setShowAddCourtModal(false)}
+        >
+          <form onSubmit={handleCreateCourtSubmit} className="mt-4 space-y-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700">
+                Venue
+              </label>
+              <select
+                value={courtForm.venueId}
+                onChange={(e) =>
+                  setCourtForm({ ...courtForm, venueId: e.target.value })
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+              >
+                {approvedVenues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.address})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700">
+                Court Name
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Court A or Pitch 1"
+                value={courtForm.name}
+                onChange={(e) =>
+                  setCourtForm({ ...courtForm, name: e.target.value })
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700">
+                Sport
+              </label>
+              <select
+                value={courtForm.sport}
+                onChange={(e) =>
+                  setCourtForm({ ...courtForm, sport: e.target.value })
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+              >
+                <option value="Football">Football</option>
+                <option value="Basketball">Basketball</option>
+                <option value="Tennis">Tennis</option>
+                <option value="Badminton">Badminton</option>
+                <option value="Volleyball">Volleyball</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Opening Time
+                </label>
+                <input
+                  type="time"
+                  value={courtForm.openTime}
+                  onChange={(e) =>
+                    setCourtForm({ ...courtForm, openTime: e.target.value })
+                  }
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Closing Time
+                </label>
+                <input
+                  type="time"
+                  value={courtForm.closeTime}
+                  onChange={(e) =>
+                    setCourtForm({ ...courtForm, closeTime: e.target.value })
+                  }
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 pt-1 text-xs text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={courtForm.isAvailable}
+                onChange={(e) =>
+                  setCourtForm({ ...courtForm, isAvailable: e.target.checked })
+                }
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>Set as active / available immediately</span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isPerforming}
+                onClick={() => setShowAddCourtModal(false)}
+                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPerforming}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              >
+                {isPerforming ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Check size={14} />
+                )}
+                Create Court
+              </button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+
+      {editingCourt && (
+        <Dialog
+          title={`Edit Court: ${editingCourt.title}`}
+          onClose={() => !isPerforming && setEditingCourt(null)}
+        >
+          <form onSubmit={handleUpdateCourtSubmit} className="mt-4 space-y-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700">
+                Court Name
+              </label>
+              <input
+                type="text"
+                required
+                value={editCourtForm.name}
+                onChange={(e) =>
+                  setEditCourtForm({ ...editCourtForm, name: e.target.value })
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700">
+                Sport
+              </label>
+              <select
+                value={editCourtForm.sport}
+                onChange={(e) =>
+                  setEditCourtForm({ ...editCourtForm, sport: e.target.value })
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+              >
+                <option value="Football">Football</option>
+                <option value="Basketball">Basketball</option>
+                <option value="Tennis">Tennis</option>
+                <option value="Badminton">Badminton</option>
+                <option value="Volleyball">Volleyball</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Opening Time
+                </label>
+                <input
+                  type="time"
+                  value={editCourtForm.openTime}
+                  onChange={(e) =>
+                    setEditCourtForm({ ...editCourtForm, openTime: e.target.value })
+                  }
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700">
+                  Closing Time
+                </label>
+                <input
+                  type="time"
+                  value={editCourtForm.closeTime}
+                  onChange={(e) =>
+                    setEditCourtForm({ ...editCourtForm, closeTime: e.target.value })
+                  }
+                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 pt-1 text-xs text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={editCourtForm.isAvailable}
+                onChange={(e) =>
+                  setEditCourtForm({ ...editCourtForm, isAvailable: e.target.checked })
+                }
+                className="rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>Set as active / available</span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isPerforming}
+                onClick={() => setEditingCourt(null)}
+                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPerforming}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              >
+                {isPerforming ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Check size={14} />
+                )}
+                Save Changes
+              </button>
+            </div>
+          </form>
         </Dialog>
       )}
 

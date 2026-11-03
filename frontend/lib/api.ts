@@ -203,6 +203,9 @@ export const getCourt = (courtId: string) =>
 export const updateCourt = (courtId: string, payload: Partial<CourtCreate>) =>
   apiClient.patch<CourtRead>(`/api/v1/courts/${courtId}`, payload);
 
+export const deleteCourt = (courtId: string) =>
+  apiClient.delete<void>(`/api/v1/courts/${courtId}`);
+
 export interface CourtSearchParams {
   date: string;
   start_time: string; // "HH:MM"
@@ -336,4 +339,26 @@ export interface AdminSecurityLogListParams {
 
 export const listAdminSecurityLogs = (params?: AdminSecurityLogListParams) =>
   apiClient.get<Paginated<SecurityLogRead>>(`/api/v1/admin/security-logs${qs(params)}`);
+
+export interface AdminBookingListParams {
+  q?: string;
+  status?: string;
+  venue_id?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export const listAdminBookings = (params?: AdminBookingListParams) =>
+  apiClient.get<Paginated<BookingRead>>(`/api/v1/admin/bookings${qs(params)}`);
+
+export interface AdminCourtListParams {
+  q?: string;
+  sport?: string;
+  venue_id?: string;
+  page?: number;
+  page_size?: number;
+}
+
+export const listAdminCourts = (params?: AdminCourtListParams) =>
+  apiClient.get<Paginated<CourtSearchItem>>(`/api/v1/admin/courts${qs(params)}`);
 

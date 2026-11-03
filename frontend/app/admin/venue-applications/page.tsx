@@ -131,8 +131,8 @@ export default function VenueApplicationsPage() {
         err instanceof ApiError
           ? err.message
           : err instanceof Error
-          ? err.message
-          : "Could not approve venue application.";
+            ? err.message
+            : "Could not approve venue application.";
       toastError(msg);
     } finally {
       setIsApproving(false);
@@ -167,11 +167,11 @@ export default function VenueApplicationsPage() {
           prev.map((v) =>
             v.id === venueToReject.id
               ? {
-                  ...v,
-                  status: "REJECTED",
-                  rejection_reason: trimmed,
-                  reviewed_at: new Date().toISOString(),
-                }
+                ...v,
+                status: "REJECTED",
+                rejection_reason: trimmed,
+                reviewed_at: new Date().toISOString(),
+              }
               : v
           )
         );
@@ -183,8 +183,8 @@ export default function VenueApplicationsPage() {
         err instanceof ApiError
           ? err.message
           : err instanceof Error
-          ? err.message
-          : "Could not reject venue application.";
+            ? err.message
+            : "Could not reject venue application.";
       setRejectionError(msg);
       toastError(msg);
     } finally {
@@ -277,11 +277,10 @@ export default function VenueApplicationsPage() {
                   setStatusFilter(tab.id);
                   setPage(1);
                 }}
-                className={`rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition ${
-                  active
+                className={`rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition ${active
                     ? "bg-slate-900 text-white shadow-sm"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -367,8 +366,8 @@ export default function VenueApplicationsPage() {
             statusFilter === "PENDING_REVIEW"
               ? "There are currently no venue applications waiting for review. New venue submissions will appear here automatically."
               : searchQuery
-              ? `No venues matched "${searchQuery}". Try a different keyword.`
-              : "No venue records match the selected status filter."
+                ? `No venues matched "${searchQuery}". Try a different keyword.`
+                : "No venue records match the selected status filter."
           }
           actionText="Refresh list"
           onAction={() => void fetchVenues(true)}
@@ -400,22 +399,21 @@ export default function VenueApplicationsPage() {
                     </div>
 
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold shrink-0 border ${
-                        isApproved
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold shrink-0 border ${isApproved
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                           : isRejected
-                          ? "bg-rose-50 text-rose-700 border-rose-200"
-                          : "bg-amber-50 text-amber-700 border-amber-200"
-                      }`}
+                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
                       {isPending
                         ? "Pending Review"
                         : isApproved
-                        ? "Approved"
-                        : isRejected
-                        ? "Rejected"
-                        : venue.status}
+                          ? "Approved"
+                          : isRejected
+                            ? "Rejected"
+                            : venue.status}
                     </span>
                   </div>
 

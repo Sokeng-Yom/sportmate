@@ -114,8 +114,8 @@ export default function ReportedPostsPage() {
         err instanceof ApiError
           ? err.message
           : err instanceof Error
-          ? err.message
-          : "Could not dismiss reports.";
+            ? err.message
+            : "Could not dismiss reports.";
       toastError(msg);
     } finally {
       setIsDismissing(false);
@@ -139,8 +139,8 @@ export default function ReportedPostsPage() {
         err instanceof ApiError
           ? err.message
           : err instanceof Error
-          ? err.message
-          : "Could not remove post.";
+            ? err.message
+            : "Could not remove post.";
       toastError(msg);
     } finally {
       setIsRemoving(false);

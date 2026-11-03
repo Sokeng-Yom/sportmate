@@ -111,13 +111,8 @@ export const adminSections: Record<string, AdminSection> = {
   courts: {
     title: "Courts", description: "Review facilities and availability at registered venues.", searchLabel: "Search court, venue, or sport...",
     columns: [{ key: "title", label: "Court" }, { key: "owner", label: "Venue" }, { key: "category", label: "Sport" }, { key: "location", label: "Location" }, { key: "status", label: "Availability" }],
-    filters: [{ label: "All sports", key: "category", values: ["Basketball", "Tennis", "Badminton", "Football"] }, { label: "All status", key: "status", values: ["Available", "Maintenance", "Unavailable"] }],
-    records: [
-      { id: "CRT-081", title: "Court A", owner: "Riverside Tennis Center", category: "Tennis", location: "Daun Penh", status: "Available" },
-      { id: "CRT-080", title: "Court 3", owner: "Olympic Badminton Hall", category: "Badminton", location: "Olympic", status: "Available" },
-      { id: "CRT-079", title: "Main Court", owner: "Phnom Penh Sports Club", category: "Basketball", location: "Chamkarmon", status: "Maintenance" },
-      { id: "CRT-078", title: "Pitch 1", owner: "Greenfield Football Park", category: "Football", location: "Sen Sok", status: "Available" },
-    ],
+    filters: [{ label: "All sports", key: "category", values: ["Football", "Basketball", "Tennis", "Badminton", "Volleyball"] }, { label: "All availability", key: "status", values: ["Available", "Unavailable"] }],
+    records: [],
   },
   listings: {
     title: "Game listings", description: "Monitor public games and community activity.", searchLabel: "Search games, creators, or location...",
@@ -132,14 +127,9 @@ export const adminSections: Record<string, AdminSection> = {
   },
   bookings: {
     title: "Bookings", description: "Review court reservations across the venue network.", searchLabel: "Search booking, player, or venue...",
-    columns: [{ key: "id", label: "Booking" }, { key: "title", label: "Court & venue" }, { key: "owner", label: "Player" }, { key: "date", label: "Date & time" }, { key: "category", label: "Amount" }, { key: "status", label: "Status" }],
-    filters: [{ label: "All statuses", key: "status", values: ["Confirmed", "Completed", "Cancelled", "Pending"] }],
-    records: [
-      { id: "BKG-0921", title: "Court A · Riverside Tennis Center", owner: "Sokha Kim", date: "Oct 23 · 6:00 PM", category: "$18.00", status: "Confirmed" },
-      { id: "BKG-0920", title: "Court 3 · Olympic Badminton Hall", owner: "Dara Sok", date: "Oct 23 · 5:30 PM", category: "$12.00", status: "Confirmed" },
-      { id: "BKG-0919", title: "Main Court · Phnom Penh Sports Club", owner: "Maly Chan", date: "Oct 22 · 7:00 PM", category: "$24.00", status: "Completed" },
-      { id: "BKG-0918", title: "Court B · Riverside Tennis Center", owner: "Vannak Lim", date: "Oct 22 · 4:00 PM", category: "$18.00", status: "Cancelled" },
-    ],
+    columns: [{ key: "id", label: "Booking" }, { key: "title", label: "Court & venue" }, { key: "owner", label: "Player" }, { key: "date", label: "Date & time" }, { key: "category", label: "Duration" }, { key: "status", label: "Status" }],
+    filters: [{ label: "All statuses", key: "status", values: ["Pending", "Confirmed", "Cancelled", "Rejected"] }],
+    records: [],
   },
   reports: {
     title: "Reports & moderation", description: "Review community reports and take appropriate action.", searchLabel: "Search reports or reported content...",

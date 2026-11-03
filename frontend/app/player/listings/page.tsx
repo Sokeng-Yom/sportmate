@@ -258,13 +258,12 @@ export default function MyListingsPage() {
                     <p
                         role="status"
                         aria-live="polite"
-                        className={`mb-6 text-sm font-medium border rounded-xl px-4 py-3 shadow-sm ${
-                            notice.kind === "error"
+                        className={`mb-6 text-sm font-medium border rounded-xl px-4 py-3 shadow-sm ${notice.kind === "error"
                                 ? "text-red-700 bg-red-50 border-red-200"
                                 : notice.kind === "success"
                                     ? "text-emerald-700 bg-emerald-50 border-emerald-200"
                                     : "text-slate-700 bg-white border-gray-100"
-                        }`}
+                            }`}
                     >
                         {notice.message}
                     </p>
