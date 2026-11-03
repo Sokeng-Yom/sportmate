@@ -2,6 +2,8 @@ import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_profile, require_profile_role
@@ -61,9 +63,27 @@ def create_venue_discount(
     db: Session = Depends(get_db),
 ):
     venue = _manageable_venue(db, venue_id, profile)
-    discount = VenueDiscount(id=uuid.uuid4(), venue_id=venue.id, **payload.model_dump())
+    values = payload.model_dump()
+    values["code"] = values["code"].upper() if values["code"] else None
+    if (
+        values["code"]
+        and db.query(VenueDiscount.id)
+        .filter(
+            VenueDiscount.venue_id == venue.id,
+            func.upper(VenueDiscount.code) == values["code"],
+        )
+        .first()
+    ):
+        raise HTTPException(
+            status_code=409, detail="A promo code with this value already exists for this venue"
+        )
+    discount = VenueDiscount(id=uuid.uuid4(), venue_id=venue.id, **values)
     db.add(discount)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Could not save this promo code")
     db.refresh(discount)
     return discount
 
@@ -84,10 +104,42 @@ def update_venue_discount(
     )
     if discount is None:
         raise HTTPException(status_code=404, detail="Discount not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        if value is not None:
-            setattr(discount, field, value)
-    db.commit()
+    values = payload.model_dump(exclude_unset=True)
+    if "code" in values:
+        values["code"] = values["code"].upper() if values["code"] else None
+    if values.get("code"):
+        duplicate = (
+            db.query(VenueDiscount.id)
+            .filter(
+                VenueDiscount.venue_id == venue_id,
+                VenueDiscount.id != discount_id,
+                func.upper(VenueDiscount.code) == values["code"],
+            )
+            .first()
+        )
+        if duplicate:
+            raise HTTPException(
+                status_code=409, detail="A promo code with this value already exists for this venue"
+            )
+    effective_code = values.get("code", discount.code)
+    effective_percent = values.get("percent_off", discount.percent_off)
+    effective_amount = values.get("amount_off", discount.amount_off)
+    if effective_code and (effective_percent is None) == (effective_amount is None):
+        raise HTTPException(
+            status_code=400,
+            detail="A promo code needs exactly one percentage or fixed-amount discount",
+        )
+    if effective_percent is not None and effective_amount is not None:
+        raise HTTPException(
+            status_code=400, detail="Choose either a percentage or fixed-amount discount"
+        )
+    for field, value in values.items():
+        setattr(discount, field, value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Could not update this promo code")
     db.refresh(discount)
     return discount
 

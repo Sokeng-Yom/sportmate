@@ -31,6 +31,55 @@ function notificationLabel(type: string, payload: Record<string, unknown> | null
   return label;
 }
 
+function notificationMessage(type: string, payload: Record<string, unknown> | null): string | null {
+  if (!payload || !["BOOKING_CONFIRMED", "BOOKING_REJECTED"].includes(type)) return null;
+
+  const court = typeof payload.court_name === "string" ? payload.court_name : "the selected court";
+  const venue = typeof payload.venue_name === "string" ? payload.venue_name : "the venue";
+  const startTime = typeof payload.start_time === "string" ? payload.start_time : null;
+  const endTime = typeof payload.end_time === "string" ? payload.end_time : null;
+  const formatTime = (value: string | null): string | null => {
+    if (!value) return null;
+    const time = value.split("T")[1];
+    const match = time?.match(/^(\d{2}):(\d{2})/);
+    if (!match) return null;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour > 23 || minute > 59) return null;
+    return `${hour % 12 || 12}:${String(minute).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+  };
+  const formatDate = (value: string | null): string | null => {
+    if (!value) return null;
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return null;
+    const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+    if (Number.isNaN(date.getTime())) return null;
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(date);
+  };
+  const startDate = formatDate(startTime);
+  const endDate = formatDate(endTime);
+  const startClock = formatTime(startTime);
+  const endClock = formatTime(endTime);
+  const bookingDate = startDate && endDate && startDate !== endDate
+    ? `${startDate} – ${endDate}`
+    : startDate ?? endDate;
+  const bookingTime = startClock && endClock
+    ? `${startClock} – ${endClock}`
+    : startClock ?? endClock;
+  const bookingDetails = [bookingDate, bookingTime].filter(Boolean).join(" · ");
+  const action = type === "BOOKING_CONFIRMED" ? "confirmed" : "declined";
+  const reason = type === "BOOKING_REJECTED" && typeof payload.reason === "string"
+    ? ` Reason: ${payload.reason}`
+    : "";
+
+  return `The venue ${action} your booking for ${court} at ${venue}${bookingDetails ? ` on ${bookingDetails}` : ""}.${reason}`;
+}
+
 function timeAgo(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
@@ -156,6 +205,9 @@ export default function NotificationsBell() {
             <p className="mt-1 text-sm font-semibold text-slate-900">
               {notificationLabel(toast.type, toast.payload)}
             </p>
+            {notificationMessage(toast.type, toast.payload) && (
+              <p className="mt-1 text-sm text-slate-600">{notificationMessage(toast.type, toast.payload)}</p>
+            )}
             <p className="mt-1 text-[11px] text-slate-400">{timeAgo(toast.created_at)}</p>
           </div>
           <button
@@ -200,6 +252,9 @@ export default function NotificationsBell() {
                     <p className="text-sm text-slate-800 font-medium leading-snug">
                       {notificationLabel(n.type, n.payload)}
                     </p>
+                    {notificationMessage(n.type, n.payload) && (
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600">{notificationMessage(n.type, n.payload)}</p>
+                    )}
                     <p className="text-[11px] text-slate-400 mt-0.5">{timeAgo(n.created_at)}</p>
                   </li>
                 ))}

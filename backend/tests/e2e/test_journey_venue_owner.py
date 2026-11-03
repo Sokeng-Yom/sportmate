@@ -16,7 +16,7 @@ def test_venue_owner_journey_from_application_to_a_cancelled_booking(
     venue = client.post("/api/v1/venues", json={"name": name, "address": "St 1, Phnom Penh", "description": "Two courts"}, headers=owner).json()
     vid = venue["id"]
     assert venue["status"] == "PAYMENT_PENDING"
-    court_body = {"name": "Court 1", "sport": sport, "availability": ALWAYS_OPEN}
+    court_body = {"name": "Court 1", "sport": sport, "price_per_hour": 20, "availability": ALWAYS_OPEN}
     assert client.post(f"/api/v1/venues/{vid}/courts", json=court_body, headers=owner).status_code == 400
     assert client.post(f"/api/v1/venues/{vid}/confirm-payment", headers=owner).json()["status"] == "PENDING_REVIEW"
     assert client.post(f"/api/v1/venues/{vid}/courts", json=court_body, headers=owner).status_code == 400
@@ -32,7 +32,7 @@ def test_venue_owner_journey_from_application_to_a_cancelled_booking(
     # 3. two courts, the second only open in the mornings at first
     c1 = client.post(f"/api/v1/venues/{vid}/courts", json=court_body, headers=owner).json()
     morning = {day: [{"start": "06:00", "end": "12:00"}] for day in WEEK}
-    c2 = client.post(f"/api/v1/venues/{vid}/courts", json={"name": "Court 2", "sport": sport, "availability": morning}, headers=owner).json()
+    c2 = client.post(f"/api/v1/venues/{vid}/courts", json={"name": "Court 2", "sport": sport, "price_per_hour": 30, "availability": morning}, headers=owner).json()
 
     match_id, start = new_match(host, players_needed=1, sport=sport)
     assert client.post(f"/api/v1/matches/{match_id}/join", headers=filler).status_code == 200

@@ -35,6 +35,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                 { event: "INSERT", schema: "public", table: "messages" },
                 () => void refreshUnreadMessages(),
             )
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "venue_direct_messages" },
+                () => void refreshUnreadMessages(),
+            )
             .subscribe();
         const intervalId = window.setInterval(() => void refreshUnreadMessages(), 15000);
         const refreshOnFocus = () => {

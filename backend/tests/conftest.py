@@ -186,10 +186,18 @@ def make_approved_venue(client, auth_headers_for):
 
 @pytest.fixture
 def make_court(client):
-    def _make(owner_headers, venue_id, *, name="Court 1", sport="Badminton", availability=ALWAYS_OPEN):
+    def _make(
+        owner_headers, venue_id, *, name="Court 1", sport="Badminton",
+        price_per_hour=20, availability=ALWAYS_OPEN
+    ):
         response = client.post(
             f"/api/v1/venues/{venue_id}/courts",
-            json={"name": name, "sport": sport, "availability": availability},
+            json={
+                "name": name,
+                "sport": sport,
+                "price_per_hour": price_per_hour,
+                "availability": availability,
+            },
             headers=owner_headers,
         )
         assert response.status_code == 201, response.text

@@ -2,7 +2,7 @@ import uuid
 
 
 def _court_payload(name="Court 1", sport="Badminton", availability=None):
-    return {"name": name, "sport": sport, "availability": availability}
+    return {"name": name, "sport": sport, "price_per_hour": 20, "availability": availability}
 
 
 def test_owner_adds_a_court_with_weekly_availability(client, make_approved_venue):

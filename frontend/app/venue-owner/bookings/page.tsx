@@ -31,26 +31,48 @@ function BookingsContent() {
     const [venueFilter, setVenueFilter] = useState("all");
     const [search, setSearch] = useState("");
     const [review, setReview] = useState<{ id: string; action: "Confirmed" | "Rejected" } | null>(null);
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [savingReview, setSavingReview] = useState(false);
 
     useEffect(() => {
         void refresh();
     }, [refresh]);
 
-    const counts = useMemo(() => {
-        const c: Record<string, number> = { All: bookings.length };
-        bookings.forEach((b) => { c[b.status] = (c[b.status] ?? 0) + 1; });
-        return c;
+    const groupedBookings = useMemo(() => {
+        const groups = new Map<string, Booking>();
+        bookings.forEach((booking) => {
+            const key = booking.transactionId ?? booking.id;
+            const existing = groups.get(key);
+            if (!existing) {
+                groups.set(key, booking);
+                return;
+            }
+            groups.set(key, {
+                ...existing,
+                courtNames: [...new Set([...existing.courtNames, ...booking.courtNames])],
+            });
+        });
+        return Array.from(groups.values());
     }, [bookings]);
 
-    const filtered = useMemo(() => bookings.filter((b) => {
+    const counts = useMemo(() => {
+        const c: Record<string, number> = { All: groupedBookings.length };
+        groupedBookings.forEach((b) => { c[b.status] = (c[b.status] ?? 0) + 1; });
+        return c;
+    }, [groupedBookings]);
+
+    const filtered = useMemo(() => groupedBookings.filter((b) => {
         if (activeStatus !== "All" && b.status !== activeStatus) return false;
         if (venueFilter !== "all" && b.venueId !== venueFilter) return false;
         if (search && !b.playerName.toLowerCase().includes(search.toLowerCase())) return false;
         return true;
-    }), [bookings, activeStatus, venueFilter, search]);
+    }), [groupedBookings, activeStatus, venueFilter, search]);
 
     const getVenueName = (venueId: string) => venues.find(v => v.id === venueId)?.name ?? "Unknown";
     const getCourtName = (courtId: string) => courts.find(c => c.id === courtId)?.name ?? "Unknown";
+    const getBookingCourtNames = (booking: Booking) => booking.courtNames.length
+        ? booking.courtNames.join(", ")
+        : getCourtName(booking.courtId);
 
     const handleCancel = async (id: string) => {
         const result = await updateBookingStatus(id, "Cancelled");
@@ -59,11 +81,24 @@ function BookingsContent() {
     };
 
     const handleReview = async () => {
-        if (!review) return;
-        const result = await updateBookingStatus(review.id, review.action);
-        if (result.ok) toast(review.action === "Confirmed" ? "Booking approved and confirmed." : "Booking request declined.", "success");
-        else toast(result.error ?? "Could not update this booking request.", "error");
-        setReview(null);
+        if (!review || savingReview) return;
+        if (review.action === "Rejected" && !rejectionReason.trim()) {
+            toast("Please tell the host why you are rejecting this booking.", "error");
+            return;
+        }
+        setSavingReview(true);
+        try {
+            const result = await updateBookingStatus(review.id, review.action, rejectionReason);
+            if (!result.ok) {
+                toast(result.error ?? "Could not update this booking request.", "error");
+                return;
+            }
+            toast(review.action === "Confirmed" ? "Booking approved and the host was notified." : "Booking declined and the host was notified.", "success");
+            setReview(null);
+            setRejectionReason("");
+        } finally {
+            setSavingReview(false);
+        }
     };
 
     return (
@@ -144,7 +179,7 @@ function BookingsContent() {
                                             </td>
                                             <td className="px-5 py-3.5 text-sm text-slate-600">
                                                 <p className="font-medium text-slate-800">{getVenueName(b.venueId)}</p>
-                                                <p className="text-xs text-slate-400">{getCourtName(b.courtId)}</p>
+                                                <p className="text-xs text-slate-400">{getBookingCourtNames(b)}</p>
                                             </td>
                                             <td className="px-5 py-3.5 text-sm text-slate-600">{new Date(b.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                                             <td className="px-5 py-3.5 text-sm text-slate-600">{b.startTime} – {b.endTime}</td>
@@ -157,7 +192,7 @@ function BookingsContent() {
                                                             className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700">
                                                             <Check size={13} /> Approve
                                                         </button>
-                                                        <button onClick={() => setReview({ id: b.id, action: "Rejected" })}
+                                                        <button onClick={() => { setRejectionReason(""); setReview({ id: b.id, action: "Rejected" }); }}
                                                             className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50">
                                                             <XCircle size={13} /> Reject
                                                         </button>
@@ -186,7 +221,7 @@ function BookingsContent() {
                                         <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-9 h-9 rounded-full bg-slate-100" />
                                         <div>
                                             <p className="font-bold text-slate-900 text-sm">{b.playerName || "—"}</p>
-                                            <p className="text-xs text-slate-500">{getCourtName(b.courtId)} @ {getVenueName(b.venueId)}</p>
+                                            <p className="text-xs text-slate-500">{getBookingCourtNames(b)} @ {getVenueName(b.venueId)}</p>
                                         </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
@@ -201,7 +236,7 @@ function BookingsContent() {
                                 {b.status === "Pending" && (
                                     <div className="mt-3 flex gap-2">
                                         <button onClick={() => setReview({ id: b.id, action: "Confirmed" })} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"><Check size={13} /> Approve</button>
-                                        <button onClick={() => setReview({ id: b.id, action: "Rejected" })} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-red-200 py-2 text-xs font-bold text-red-600 hover:bg-red-50"><XCircle size={13} /> Reject</button>
+                                        <button onClick={() => { setRejectionReason(""); setReview({ id: b.id, action: "Rejected" }); }} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-red-200 py-2 text-xs font-bold text-red-600 hover:bg-red-50"><XCircle size={13} /> Reject</button>
                                     </div>
                                 )}
                                 {b.status === "Confirmed" && (
@@ -211,16 +246,66 @@ function BookingsContent() {
                         ))}
                     </div>
                     <ConfirmModal
-                        open={review !== null}
-                        title={review?.action === "Confirmed" ? "Approve this booking?" : "Reject this booking request?"}
-                        description={review?.action === "Confirmed"
-                            ? "The court reservation will be confirmed and the players will be notified."
-                            : "The players will be notified that this booking request was declined."}
-                        confirmLabel={review?.action === "Confirmed" ? "Approve booking" : "Reject request"}
-                        danger={review?.action === "Rejected"}
+                        open={review?.action === "Confirmed"}
+                        title="Approve this booking?"
+                        description="The court reservation will be confirmed and the host will be notified."
+                        confirmLabel={savingReview ? "Approving…" : "Approve booking"}
                         onCancel={() => setReview(null)}
                         onConfirm={() => { void handleReview(); }}
                     />
+                    <AnimatePresence>
+                        {review?.action === "Rejected" && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+                                onClick={() => { if (!savingReview) setReview(null); }}
+                            >
+                                <motion.div
+                                    initial={{ scale: 0.95, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.95, opacity: 0 }}
+                                    onClick={(event) => event.stopPropagation()}
+                                    className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+                                >
+                                    <h2 className="mb-2 text-lg font-extrabold text-slate-900">Reject this booking?</h2>
+                                    <p className="mb-4 text-sm text-slate-500">The host will be notified and see the reason you provide.</p>
+                                    <label htmlFor="booking-rejection-reason" className="mb-1 block text-sm font-semibold text-slate-700">
+                                        Reason for rejection
+                                    </label>
+                                    <textarea
+                                        id="booking-rejection-reason"
+                                        value={rejectionReason}
+                                        onChange={(event) => setRejectionReason(event.target.value)}
+                                        maxLength={500}
+                                        rows={4}
+                                        placeholder="Explain why this booking cannot be accepted"
+                                        className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                                    />
+                                    <p className="mt-1 text-right text-xs text-slate-400">{rejectionReason.length}/500</p>
+                                    <div className="mt-4 flex justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setReview(null)}
+                                            disabled={savingReview}
+                                            className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { void handleReview(); }}
+                                            disabled={savingReview || !rejectionReason.trim()}
+                                            className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {savingReview ? "Rejecting…" : "Reject request"}
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </>
             )}
         </div>

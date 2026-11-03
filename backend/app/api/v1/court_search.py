@@ -48,7 +48,7 @@ def search_courts(
 
     already_booked = exists().where(
         Booking.court_id == Court.id,
-        Booking.status == BookingStatus.CONFIRMED,
+        Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
         Booking.start_time < end,
         Booking.end_time > start,
     ).correlate(Court)
@@ -65,32 +65,6 @@ def search_courts(
         query = query.filter(
             or_(Venue.address.ilike(pattern, escape="\\"), Venue.name.ilike(pattern, escape="\\"))
         )
-    
-    print("SEARCH SLOT:", start, "to", end)
-
-    overlapping_bookings = (
-        db.query(Booking)
-        .filter(
-            Booking.status == BookingStatus.CONFIRMED,
-            Booking.start_time < end,
-            Booking.end_time > start,
-        )
-        .all()
-    )
-
-    for booking in overlapping_bookings:
-        print(
-            "BOOKING:",
-            "court_id =", booking.court_id,
-            "start =", booking.start_time,
-            "end =", booking.end_time,
-            "status =", booking.status,
-        )
-
-    # candidates = query.order_by(Venue.name, Court.name, Court.id).limit(MAX_CANDIDATES).all()
-    # # Opening hours live in JSON, so they are checked in Python on the (already filtered) candidates.
-    # available = [(court, venue) for court, venue in candidates if is_open(court.availability, start, end)]
-    
     candidates = (
         query.order_by(Venue.name, Court.name, Court.id)
         .limit(MAX_CANDIDATES)

@@ -179,8 +179,12 @@ export interface VenueDiscountRead {
   title: string;
   description: string;
   percent_off: number | null;
+  amount_off: number | string | null;
   code: string | null;
   valid_until: string;
+  active: boolean;
+  usage_limit: number | null;
+  usage_count: number;
   created_at: string;
 }
 
@@ -188,8 +192,11 @@ export interface VenueDiscountCreate {
   title: string;
   description: string;
   percent_off?: number | null;
+  amount_off?: number | string | null;
   code?: string | null;
   valid_until: string;
+  active?: boolean;
+  usage_limit?: number | null;
 }
 
 export interface VenueEventRead {
@@ -225,8 +232,26 @@ export interface VenueBrowseRead extends VenueRead {
 
 export interface BookingCreate {
   match_id: string;
-  court_id: string;
+  court_id?: string;
+  court_ids?: string[];
   duration_minutes: number;
+  promo_code?: string | null;
+}
+
+export interface BookingQuoteCreate {
+  match_id: string;
+  court_ids: string[];
+  duration_minutes: number;
+  promo_code?: string | null;
+}
+
+export interface BookingQuoteRead {
+  courts: { id: string; name: string; price_per_hour: number | string; line_total: number | string }[];
+  duration_minutes: number;
+  original_total: number | string;
+  promo_code: string | null;
+  discount_amount: number | string;
+  final_total: number | string;
 }
 
 export interface BookingRead {
@@ -242,6 +267,14 @@ export interface BookingRead {
   court_name: string | null;
   venue_id: string | null;
   venue_name: string | null;
+  transaction_id?: string | null;
+  selected_court_names?: string[] | null;
+  price_per_hour?: number | string | null;
+  line_total?: number | string | null;
+  original_total?: number | string | null;
+  discount_amount?: number | string | null;
+  final_total?: number | string | null;
+  promo_code?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -304,6 +337,25 @@ export interface MessageCreate {
   content: string;
 }
 
+export interface VenueOwnerConversation {
+  conversation_id: string;
+  created_at: string;
+  owner_id: string;
+  owner_name: string;
+  owner_avatar: string | null;
+  host_id: string;
+  host_name: string;
+  host_avatar: string | null;
+  venue_names: string[];
+  court_names: string[];
+  last_message: MessageRead | null;
+  unread_count: number;
+}
+
+export interface VenueOwnerConversationPage {
+  items: VenueOwnerConversation[];
+}
+
 // ---------------------------------------------------------------------------
 // Community posts
 // ---------------------------------------------------------------------------
@@ -355,6 +407,7 @@ export interface CourtRead {
   venue_id: string;
   name: string;
   sport: string;
+  price_per_hour: number | string | null;
   availability: WeeklyAvailability | null;
   created_at: string;
 }
@@ -362,6 +415,7 @@ export interface CourtRead {
 export interface CourtCreate {
   name: string;
   sport: string;
+  price_per_hour?: number | null;
   availability?: WeeklyAvailability | null;
 }
 

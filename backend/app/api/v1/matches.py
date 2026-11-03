@@ -14,7 +14,7 @@ from app.core.constants import BookingStatus, NotificationType
 from app.core.enums import MatchStatus
 from app.core.security import get_current_user
 from app.db.session import get_db
-from app.models.booking import Booking
+from app.models.booking import Booking, BookingTransaction
 from app.models.match import Match, MatchPlayer
 from app.models.match_leave import MatchLeave
 from app.models.profile import Profile
@@ -465,18 +465,25 @@ def cancel_match(
             detail="Match is already cancelled",
     )
 
-    booking = (
+    bookings = (
         db.query(Booking)
         .filter(
             Booking.match_id == match.id,
             Booking.status.in_([BookingStatus.PENDING, BookingStatus.CONFIRMED]),
         )
+        .order_by(Booking.court_id, Booking.id)
         .with_for_update()
-        .first()
+        .all()
     )
-    if booking:
-        booking.status = BookingStatus.CANCELLED
-        court = db.query(Court).filter(Court.id == booking.court_id).first()
+    if bookings:
+        for booking in bookings:
+            booking.status = BookingStatus.CANCELLED
+        transaction_ids = {booking.transaction_id for booking in bookings if booking.transaction_id}
+        if transaction_ids:
+            db.query(BookingTransaction).filter(
+                BookingTransaction.id.in_(transaction_ids)
+            ).update({"status": BookingStatus.CANCELLED}, synchronize_session=False)
+        court = db.query(Court).filter(Court.id == bookings[0].court_id).first()
         if court:
             owner_id = court.venue.owner_id
             create_notification(
@@ -486,7 +493,14 @@ def cancel_match(
                 {
                     "match_id": str(match.id),
                     "venue_name": court.venue.name,
-                    "court_name": court.name,
+                    "court_name": ", ".join(
+                        item.name
+                        for item in db.query(Court)
+                        .join(Booking, Booking.court_id == Court.id)
+                        .filter(Booking.id.in_([booking.id for booking in bookings]))
+                        .order_by(Court.name)
+                        .all()
+                    ),
                 },
             )
         for participant_id in participant_ids(db, match):
@@ -497,7 +511,14 @@ def cancel_match(
                 {
                     "match_id": str(match.id),
                     "venue_name": court.venue.name if court else match.location,
-                    "court_name": court.name if court else "",
+                    "court_name": ", ".join(
+                        item.name
+                        for item in db.query(Court)
+                        .join(Booking, Booking.court_id == Court.id)
+                        .filter(Booking.id.in_([booking.id for booking in bookings]))
+                        .order_by(Court.name)
+                        .all()
+                    ) if court else "",
                 },
             )
     match.status = MatchStatus.CANCELLED

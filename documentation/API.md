@@ -10,23 +10,31 @@ Every endpoint needs `Authorization: Bearer <supabase access token>`. Errors are
 | `GET /api/v1/admin/posts/reported` | Posts with open reports, most reported first | page, page_size | 200 |
 | `DELETE /api/v1/admin/posts/{post_id}` | Remove a post as a moderator | - | 204 |
 | `POST /api/v1/admin/posts/{post_id}/dismiss-reports` | Dismiss all open reports on a post | - | 200 |
+| `GET /api/v1/admin/security-logs` | Audit trail and suspicious activity, newest first | action, user_id, page, page_size | 200 |
+| `GET /api/v1/admin/users` | Search and filter user accounts | q, role, restricted, page, page_size | 200 |
+| `POST /api/v1/admin/users/{user_id}/restrict` | Restrict a user from joining matches | - | 200 |
+| `POST /api/v1/admin/users/{user_id}/unrestrict` | Lift a restriction | - | 200 |
 | `GET /api/v1/admin/venues` | List venue applications | status, page, page_size | 200 |
 | `POST /api/v1/admin/venues/{venue_id}/approve` | Approve a venue application | - | 200 |
 | `POST /api/v1/admin/venues/{venue_id}/reject` | Reject a venue application | - | 200 |
-| `POST /api/v1/bookings` | Book a court for a full match | - | 201 |
+| `POST /api/v1/bookings` | Book one or more courts for a full match | - | 201 |
 | `GET /api/v1/bookings` | My bookings (as booker or match participant) | status, page, page_size | 200 |
+| `POST /api/v1/bookings/quote` | Validate court availability and calculate booking price | - | 200 |
 | `POST /api/v1/bookings/{booking_id}/approve` | Approve a court booking request | - | 200 |
 | `POST /api/v1/bookings/{booking_id}/cancel` | Cancel a booking | - | 200 |
 | `POST /api/v1/bookings/{booking_id}/reject` | Reject a court booking request | - | 200 |
 | `GET /api/v1/courts/search` | Find courts that are free at a given date and time | date*, start_time*, duration_minutes, sport, location, page, page_size | 200 |
 | `GET /api/v1/courts/{court_id}` | Get a court | - | 200 |
 | `PATCH /api/v1/courts/{court_id}` | Update a court or its weekly availability (owner or admin) | - | 200 |
-| `GET /api/v1/matches` | List matches | sport, date, location, created_by_me, joined_by_me, status, sort_by, page, page_size | 200 |
+| `GET /api/v1/matches` | List matches | sport, date, location, skill_level, created_by_me, joined_by_me, status, sort_by, page, page_size | 200 |
 | `POST /api/v1/matches` | Create a match | - | 201 |
+| `GET /api/v1/matches/chat/unread-count` | Count unread incoming messages for the current user | - | 200 |
 | `GET /api/v1/matches/recommended` | Get ranked, scored match recommendations | sport, date, location, min_score, page, page_size | 200 |
 | `GET /api/v1/matches/{match_id}` | Get match detail | - | 200 |
+| `PATCH /api/v1/matches/{match_id}` | Update a hosted match | - | 200 |
 | `PATCH /api/v1/matches/{match_id}/cancel` | Cancel a match (creator only) | - | 200 |
 | `GET /api/v1/matches/{match_id}/chat` | Open a match's chat: conversation id (for Realtime) and member names | - | 200 |
+| `POST /api/v1/matches/{match_id}/chat/read` | Mark incoming messages in a match chat as read | - | 200 |
 | `POST /api/v1/matches/{match_id}/join` | Join a match | - | 200 |
 | `POST /api/v1/matches/{match_id}/leave` | Leave a match | - | 200 |
 | `GET /api/v1/matches/{match_id}/leave-risk-preview` | Preview the leave-risk tier without actually leaving | - | 200 |
@@ -36,6 +44,10 @@ Every endpoint needs `Authorization: Bearer <supabase access token>`. Errors are
 | `GET /api/v1/notifications` | My notifications, newest first (with unread count) | unread_only, page, page_size | 200 |
 | `POST /api/v1/notifications/read-all` | Mark all my notifications as read | - | 200 |
 | `POST /api/v1/notifications/{notification_id}/read` | Mark one notification as read | - | 200 |
+| `GET /api/v1/player/venue-messages` | List Player Venue Conversations | - | 200 |
+| `GET /api/v1/player/venue-messages/{conversation_id}/messages` | List Player Venue Messages | - | 200 |
+| `POST /api/v1/player/venue-messages/{conversation_id}/messages` | Send Player Venue Message | - | 201 |
+| `POST /api/v1/player/venue-messages/{conversation_id}/read` | Mark Player Venue Messages Read | - | 200 |
 | `POST /api/v1/posts` | Create a community post | - | 201 |
 | `GET /api/v1/posts` | Community feed, newest first | mine, page, page_size | 200 |
 | `GET /api/v1/posts/{post_id}` | Get one post | - | 200 |
@@ -52,8 +64,13 @@ Every endpoint needs `Authorization: Bearer <supabase access token>`. Errors are
 | `POST /api/v1/profiles/me/sports` | Add a sport for the current user | - | 201 |
 | `PATCH /api/v1/profiles/me/sports/{sport_id}` | Update one of the current user's sports | - | 200 |
 | `DELETE /api/v1/profiles/me/sports/{sport_id}` | Remove one of the current user's sports | - | 204 |
+| `GET /api/v1/venue-owner/messages` | List Owner Conversations | - | 200 |
+| `GET /api/v1/venue-owner/messages/{conversation_id}/messages` | List Owner Messages | - | 200 |
+| `POST /api/v1/venue-owner/messages/{conversation_id}/messages` | Send Owner Message | - | 201 |
+| `POST /api/v1/venue-owner/messages/{conversation_id}/read` | Mark Owner Messages Read | - | 200 |
 | `GET /api/v1/venues` | Browse approved venues | q, page, page_size | 200 |
 | `POST /api/v1/venues` | Register a venue (starts as PAYMENT_PENDING) | - | 201 |
+| `GET /api/v1/venues/browse` | Browse venues with courts and marketing | q, page, page_size | 200 |
 | `GET /api/v1/venues/mine` | List my venues (venue owner) | - | 200 |
 | `GET /api/v1/venues/ping` | Venue Owner connectivity check | - | 200 |
 | `GET /api/v1/venues/{venue_id}` | Get a venue | - | 200 |
@@ -62,6 +79,14 @@ Every endpoint needs `Authorization: Bearer <supabase access token>`. Errors are
 | `POST /api/v1/venues/{venue_id}/confirm-payment` | Confirm payment (stub) and submit the venue for admin review | - | 200 |
 | `POST /api/v1/venues/{venue_id}/courts` | Add a court to an approved venue (owner or admin) | - | 201 |
 | `GET /api/v1/venues/{venue_id}/courts` | List a venue's courts | - | 200 |
+| `GET /api/v1/venues/{venue_id}/discounts` | List Venue Discounts | - | 200 |
+| `POST /api/v1/venues/{venue_id}/discounts` | Create Venue Discount | - | 201 |
+| `PATCH /api/v1/venues/{venue_id}/discounts/{discount_id}` | Update Venue Discount | - | 200 |
+| `DELETE /api/v1/venues/{venue_id}/discounts/{discount_id}` | Delete Venue Discount | - | 204 |
+| `GET /api/v1/venues/{venue_id}/events` | List Venue Events | - | 200 |
+| `POST /api/v1/venues/{venue_id}/events` | Create Venue Event | - | 201 |
+| `PATCH /api/v1/venues/{venue_id}/events/{event_id}` | Update Venue Event | - | 200 |
+| `DELETE /api/v1/venues/{venue_id}/events/{event_id}` | Delete Venue Event | - | 204 |
 | `POST /api/v1/waiting-list/{entry_id}/accept` | Accept an offered waiting-list slot | - | 200 |
 | `GET /health` | Health | - | 200 |
 | `GET /health/db` | Health Db | - | 200 |

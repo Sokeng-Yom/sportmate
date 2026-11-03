@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import Column, DateTime, ForeignKey, Numeric, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -28,9 +28,12 @@ class Court(Base):
     __table_args__ = (UniqueConstraint("venue_id", "name", name="uq_courts_venue_name"),)
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    venue_id = Column(UUID(as_uuid=True), ForeignKey("venues.id", ondelete="CASCADE"), nullable=False)
+    venue_id = Column(
+        UUID(as_uuid=True), ForeignKey("venues.id", ondelete="CASCADE"), nullable=False
+    )
     name = Column(String, nullable=False)
     sport = Column(String, nullable=False)
+    price_per_hour = Column(Numeric(10, 2), nullable=True)
     availability = Column(JSONB, nullable=True)  # weekly schedule, see schemas/court.py
     created_at = Column(DateTime, server_default=func.now())
     venue = relationship("Venue", foreign_keys=[venue_id])

@@ -9,6 +9,8 @@
 import { apiClient } from "./apiClient";
 import type {
   BookingCreate,
+  BookingQuoteCreate,
+  BookingQuoteRead,
   BookingRead,
   ChatInfo,
   CourtCreate,
@@ -30,6 +32,7 @@ import type {
   UserSportCreate,
   UnreadMessageCount,
   VenueCreate,
+  VenueOwnerConversationPage,
   VenueBrowseRead,
   VenueDiscountCreate,
   VenueDiscountRead,
@@ -217,6 +220,9 @@ export const searchCourts = (params: CourtSearchParams) =>
 export const createBooking = (payload: BookingCreate) =>
   apiClient.post<BookingRead>("/api/v1/bookings", payload);
 
+export const quoteBooking = (payload: BookingQuoteCreate) =>
+  apiClient.post<BookingQuoteRead>("/api/v1/bookings/quote", payload);
+
 export const listMyBookings = (params?: { status?: string; page?: number; page_size?: number }) =>
   apiClient.get<Paginated<BookingRead>>(`/api/v1/bookings${qs(params)}`);
 
@@ -226,8 +232,8 @@ export const cancelBooking = (bookingId: string) =>
 export const approveBooking = (bookingId: string) =>
   apiClient.post<BookingRead>(`/api/v1/bookings/${bookingId}/approve`);
 
-export const rejectBooking = (bookingId: string) =>
-  apiClient.post<BookingRead>(`/api/v1/bookings/${bookingId}/reject`);
+export const rejectBooking = (bookingId: string, reason: string) =>
+  apiClient.post<BookingRead>(`/api/v1/bookings/${bookingId}/reject`, { reason });
 
 export const listVenueBookings = (
   venueId: string,
@@ -265,6 +271,30 @@ export const getUnreadMessageCount = () =>
 
 export const markChatRead = (matchId: string) =>
   apiClient.post<{ marked: boolean }>(`/api/v1/matches/${matchId}/chat/read`);
+
+export const listVenueOwnerConversations = () =>
+  apiClient.get<VenueOwnerConversationPage>("/api/v1/venue-owner/messages");
+
+export const listVenueOwnerMessages = (conversationId: string) =>
+  apiClient.get<MessagePage>(`/api/v1/venue-owner/messages/${conversationId}/messages`);
+
+export const sendVenueOwnerMessage = (conversationId: string, payload: { content: string }) =>
+  apiClient.post<MessagePage["items"][number]>(`/api/v1/venue-owner/messages/${conversationId}/messages`, payload);
+
+export const markVenueOwnerMessagesRead = (conversationId: string) =>
+  apiClient.post<{ marked: boolean }>(`/api/v1/venue-owner/messages/${conversationId}/read`);
+
+export const listPlayerVenueConversations = () =>
+  apiClient.get<VenueOwnerConversationPage>("/api/v1/player/venue-messages");
+
+export const listPlayerVenueMessages = (conversationId: string) =>
+  apiClient.get<MessagePage>(`/api/v1/player/venue-messages/${conversationId}/messages`);
+
+export const sendPlayerVenueMessage = (conversationId: string, payload: { content: string }) =>
+  apiClient.post<MessagePage["items"][number]>(`/api/v1/player/venue-messages/${conversationId}/messages`, payload);
+
+export const markPlayerVenueMessagesRead = (conversationId: string) =>
+  apiClient.post<{ marked: boolean }>(`/api/v1/player/venue-messages/${conversationId}/read`);
 
 // ---------------------------------------------------------------------------
 // Community posts

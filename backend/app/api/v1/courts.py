@@ -45,6 +45,7 @@ def create_court(
         venue_id=venue.id,
         name=payload.name,
         sport=payload.sport,
+        price_per_hour=payload.price_per_hour,
         availability=payload.availability.model_dump(mode="json") if payload.availability else None,
     )
     db.add(court)
@@ -103,6 +104,8 @@ def update_court(
         court.name = payload.name
     if payload.sport is not None:
         court.sport = payload.sport
+    if payload.price_per_hour is not None:
+        court.price_per_hour = payload.price_per_hour
     if "availability" in payload.model_fields_set:
         court.availability = payload.availability.model_dump(mode="json") if payload.availability else None
 

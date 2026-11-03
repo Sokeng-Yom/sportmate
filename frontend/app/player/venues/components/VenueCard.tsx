@@ -28,7 +28,7 @@ function localDate(): string {
 
 export function VenueCard({ venue }: VenueCardProps) {
     const today = localDate();
-    const activeDiscounts = venue.discounts.filter((d) => d.valid_until >= today);
+    const activeDiscounts = venue.discounts.filter((d) => d.active && d.valid_until >= today);
     const upcomingEvents = venue.events.filter((e) => e.event_date >= today);
     const sports = Array.from(new Set(venue.courts.map((court) => court.sport)));
 

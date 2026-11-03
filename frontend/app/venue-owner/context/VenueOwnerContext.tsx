@@ -43,7 +43,9 @@ export type Court = {
 
 export type Booking = {
     id: string;
+    transactionId?: string;
     courtId: string;
+    courtNames: string[];
     venueId: string;
     playerName: string;
     playerAvatar?: string;
@@ -80,24 +82,6 @@ export type Review = {
     date: string;
 };
 
-export type Message = {
-    id: string;
-    senderId: string;
-    text: string;
-    timestamp: string;
-    isRead: boolean;
-};
-
-export type Conversation = {
-    id: string;
-    playerName: string;
-    playerAvatar?: string;
-    lastMessage: string;
-    lastMessageTime: string;
-    unreadCount: number;
-    messages: Message[];
-};
-
 export type OwnerProfile = {
     name: string;
     email: string;
@@ -111,7 +95,6 @@ type VenueOwnerContextType = {
     courts: Court[];
     bookings: Booking[];
     reviews: Review[];
-    conversations: Conversation[];
     profile: OwnerProfile;
     loading: boolean;
     loadError: string | null;
@@ -120,9 +103,7 @@ type VenueOwnerContextType = {
     addVenue: (venue: Omit<Venue, "id" | "status">) => Promise<MutationResult>;
     addCourt: (court: Omit<Court, "id">) => Promise<MutationResult>;
     updateCourt: (id: string, court: Partial<Court>) => Promise<MutationResult>;
-    updateBookingStatus: (id: string, status: Booking["status"]) => Promise<MutationResult>;
-    sendMessage: (conversationId: string, text: string) => void;
-    markConversationRead: (conversationId: string) => void;
+    updateBookingStatus: (id: string, status: Booking["status"], reason?: string) => Promise<MutationResult>;
     updateProfile: (profile: Partial<OwnerProfile>) => Promise<MutationResult>;
 };
 
@@ -194,7 +175,7 @@ function toUiCourt(c: CourtRead): Court {
         venueId: c.venue_id,
         name: c.name,
         sport: c.sport,
-        pricePerHour: 0, // pricing is not part of the backend court model
+        pricePerHour: Number(c.price_per_hour ?? 0),
         openTime: open,
         closeTime: close,
         active: true,
@@ -204,13 +185,15 @@ function toUiCourt(c: CourtRead): Court {
 function toUiBooking(b: BookingRead): Booking {
     return {
         id: b.id,
+        transactionId: b.transaction_id ?? undefined,
         courtId: b.court_id,
+        courtNames: b.selected_court_names?.length ? b.selected_court_names : b.court_name ? [b.court_name] : [],
         venueId: b.venue_id ?? "",
         playerName: b.booker_name ?? "",
         date: b.start_time.slice(0, 10),
         startTime: b.start_time.slice(11, 16),
         endTime: b.end_time.slice(11, 16),
-        price: 0, // pricing is not part of the backend booking model
+        price: Number(b.final_total ?? b.line_total ?? 0),
         status: b.status === "PENDING" ? "Pending" : b.status === "REJECTED" ? "Rejected" : b.status === "CANCELLED" ? "Cancelled" : "Confirmed",
         bookingType: "Court Booking",
     };
@@ -223,24 +206,6 @@ const initialReviews: Review[] = [
     { id: "r4", venueId: "v2", playerName: "Bob Williams", rating: 2, comment: "Court was closed for maintenance unexpectedly.", date: "2026-09-15" },
 ];
 
-const initialConversations: Conversation[] = [
-    {
-        id: "conv1", playerName: "John Doe", lastMessage: "See you at 10!", lastMessageTime: "10:30 AM", unreadCount: 1,
-        messages: [
-            { id: "m1", senderId: "player", text: "Hi, is Court A available earlier?", timestamp: "10:20 AM", isRead: false },
-            { id: "m2", senderId: "owner", text: "Sorry, it's booked until 10.", timestamp: "10:25 AM", isRead: true },
-            { id: "m3", senderId: "player", text: "See you at 10!", timestamp: "10:30 AM", isRead: false },
-        ]
-    },
-    {
-        id: "conv2", playerName: "Jane Smith", lastMessage: "Thanks for confirming.", lastMessageTime: "Yesterday", unreadCount: 0,
-        messages: [
-            { id: "m4", senderId: "owner", text: "Your booking for the clay court is confirmed.", timestamp: "Yesterday", isRead: true },
-            { id: "m5", senderId: "player", text: "Thanks for confirming.", timestamp: "Yesterday", isRead: true }
-        ]
-    }
-];
-
 export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): JSX.Element => {
     const { profile: authProfile, session, refreshProfile } = useAuth();
 
@@ -250,7 +215,6 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
     const [bookings, setBookings] = useState<Booking[]>([]);
     // Mock-only areas with no backend endpoints yet.
     const [reviews, setReviews] = useState<Review[]>(initialReviews);
-    const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
 
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -325,6 +289,7 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
             await createCourt(court.venueId, {
                 name: court.name,
                 sport: court.sport,
+                price_per_hour: court.pricePerHour,
                 availability: toWeeklyAvailability(court.openTime, court.closeTime) ?? undefined,
             });
             await refresh();
@@ -342,6 +307,7 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
             await updateCourtApi(id, {
                 name: courtUpdate.name,
                 sport: courtUpdate.sport,
+                price_per_hour: courtUpdate.pricePerHour,
                 availability: availability ?? undefined,
             });
             await refresh();
@@ -351,10 +317,17 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
         }
     }, [refresh]);
 
-    const updateBookingStatus = useCallback(async (id: string, status: Booking["status"]): Promise<MutationResult> => {
+    const updateBookingStatus = useCallback(async (
+        id: string,
+        status: Booking["status"],
+        reason?: string,
+    ): Promise<MutationResult> => {
         try {
             if (status === "Confirmed") await approveBookingApi(id);
-            else if (status === "Rejected") await rejectBookingApi(id);
+            else if (status === "Rejected") {
+                if (!reason?.trim()) return { ok: false, error: "Please provide a reason for rejecting this booking." };
+                await rejectBookingApi(id, reason.trim());
+            }
             else if (status === "Cancelled") await cancelBooking(id);
             else return { ok: false, error: "Unsupported booking status change." };
             await refresh();
@@ -363,34 +336,6 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
             return { ok: false, error: errorMessage(err) };
         }
     }, [refresh]);
-
-    const sendMessage = (conversationId: string, text: string) => {
-        setConversations((prev) => prev.map(c => {
-            if (c.id === conversationId) {
-                const newMessage: Message = { id: `m${Date.now()}`, senderId: "owner", text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), isRead: true };
-                return {
-                    ...c,
-                    lastMessage: text,
-                    lastMessageTime: newMessage.timestamp,
-                    messages: [...c.messages, newMessage]
-                };
-            }
-            return c;
-        }));
-    };
-
-    const markConversationRead = (conversationId: string) => {
-        setConversations((prev) => prev.map(c => {
-            if (c.id === conversationId) {
-                return {
-                    ...c,
-                    unreadCount: 0,
-                    messages: c.messages.map(m => ({ ...m, isRead: true }))
-                };
-            }
-            return c;
-        }));
-    };
 
     const updateProfile = useCallback(async (newProfile: Partial<OwnerProfile>): Promise<MutationResult> => {
         try {
@@ -407,10 +352,10 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
 
     return (
         <VenueOwnerContext.Provider value={{
-            venues, courts, bookings, reviews, conversations, profile,
+            venues, courts, bookings, reviews, profile,
             loading, loadError, refresh, confirmPayment,
             addVenue, addCourt, updateCourt, updateBookingStatus,
-            sendMessage, markConversationRead, updateProfile
+            updateProfile
         }}>
             {children}
         </VenueOwnerContext.Provider>

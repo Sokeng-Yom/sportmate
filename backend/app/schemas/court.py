@@ -1,8 +1,9 @@
 from datetime import datetime, time
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.services.court_availability import DAY_KEYS
 
@@ -42,12 +43,14 @@ class WeeklyAvailability(BaseModel):
 class CourtCreate(BaseModel):
     name: Name
     sport: Sport
+    price_per_hour: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     availability: WeeklyAvailability | None = None
 
 
 class CourtUpdate(BaseModel):
     name: Name | None = None
     sport: Sport | None = None
+    price_per_hour: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
     availability: WeeklyAvailability | None = None
 
 
@@ -58,6 +61,7 @@ class CourtRead(BaseModel):
     venue_id: UUID
     name: str
     sport: str
+    price_per_hour: Decimal | None = None
     availability: WeeklyAvailability | None = None
     created_at: datetime
 

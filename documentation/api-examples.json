@@ -61,6 +61,133 @@
       "dismissed": 1
     }
   },
+  "GET /api/v1/admin/security-logs": {
+    "summary": "Audit trail and suspicious activity, newest first",
+    "query": [
+      {
+        "name": "action",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "user_id",
+        "required": false,
+        "type": "uuid"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_name": "string",
+          "action": "string",
+          "ip_address": "string",
+          "details": "string",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "GET /api/v1/admin/users": {
+    "summary": "Search and filter user accounts",
+    "query": [
+      {
+        "name": "q",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "role",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "restricted",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "email": "string",
+          "role": "string",
+          "avatar": "string",
+          "restricted_until": "2030-01-15T19:00:00",
+          "restricted": true,
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
+    }
+  },
+  "POST /api/v1/admin/users/{user_id}/restrict": {
+    "summary": "Restrict a user from joining matches",
+    "query": [],
+    "request": {
+      "days": 1,
+      "reason": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "email": "string",
+      "role": "string",
+      "avatar": "string",
+      "restricted_until": "2030-01-15T19:00:00",
+      "restricted": true,
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/admin/users/{user_id}/unrestrict": {
+    "summary": "Lift a restriction",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "name": "string",
+      "email": "string",
+      "role": "string",
+      "avatar": "string",
+      "restricted_until": "2030-01-15T19:00:00",
+      "restricted": true,
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
   "GET /api/v1/admin/venues": {
     "summary": "List venue applications",
     "query": [
@@ -141,12 +268,16 @@
     }
   },
   "POST /api/v1/bookings": {
-    "summary": "Book a court for a full match",
+    "summary": "Book one or more courts for a full match",
     "query": [],
     "request": {
       "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-      "duration_minutes": 1
+      "court_ids": [
+        "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b"
+      ],
+      "duration_minutes": 1,
+      "promo_code": "string"
     },
     "status": 201,
     "response": {
@@ -161,7 +292,17 @@
       "booker_name": "string",
       "court_name": "string",
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-      "venue_name": "string"
+      "venue_name": "string",
+      "transaction_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "selected_court_names": [
+        "string"
+      ],
+      "price_per_hour": "string",
+      "line_total": "string",
+      "original_total": "string",
+      "discount_amount": "string",
+      "final_total": "string",
+      "promo_code": "string"
     }
   },
   "GET /api/v1/bookings": {
@@ -199,12 +340,50 @@
           "booker_name": "string",
           "court_name": "string",
           "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-          "venue_name": "string"
+          "venue_name": "string",
+          "transaction_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "selected_court_names": [
+            "string"
+          ],
+          "price_per_hour": "string",
+          "line_total": "string",
+          "original_total": "string",
+          "discount_amount": "string",
+          "final_total": "string",
+          "promo_code": "string"
         }
       ],
       "total": 1,
       "page": 1,
       "page_size": 1
+    }
+  },
+  "POST /api/v1/bookings/quote": {
+    "summary": "Validate court availability and calculate booking price",
+    "query": [],
+    "request": {
+      "match_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_ids": [
+        "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b"
+      ],
+      "duration_minutes": 1,
+      "promo_code": "string"
+    },
+    "status": 200,
+    "response": {
+      "courts": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "price_per_hour": "string",
+          "line_total": "string"
+        }
+      ],
+      "duration_minutes": 1,
+      "original_total": "string",
+      "promo_code": "string",
+      "discount_amount": "string",
+      "final_total": "string"
     }
   },
   "POST /api/v1/bookings/{booking_id}/approve": {
@@ -224,7 +403,17 @@
       "booker_name": "string",
       "court_name": "string",
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-      "venue_name": "string"
+      "venue_name": "string",
+      "transaction_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "selected_court_names": [
+        "string"
+      ],
+      "price_per_hour": "string",
+      "line_total": "string",
+      "original_total": "string",
+      "discount_amount": "string",
+      "final_total": "string",
+      "promo_code": "string"
     }
   },
   "POST /api/v1/bookings/{booking_id}/cancel": {
@@ -244,13 +433,25 @@
       "booker_name": "string",
       "court_name": "string",
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-      "venue_name": "string"
+      "venue_name": "string",
+      "transaction_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "selected_court_names": [
+        "string"
+      ],
+      "price_per_hour": "string",
+      "line_total": "string",
+      "original_total": "string",
+      "discount_amount": "string",
+      "final_total": "string",
+      "promo_code": "string"
     }
   },
   "POST /api/v1/bookings/{booking_id}/reject": {
     "summary": "Reject a court booking request",
     "query": [],
-    "request": null,
+    "request": {
+      "reason": "string"
+    },
     "status": 200,
     "response": {
       "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
@@ -264,7 +465,17 @@
       "booker_name": "string",
       "court_name": "string",
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-      "venue_name": "string"
+      "venue_name": "string",
+      "transaction_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "selected_court_names": [
+        "string"
+      ],
+      "price_per_hour": "string",
+      "line_total": "string",
+      "original_total": "string",
+      "discount_amount": "string",
+      "final_total": "string",
+      "promo_code": "string"
     }
   },
   "GET /api/v1/courts/search": {
@@ -315,6 +526,7 @@
           "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
           "name": "string",
           "sport": "string",
+          "price_per_hour": "string",
           "availability": {
             "mon": [
               {
@@ -379,6 +591,7 @@
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "name": "string",
       "sport": "string",
+      "price_per_hour": "string",
       "availability": {
         "mon": [
           {
@@ -432,6 +645,7 @@
     "request": {
       "name": "string",
       "sport": "string",
+      "price_per_hour": 0.5,
       "availability": {
         "mon": [
           {
@@ -483,6 +697,7 @@
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "name": "string",
       "sport": "string",
+      "price_per_hour": "string",
       "availability": {
         "mon": [
           {
@@ -549,6 +764,11 @@
         "type": "string"
       },
       {
+        "name": "skill_level",
+        "required": false,
+        "type": "string"
+      },
+      {
         "name": "created_by_me",
         "required": false,
         "type": "boolean"
@@ -593,6 +813,7 @@
           "skill_level": "string",
           "status": "string",
           "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "host_name": "string",
           "created_at": "2030-01-15T19:00:00",
           "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
           "court_duration_minutes": 1,
@@ -600,7 +821,8 @@
           "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
           "venue_name": "string",
           "court_booking_status": "string",
-          "joined_count": 1
+          "joined_count": 1,
+          "joined_count_excluding_host": 1
         }
       ],
       "total": 1,
@@ -632,6 +854,7 @@
       "skill_level": "string",
       "status": "string",
       "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "host_name": "string",
       "created_at": "2030-01-15T19:00:00",
       "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "court_duration_minutes": 1,
@@ -640,6 +863,13 @@
       "venue_name": "string",
       "court_booking_status": "string"
     }
+  },
+  "GET /api/v1/matches/chat/unread-count": {
+    "summary": "Count unread incoming messages for the current user",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
   },
   "GET /api/v1/matches/recommended": {
     "summary": "Get ranked, scored match recommendations",
@@ -689,6 +919,7 @@
           "skill_level": "string",
           "status": "string",
           "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "host_name": "string",
           "created_at": "2030-01-15T19:00:00",
           "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
           "court_duration_minutes": 1,
@@ -697,7 +928,8 @@
           "venue_name": "string",
           "court_booking_status": "string",
           "score": 0.5,
-          "joined_count": 1
+          "joined_count": 1,
+          "joined_count_excluding_host": 1
         }
       ],
       "total": 1,
@@ -720,6 +952,46 @@
       "skill_level": "string",
       "status": "string",
       "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "host_name": "string",
+      "created_at": "2030-01-15T19:00:00",
+      "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "court_duration_minutes": 1,
+      "court_name": "string",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_name": "string",
+      "court_booking_status": "string",
+      "players": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "user_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "joined_at": "2030-01-15T19:00:00"
+        }
+      ]
+    }
+  },
+  "PATCH /api/v1/matches/{match_id}": {
+    "summary": "Update a hosted match",
+    "query": [],
+    "request": {
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sport": "string",
+      "location": "string",
+      "date": "2030-01-15",
+      "time": "19:00:00",
+      "players_needed": 1,
+      "skill_level": "string",
+      "status": "string",
+      "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "host_name": "string",
       "created_at": "2030-01-15T19:00:00",
       "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "court_duration_minutes": 1,
@@ -751,6 +1023,7 @@
       "skill_level": "string",
       "status": "string",
       "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "host_name": "string",
       "created_at": "2030-01-15T19:00:00",
       "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "court_duration_minutes": 1,
@@ -785,6 +1058,13 @@
       ]
     }
   },
+  "POST /api/v1/matches/{match_id}/chat/read": {
+    "summary": "Mark incoming messages in a match chat as read",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
+  },
   "POST /api/v1/matches/{match_id}/join": {
     "summary": "Join a match",
     "query": [],
@@ -800,6 +1080,7 @@
       "skill_level": "string",
       "status": "string",
       "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "host_name": "string",
       "created_at": "2030-01-15T19:00:00",
       "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "court_duration_minutes": 1,
@@ -831,6 +1112,7 @@
       "skill_level": "string",
       "status": "string",
       "created_by": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "host_name": "string",
       "created_at": "2030-01-15T19:00:00",
       "court_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "court_duration_minutes": 1,
@@ -975,6 +1257,84 @@
       "read": true,
       "created_at": "2030-01-15T19:00:00"
     }
+  },
+  "GET /api/v1/player/venue-messages": {
+    "summary": "List Player Venue Conversations",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "created_at": "2030-01-15T19:00:00",
+          "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "owner_name": "string",
+          "owner_avatar": "string",
+          "host_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "host_name": "string",
+          "host_avatar": "string",
+          "venue_names": [
+            "string"
+          ],
+          "court_names": [
+            "string"
+          ],
+          "last_message": {
+            "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+            "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+            "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+            "sender_name": "string",
+            "content": "string",
+            "created_at": "2030-01-15T19:00:00"
+          },
+          "unread_count": 1
+        }
+      ]
+    }
+  },
+  "GET /api/v1/player/venue-messages/{conversation_id}/messages": {
+    "summary": "List Player Venue Messages",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sender_name": "string",
+          "content": "string",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "has_more": true
+    }
+  },
+  "POST /api/v1/player/venue-messages/{conversation_id}/messages": {
+    "summary": "Send Player Venue Message",
+    "query": [],
+    "request": {
+      "content": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sender_name": "string",
+      "content": "string",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/player/venue-messages/{conversation_id}/read": {
+    "summary": "Mark Player Venue Messages Read",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
   },
   "POST /api/v1/posts": {
     "summary": "Create a community post",
@@ -1231,6 +1591,84 @@
     "status": 204,
     "response": null
   },
+  "GET /api/v1/venue-owner/messages": {
+    "summary": "List Owner Conversations",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "created_at": "2030-01-15T19:00:00",
+          "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "owner_name": "string",
+          "owner_avatar": "string",
+          "host_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "host_name": "string",
+          "host_avatar": "string",
+          "venue_names": [
+            "string"
+          ],
+          "court_names": [
+            "string"
+          ],
+          "last_message": {
+            "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+            "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+            "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+            "sender_name": "string",
+            "content": "string",
+            "created_at": "2030-01-15T19:00:00"
+          },
+          "unread_count": 1
+        }
+      ]
+    }
+  },
+  "GET /api/v1/venue-owner/messages/{conversation_id}/messages": {
+    "summary": "List Owner Messages",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": {
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "sender_name": "string",
+          "content": "string",
+          "created_at": "2030-01-15T19:00:00"
+        }
+      ],
+      "has_more": true
+    }
+  },
+  "POST /api/v1/venue-owner/messages/{conversation_id}/messages": {
+    "summary": "Send Owner Message",
+    "query": [],
+    "request": {
+      "content": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "conversation_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sender_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "sender_name": "string",
+      "content": "string",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "POST /api/v1/venue-owner/messages/{conversation_id}/read": {
+    "summary": "Mark Owner Messages Read",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": null
+  },
   "GET /api/v1/venues": {
     "summary": "Browse approved venues",
     "query": [
@@ -1292,6 +1730,130 @@
       "rejection_reason": "string",
       "reviewed_at": "2030-01-15T19:00:00",
       "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "GET /api/v1/venues/browse": {
+    "summary": "Browse venues with courts and marketing",
+    "query": [
+      {
+        "name": "q",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "name": "page",
+        "required": false,
+        "type": "integer"
+      },
+      {
+        "name": "page_size",
+        "required": false,
+        "type": "integer"
+      }
+    ],
+    "request": null,
+    "status": 200,
+    "response": {
+      "items": [
+        {
+          "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "owner_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "name": "string",
+          "address": "string",
+          "description": "string",
+          "photo_url": "string",
+          "status": "string",
+          "rejection_reason": "string",
+          "reviewed_at": "2030-01-15T19:00:00",
+          "created_at": "2030-01-15T19:00:00",
+          "courts": [
+            {
+              "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+              "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+              "name": "string",
+              "sport": "string",
+              "price_per_hour": "string",
+              "availability": {
+                "mon": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ],
+                "tue": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ],
+                "wed": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ],
+                "thu": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ],
+                "fri": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ],
+                "sat": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ],
+                "sun": [
+                  {
+                    "start": null,
+                    "end": null
+                  }
+                ]
+              },
+              "created_at": "2030-01-15T19:00:00"
+            }
+          ],
+          "discounts": [
+            {
+              "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+              "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+              "title": "string",
+              "description": "string",
+              "percent_off": 1,
+              "amount_off": "string",
+              "code": "string",
+              "valid_until": "2030-01-15",
+              "active": true,
+              "usage_limit": 1,
+              "usage_count": 1,
+              "created_at": "2030-01-15T19:00:00"
+            }
+          ],
+          "events": [
+            {
+              "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+              "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+              "title": "string",
+              "description": "string",
+              "event_date": "2030-01-15",
+              "event_time": "19:00:00",
+              "sport": "string",
+              "price_label": "string",
+              "created_at": "2030-01-15T19:00:00"
+            }
+          ]
+        }
+      ],
+      "total": 1,
+      "page": 1,
+      "page_size": 1
     }
   },
   "GET /api/v1/venues/mine": {
@@ -1402,7 +1964,17 @@
           "booker_name": "string",
           "court_name": "string",
           "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
-          "venue_name": "string"
+          "venue_name": "string",
+          "transaction_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+          "selected_court_names": [
+            "string"
+          ],
+          "price_per_hour": "string",
+          "line_total": "string",
+          "original_total": "string",
+          "discount_amount": "string",
+          "final_total": "string",
+          "promo_code": "string"
         }
       ],
       "total": 1,
@@ -1434,6 +2006,7 @@
     "request": {
       "name": "string",
       "sport": "string",
+      "price_per_hour": 0.5,
       "availability": {
         "mon": [
           {
@@ -1485,6 +2058,7 @@
       "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
       "name": "string",
       "sport": "string",
+      "price_per_hour": "string",
       "availability": {
         "mon": [
           {
@@ -1543,6 +2117,7 @@
         "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
         "name": "string",
         "sport": "string",
+        "price_per_hour": "string",
         "availability": {
           "mon": [
             {
@@ -1590,6 +2165,167 @@
         "created_at": "2030-01-15T19:00:00"
       }
     ]
+  },
+  "GET /api/v1/venues/{venue_id}/discounts": {
+    "summary": "List Venue Discounts",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": [
+      {
+        "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "title": "string",
+        "description": "string",
+        "percent_off": 1,
+        "amount_off": "string",
+        "code": "string",
+        "valid_until": "2030-01-15",
+        "active": true,
+        "usage_limit": 1,
+        "usage_count": 1,
+        "created_at": "2030-01-15T19:00:00"
+      }
+    ]
+  },
+  "POST /api/v1/venues/{venue_id}/discounts": {
+    "summary": "Create Venue Discount",
+    "query": [],
+    "request": {
+      "title": "string",
+      "description": "string",
+      "percent_off": 1,
+      "amount_off": 0.5,
+      "code": "string",
+      "valid_until": "2030-01-15",
+      "active": true,
+      "usage_limit": 1
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "title": "string",
+      "description": "string",
+      "percent_off": 1,
+      "amount_off": "string",
+      "code": "string",
+      "valid_until": "2030-01-15",
+      "active": true,
+      "usage_limit": 1,
+      "usage_count": 1,
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "PATCH /api/v1/venues/{venue_id}/discounts/{discount_id}": {
+    "summary": "Update Venue Discount",
+    "query": [],
+    "request": {
+      "title": "string",
+      "description": "string",
+      "percent_off": 1,
+      "amount_off": 0.5,
+      "code": "string",
+      "valid_until": "2030-01-15",
+      "active": true,
+      "usage_limit": 1
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "title": "string",
+      "description": "string",
+      "percent_off": 1,
+      "amount_off": "string",
+      "code": "string",
+      "valid_until": "2030-01-15",
+      "active": true,
+      "usage_limit": 1,
+      "usage_count": 1,
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "DELETE /api/v1/venues/{venue_id}/discounts/{discount_id}": {
+    "summary": "Delete Venue Discount",
+    "query": [],
+    "request": null,
+    "status": 204,
+    "response": null
+  },
+  "GET /api/v1/venues/{venue_id}/events": {
+    "summary": "List Venue Events",
+    "query": [],
+    "request": null,
+    "status": 200,
+    "response": [
+      {
+        "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+        "title": "string",
+        "description": "string",
+        "event_date": "2030-01-15",
+        "event_time": "19:00:00",
+        "sport": "string",
+        "price_label": "string",
+        "created_at": "2030-01-15T19:00:00"
+      }
+    ]
+  },
+  "POST /api/v1/venues/{venue_id}/events": {
+    "summary": "Create Venue Event",
+    "query": [],
+    "request": {
+      "title": "string",
+      "description": "string",
+      "event_date": "2030-01-15",
+      "event_time": "19:00:00",
+      "sport": "string",
+      "price_label": "string"
+    },
+    "status": 201,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "title": "string",
+      "description": "string",
+      "event_date": "2030-01-15",
+      "event_time": "19:00:00",
+      "sport": "string",
+      "price_label": "string",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "PATCH /api/v1/venues/{venue_id}/events/{event_id}": {
+    "summary": "Update Venue Event",
+    "query": [],
+    "request": {
+      "title": "string",
+      "description": "string",
+      "event_date": "2030-01-15",
+      "event_time": "19:00:00",
+      "sport": "string",
+      "price_label": "string"
+    },
+    "status": 200,
+    "response": {
+      "id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "venue_id": "3f2b8c1e-8a46-4d3e-9b5a-1c2d3e4f5a6b",
+      "title": "string",
+      "description": "string",
+      "event_date": "2030-01-15",
+      "event_time": "19:00:00",
+      "sport": "string",
+      "price_label": "string",
+      "created_at": "2030-01-15T19:00:00"
+    }
+  },
+  "DELETE /api/v1/venues/{venue_id}/events/{event_id}": {
+    "summary": "Delete Venue Event",
+    "query": [],
+    "request": null,
+    "status": 204,
+    "response": null
   },
   "POST /api/v1/waiting-list/{entry_id}/accept": {
     "summary": "Accept an offered waiting-list slot",

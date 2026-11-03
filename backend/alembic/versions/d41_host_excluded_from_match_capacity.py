@@ -1,12 +1,12 @@
 """Reopen matches with available non-host player slots.
 
-Revision ID: d41_host_excluded_from_match_capacity
+Revision ID: d41_host_capacity
 Revises: d40_chat_read_states
 """
 
 from alembic import op
 
-revision = "d41_host_excluded_from_match_capacity"
+revision = "d41_host_capacity"
 down_revision = "d40_chat_read_states"
 branch_labels = None
 depends_on = None

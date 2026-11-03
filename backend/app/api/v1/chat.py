@@ -14,6 +14,11 @@ from app.db.session import get_db
 from app.models.chat import Conversation, ConversationReadState, Message
 from app.models.match import Match, MatchPlayer
 from app.models.profile import Profile
+from app.models.venue_direct_chat import (
+    VenueDirectConversation,
+    VenueDirectMessage,
+    VenueDirectReadState,
+)
 from app.schemas.chat import ChatInfo, MessageCreate, MessagePage, MessageRead
 from app.services.chat import get_or_create_conversation
 from app.services.match_participants import is_match_participant, participant_ids
@@ -78,7 +83,33 @@ def unread_message_count(
         )
         .scalar()
     )
-    return {"unread_count": count or 0}
+    direct_count = (
+        db.query(func.count(VenueDirectMessage.id))
+        .join(
+            VenueDirectConversation,
+            VenueDirectConversation.id == VenueDirectMessage.conversation_id,
+        )
+        .outerjoin(
+            VenueDirectReadState,
+            and_(
+                VenueDirectReadState.conversation_id == VenueDirectConversation.id,
+                VenueDirectReadState.user_id == profile.id,
+            ),
+        )
+        .filter(
+            VenueDirectMessage.sender_id != profile.id,
+            or_(
+                VenueDirectConversation.host_id == profile.id,
+                VenueDirectConversation.owner_id == profile.id,
+            ),
+            or_(
+                VenueDirectReadState.last_read_at.is_(None),
+                VenueDirectMessage.created_at > VenueDirectReadState.last_read_at,
+            ),
+        )
+        .scalar()
+    )
+    return {"unread_count": (count or 0) + (direct_count or 0)}
 
 
 @router.post("/{match_id}/chat/read", summary="Mark incoming messages in a match chat as read")

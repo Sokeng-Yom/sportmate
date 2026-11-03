@@ -64,7 +64,7 @@ export default function VenueDetailPage({ params }: { params: { venueId: string 
 
     const today = localDate();
     const activeDiscounts = useMemo(
-        () => discounts.filter((discount) => discount.valid_until >= today),
+        () => discounts.filter((discount) => discount.active && discount.valid_until >= today),
         [discounts, today],
     );
     const upcomingEvents = useMemo(
@@ -141,7 +141,7 @@ export default function VenueDetailPage({ params }: { params: { venueId: string 
                                 {courts.length > 0 && (
                                     <div>
                                         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Courts</p>
-                                        <ul className="space-y-2">{courts.map((court) => <li key={court.id} className="rounded-xl bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold text-slate-800">{court.name}</span><span className="ml-2 text-slate-500">{court.sport}</span></li>)}</ul>
+                                        <ul className="space-y-2">{courts.map((court) => <li key={court.id} className="rounded-xl bg-slate-50 px-3 py-2 text-sm"><span className="font-semibold text-slate-800">{court.name}</span><span className="ml-2 text-slate-500">{court.sport}</span><span className="ml-2 text-slate-500">{court.price_per_hour !== null ? `$${court.price_per_hour}/hour` : "Price not listed"}</span></li>)}</ul>
                                     </div>
                                 )}
                             </section>

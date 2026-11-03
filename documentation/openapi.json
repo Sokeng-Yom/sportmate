@@ -194,6 +194,366 @@
         }
       }
     },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Search and filter user accounts",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PLAYER",
+                    "VENUE_OWNER",
+                    "ADMIN"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role"
+            }
+          },
+          {
+            "name": "restricted",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Restricted"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAdminUsers"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/restrict": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Restrict a user from joining matches",
+        "operationId": "restrict_user_api_v1_admin_users__user_id__restrict_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestrictUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/unrestrict": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Lift a restriction",
+        "operationId": "unrestrict_user_api_v1_admin_users__user_id__unrestrict_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/security-logs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Audit trail and suspicious activity, newest first",
+        "operationId": "security_logs_api_v1_admin_security_logs_get",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 60
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedSecurityLogs"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/venues": {
       "get": {
         "tags": [
@@ -846,6 +1206,95 @@
         }
       }
     },
+    "/api/v1/venues/browse": {
+      "get": {
+        "tags": [
+          "venues"
+        ],
+        "summary": "Browse venues with courts and marketing",
+        "operationId": "browse_venues_api_v1_venues_browse_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedVenueBrowse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/venues/{venue_id}": {
       "get": {
         "tags": [
@@ -1425,12 +1874,71 @@
         }
       }
     },
+    "/api/v1/bookings/quote": {
+      "post": {
+        "tags": [
+          "bookings"
+        ],
+        "summary": "Validate court availability and calculate booking price",
+        "operationId": "quote_booking_api_v1_bookings_quote_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingQuoteCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingQuoteRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/bookings": {
       "post": {
         "tags": [
           "bookings"
         ],
-        "summary": "Book a court for a full match",
+        "summary": "Book one or more courts for a full match",
         "operationId": "create_booking_api_v1_bookings_post",
         "parameters": [
           {
@@ -1670,6 +2178,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookingReject"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2161,6 +2679,22 @@
             }
           },
           {
+            "name": "skill_level",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Skill Level"
+            }
+          },
+          {
             "name": "created_by_me",
             "in": "query",
             "required": false,
@@ -2519,6 +3053,73 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "matches"
+        ],
+        "summary": "Update a hosted match",
+        "operationId": "update_match_api_v1_matches__match_id__patch",
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Match Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchDetailRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/matches/{match_id}/leave-risk-preview": {
@@ -2816,6 +3417,110 @@
         }
       }
     },
+    "/api/v1/matches/chat/unread-count": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Count unread incoming messages for the current user",
+        "operationId": "unread_message_count_api_v1_matches_chat_unread_count_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/matches/{match_id}/chat/read": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Mark incoming messages in a match chat as read",
+        "operationId": "mark_chat_read_api_v1_matches__match_id__chat_read_post",
+        "parameters": [
+          {
+            "name": "match_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Match Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/matches/{match_id}/chat": {
       "get": {
         "tags": [
@@ -3030,6 +3735,470 @@
         }
       }
     },
+    "/api/v1/venue-owner/messages": {
+      "get": {
+        "tags": [
+          "venue owner messages"
+        ],
+        "summary": "List Owner Conversations",
+        "operationId": "list_owner_conversations_api_v1_venue_owner_messages_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueOwnerConversationPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venue-owner/messages/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "venue owner messages"
+        ],
+        "summary": "List Owner Messages",
+        "operationId": "list_owner_messages_api_v1_venue_owner_messages__conversation_id__messages_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "venue owner messages"
+        ],
+        "summary": "Send Owner Message",
+        "operationId": "send_owner_message_api_v1_venue_owner_messages__conversation_id__messages_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venue-owner/messages/{conversation_id}/read": {
+      "post": {
+        "tags": [
+          "venue owner messages"
+        ],
+        "summary": "Mark Owner Messages Read",
+        "operationId": "mark_owner_messages_read_api_v1_venue_owner_messages__conversation_id__read_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/player/venue-messages": {
+      "get": {
+        "tags": [
+          "venue messages"
+        ],
+        "summary": "List Player Venue Conversations",
+        "operationId": "list_player_venue_conversations_api_v1_player_venue_messages_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueOwnerConversationPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/player/venue-messages/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "venue messages"
+        ],
+        "summary": "List Player Venue Messages",
+        "operationId": "list_player_venue_messages_api_v1_player_venue_messages__conversation_id__messages_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessagePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "venue messages"
+        ],
+        "summary": "Send Player Venue Message",
+        "operationId": "send_player_venue_message_api_v1_player_venue_messages__conversation_id__messages_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessageCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/player/venue-messages/{conversation_id}/read": {
+      "post": {
+        "tags": [
+          "venue messages"
+        ],
+        "summary": "Mark Player Venue Messages Read",
+        "operationId": "mark_player_venue_messages_read_api_v1_player_venue_messages__conversation_id__read_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/waiting-list/{entry_id}/accept": {
       "post": {
         "tags": [
@@ -3075,6 +4244,544 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venue_id}/discounts": {
+      "get": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "List Venue Discounts",
+        "operationId": "list_venue_discounts_api_v1_venues__venue_id__discounts_get",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VenueDiscountRead"
+                  },
+                  "title": "Response List Venue Discounts Api V1 Venues  Venue Id  Discounts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "Create Venue Discount",
+        "operationId": "create_venue_discount_api_v1_venues__venue_id__discounts_post",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VenueDiscountCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueDiscountRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venue_id}/discounts/{discount_id}": {
+      "patch": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "Update Venue Discount",
+        "operationId": "update_venue_discount_api_v1_venues__venue_id__discounts__discount_id__patch",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "discount_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Discount Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VenueDiscountUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueDiscountRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "Delete Venue Discount",
+        "operationId": "delete_venue_discount_api_v1_venues__venue_id__discounts__discount_id__delete",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "discount_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Discount Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venue_id}/events": {
+      "get": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "List Venue Events",
+        "operationId": "list_venue_events_api_v1_venues__venue_id__events_get",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VenueEventRead"
+                  },
+                  "title": "Response List Venue Events Api V1 Venues  Venue Id  Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "Create Venue Event",
+        "operationId": "create_venue_event_api_v1_venues__venue_id__events_post",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VenueEventCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueEventRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/venues/{venue_id}/events/{event_id}": {
+      "patch": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "Update Venue Event",
+        "operationId": "update_venue_event_api_v1_venues__venue_id__events__event_id__patch",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VenueEventUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VenueEventRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "venue marketing"
+        ],
+        "summary": "Delete Venue Event",
+        "operationId": "delete_venue_event_api_v1_venues__venue_id__events__event_id__delete",
+        "parameters": [
+          {
+            "name": "venue_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Venue Id"
+            }
+          },
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -3926,6 +5633,81 @@
   },
   "components": {
     "schemas": {
+      "AdminUserRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar"
+          },
+          "restricted_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restricted Until"
+          },
+          "restricted": {
+            "type": "boolean",
+            "title": "Restricted"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "restricted"
+        ],
+        "title": "AdminUserRead"
+      },
       "BookingCreate": {
         "properties": {
           "match_id": {
@@ -3934,9 +5716,33 @@
             "title": "Match Id"
           },
           "court_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Court Id"
+          },
+          "court_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array",
+                "maxItems": 10,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Ids"
           },
           "duration_minutes": {
             "type": "integer",
@@ -3944,14 +5750,151 @@
             "minimum": 30.0,
             "title": "Duration Minutes",
             "default": 60
+          },
+          "promo_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "match_id"
+        ],
+        "title": "BookingCreate"
+      },
+      "BookingQuoteCourt": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "price_per_hour": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Price Per Hour"
+          },
+          "line_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Line Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price_per_hour",
+          "line_total"
+        ],
+        "title": "BookingQuoteCourt"
+      },
+      "BookingQuoteCreate": {
+        "properties": {
+          "match_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Match Id"
+          },
+          "court_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Court Ids"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "maximum": 240.0,
+            "minimum": 30.0,
+            "title": "Duration Minutes",
+            "default": 60
+          },
+          "promo_code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Code"
           }
         },
         "type": "object",
         "required": [
           "match_id",
-          "court_id"
+          "court_ids"
         ],
-        "title": "BookingCreate"
+        "title": "BookingQuoteCreate"
+      },
+      "BookingQuoteRead": {
+        "properties": {
+          "courts": {
+            "items": {
+              "$ref": "#/components/schemas/BookingQuoteCourt"
+            },
+            "type": "array",
+            "title": "Courts"
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          },
+          "original_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Original Total"
+          },
+          "promo_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Code"
+          },
+          "discount_amount": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Discount Amount"
+          },
+          "final_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Final Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "courts",
+          "duration_minutes",
+          "original_total",
+          "promo_code",
+          "discount_amount",
+          "final_total"
+        ],
+        "title": "BookingQuoteRead"
       },
       "BookingRead": {
         "properties": {
@@ -4045,6 +5988,103 @@
               }
             ],
             "title": "Venue Name"
+          },
+          "transaction_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transaction Id"
+          },
+          "selected_court_names": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Court Names"
+          },
+          "price_per_hour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Hour"
+          },
+          "line_total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Total"
+          },
+          "original_total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Total"
+          },
+          "discount_amount": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Amount"
+          },
+          "final_total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Total"
+          },
+          "promo_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Promo Code"
           }
         },
         "type": "object",
@@ -4058,6 +6098,21 @@
           "created_at"
         ],
         "title": "BookingRead"
+      },
+      "BookingReject": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "BookingReject"
       },
       "ChatInfo": {
         "properties": {
@@ -4204,6 +6259,22 @@
             "minLength": 1,
             "title": "Sport"
           },
+          "price_per_hour": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Hour"
+          },
           "availability": {
             "anyOf": [
               {
@@ -4241,6 +6312,18 @@
           "sport": {
             "type": "string",
             "title": "Sport"
+          },
+          "price_per_hour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Hour"
           },
           "availability": {
             "anyOf": [
@@ -4287,6 +6370,18 @@
           "sport": {
             "type": "string",
             "title": "Sport"
+          },
+          "price_per_hour": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Hour"
           },
           "availability": {
             "anyOf": [
@@ -4351,6 +6446,22 @@
               }
             ],
             "title": "Sport"
+          },
+          "price_per_hour": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Hour"
           },
           "availability": {
             "anyOf": [
@@ -4473,7 +6584,8 @@
           },
           "players_needed": {
             "type": "integer",
-            "title": "Players Needed"
+            "title": "Players Needed",
+            "description": "Number of additional players needed, excluding the host"
           },
           "skill_level": {
             "type": "string",
@@ -4557,6 +6669,17 @@
             "type": "string",
             "format": "uuid",
             "title": "Created By"
+          },
+          "host_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Name"
           },
           "created_at": {
             "type": "string",
@@ -4697,6 +6820,17 @@
             "format": "uuid",
             "title": "Created By"
           },
+          "host_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Name"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -4773,6 +6907,10 @@
           "joined_count": {
             "type": "integer",
             "title": "Joined Count"
+          },
+          "joined_count_excluding_host": {
+            "type": "integer",
+            "title": "Joined Count Excluding Host"
           }
         },
         "type": "object",
@@ -4787,7 +6925,8 @@
           "status",
           "created_by",
           "created_at",
-          "joined_count"
+          "joined_count",
+          "joined_count_excluding_host"
         ],
         "title": "MatchListRead"
       },
@@ -4858,6 +6997,17 @@
             "type": "string",
             "format": "uuid",
             "title": "Created By"
+          },
+          "host_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Name"
           },
           "created_at": {
             "type": "string",
@@ -4947,6 +7097,82 @@
           "created_at"
         ],
         "title": "MatchRead"
+      },
+      "MatchUpdate": {
+        "properties": {
+          "sport": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sport"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time"
+          },
+          "players_needed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Players Needed",
+            "description": "Number of additional players needed, excluding the host"
+          },
+          "skill_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skill Level"
+          }
+        },
+        "type": "object",
+        "title": "MatchUpdate"
       },
       "MessageCreate": {
         "properties": {
@@ -5109,6 +7335,37 @@
           "created_at"
         ],
         "title": "NotificationRead"
+      },
+      "PaginatedAdminUsers": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedAdminUsers"
       },
       "PaginatedBookings": {
         "properties": {
@@ -5326,6 +7583,68 @@
           "page_size"
         ],
         "title": "PaginatedReportedPosts"
+      },
+      "PaginatedSecurityLogs": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityLogRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedSecurityLogs"
+      },
+      "PaginatedVenueBrowse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VenueBrowseRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedVenueBrowse"
       },
       "PaginatedVenues": {
         "properties": {
@@ -5573,6 +7892,17 @@
             "format": "uuid",
             "title": "Created By"
           },
+          "host_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Name"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5653,6 +7983,10 @@
           "joined_count": {
             "type": "integer",
             "title": "Joined Count"
+          },
+          "joined_count_excluding_host": {
+            "type": "integer",
+            "title": "Joined Count Excluding Host"
           }
         },
         "type": "object",
@@ -5668,7 +8002,8 @@
           "created_by",
           "created_at",
           "score",
-          "joined_count"
+          "joined_count",
+          "joined_count_excluding_host"
         ],
         "title": "RecommendedMatch"
       },
@@ -5774,6 +8109,104 @@
           "reasons"
         ],
         "title": "ReportedPostRead"
+      },
+      "RestrictUser": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Days"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "reason"
+        ],
+        "title": "RestrictUser"
+      },
+      "SecurityLogRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "user_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Name"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action"
+        ],
+        "title": "SecurityLogRead"
       },
       "TimeWindow": {
         "properties": {
@@ -5911,6 +8344,116 @@
         ],
         "title": "ValidationError"
       },
+      "VenueBrowseRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "rejection_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rejection Reason"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "courts": {
+            "items": {
+              "$ref": "#/components/schemas/CourtRead"
+            },
+            "type": "array",
+            "title": "Courts"
+          },
+          "discounts": {
+            "items": {
+              "$ref": "#/components/schemas/VenueDiscountRead"
+            },
+            "type": "array",
+            "title": "Discounts"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/VenueEventRead"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "owner_id",
+          "name",
+          "address",
+          "status",
+          "created_at",
+          "courts",
+          "discounts",
+          "events"
+        ],
+        "title": "VenueBrowseRead"
+      },
       "VenueCreate": {
         "properties": {
           "name": {
@@ -5944,6 +8487,600 @@
           "address"
         ],
         "title": "VenueCreate"
+      },
+      "VenueDiscountCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "percent_off": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Off"
+          },
+          "amount_off": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Off"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date",
+            "title": "Valid Until"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "usage_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "valid_until"
+        ],
+        "title": "VenueDiscountCreate"
+      },
+      "VenueDiscountRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "venue_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Venue Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "percent_off": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Off"
+          },
+          "amount_off": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Off"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "valid_until": {
+            "type": "string",
+            "format": "date",
+            "title": "Valid Until"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          },
+          "usage_limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Limit"
+          },
+          "usage_count": {
+            "type": "integer",
+            "title": "Usage Count",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "venue_id",
+          "title",
+          "description",
+          "percent_off",
+          "code",
+          "valid_until",
+          "created_at"
+        ],
+        "title": "VenueDiscountRead"
+      },
+      "VenueDiscountUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "percent_off": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent Off"
+          },
+          "amount_off": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,8}|(?=[\\d.]{1,11}0*$)\\d{0,8}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount Off"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "valid_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid Until"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "usage_limit": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Limit"
+          }
+        },
+        "type": "object",
+        "title": "VenueDiscountUpdate"
+      },
+      "VenueEventCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description"
+          },
+          "event_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Event Date"
+          },
+          "event_time": {
+            "type": "string",
+            "format": "time",
+            "title": "Event Time"
+          },
+          "sport": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Sport"
+          },
+          "price_label": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Price Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "description",
+          "event_date",
+          "event_time",
+          "sport",
+          "price_label"
+        ],
+        "title": "VenueEventCreate"
+      },
+      "VenueEventRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "venue_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Venue Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "event_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Event Date"
+          },
+          "event_time": {
+            "type": "string",
+            "format": "time",
+            "title": "Event Time"
+          },
+          "sport": {
+            "type": "string",
+            "title": "Sport"
+          },
+          "price_label": {
+            "type": "string",
+            "title": "Price Label"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "venue_id",
+          "title",
+          "description",
+          "event_date",
+          "event_time",
+          "sport",
+          "price_label",
+          "created_at"
+        ],
+        "title": "VenueEventRead"
+      },
+      "VenueEventUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "event_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Time"
+          },
+          "sport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sport"
+          },
+          "price_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Label"
+          }
+        },
+        "type": "object",
+        "title": "VenueEventUpdate"
+      },
+      "VenueOwnerConversationPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VenueOwnerConversationRead"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "VenueOwnerConversationPage"
+      },
+      "VenueOwnerConversationRead": {
+        "properties": {
+          "conversation_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Conversation Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          },
+          "owner_avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Avatar"
+          },
+          "host_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Host Id"
+          },
+          "host_name": {
+            "type": "string",
+            "title": "Host Name"
+          },
+          "host_avatar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host Avatar"
+          },
+          "venue_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Venue Names"
+          },
+          "court_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Court Names"
+          },
+          "last_message": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MessageRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unread_count": {
+            "type": "integer",
+            "title": "Unread Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "created_at",
+          "owner_id",
+          "owner_name",
+          "host_id",
+          "host_name",
+          "venue_names",
+          "court_names",
+          "unread_count"
+        ],
+        "title": "VenueOwnerConversationRead"
       },
       "VenueRead": {
         "properties": {

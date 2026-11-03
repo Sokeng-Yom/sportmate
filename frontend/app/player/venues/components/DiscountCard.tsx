@@ -38,6 +38,11 @@ export function DiscountCard({ discount }: DiscountCardProps) {
                             {discount.percent_off}% off
                         </p>
                     )}
+                    {!discount.percent_off && discount.amount_off !== null && (
+                        <p className="text-2xl font-extrabold text-emerald-600 leading-tight">
+                            ${discount.amount_off} off
+                        </p>
+                    )}
                     <p className="text-sm text-slate-500 mt-1">{discount.description}</p>
                 </div>
             </div>

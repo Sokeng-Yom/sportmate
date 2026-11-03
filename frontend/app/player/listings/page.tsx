@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, ClipboardList, RefreshCw, XCircle, Loader2, User, X, Pencil } from "lucide-react";
+import { Plus, ClipboardList, RefreshCw, XCircle, Loader2, User, X, Pencil, Tag } from "lucide-react";
 import { ApiError } from "../../../lib/apiClient";
-import { cancelMatch, createBooking, listMatches, updateMatch } from "../../../lib/api";
-import type { MatchRead } from "../../../lib/types";
+import {
+    cancelMatch,
+    createBooking,
+    listMatches,
+    listVenueDiscounts,
+    quoteBooking,
+    searchCourts,
+    updateMatch,
+} from "../../../lib/api";
+import type { BookingQuoteRead, CourtSearchItem, MatchRead, VenueDiscountRead } from "../../../lib/types";
 import { useAuth } from "../../../lib/auth";
 import { supabase } from "../../../lib/supabaseClient";
 
@@ -56,14 +64,22 @@ function skillLabel(level: string): string {
 
 function gameStatusLabel(status: string): string {
     switch (status) {
-        case "OPEN": return "Open game";
-        case "FULL": return "Hosting full";
-        case "READY": return "Ready";
-        case "CONFIRMED": return "Confirmed";
+        case "FULL": return "Full";
         case "COMPLETED": return "Completed";
         case "CANCELLED": return "Cancelled";
-        default: return status;
+        default: return "";
     }
+}
+
+type ListingTab = "active" | "completed" | "cancelled";
+
+function formatPrice(value: number | string): string {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(value));
+}
+
+function localDate(): string {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
 }
 
 export default function MyListingsPage() {
@@ -76,6 +92,16 @@ export default function MyListingsPage() {
     const [notice, setNotice] = useState<Notice | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [cancelMatchConfirmation, setCancelMatchConfirmation] = useState<MatchRead | null>(null);
+    const [listingTab, setListingTab] = useState<ListingTab>("active");
+    const [bookingMatch, setBookingMatch] = useState<MatchRead | null>(null);
+    const [bookingLoading, setBookingLoading] = useState(false);
+    const [bookingCourts, setBookingCourts] = useState<CourtSearchItem[]>([]);
+    const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([]);
+    const [bookingDiscounts, setBookingDiscounts] = useState<VenueDiscountRead[]>([]);
+    const [promoCode, setPromoCode] = useState("");
+    const [bookingQuote, setBookingQuote] = useState<BookingQuoteRead | null>(null);
+    const [quoteLoading, setQuoteLoading] = useState(false);
+    const [quoteError, setQuoteError] = useState<string | null>(null);
     const [viewMatch, setViewMatch] = useState<MatchRead | null>(null);
     const [editMatch, setEditMatch] = useState<MatchRead | null>(null);
     const [editError, setEditError] = useState<string | null>(null);
@@ -95,10 +121,25 @@ export default function MyListingsPage() {
             setError(null);
         }
         try {
-            const page = await listMatches({ created_by_me: true, page_size: 100 });
-            setMatches(page.items);
+            let page = await listMatches({
+                created_by_me: true,
+                page_size: 100,
+                status: "OPEN,FULL,READY,CONFIRMED,COMPLETED,CANCELLED",
+            });
+            const allMatches = [...page.items];
+            while (allMatches.length < page.total) {
+                page = await listMatches({
+                    created_by_me: true,
+                    page_size: 100,
+                    page: page.page + 1,
+                    status: "OPEN,FULL,READY,CONFIRMED,COMPLETED,CANCELLED",
+                });
+                if (page.items.length === 0) break;
+                allMatches.push(...page.items);
+            }
+            setMatches(allMatches);
             setViewMatch((current) =>
-                current ? page.items.find((match) => match.id === current.id) ?? current : null
+                current ? allMatches.find((match) => match.id === current.id) ?? current : null
             );
             setLiveUpdateError(null);
         } catch (err) {
@@ -144,6 +185,18 @@ export default function MyListingsPage() {
         };
     }, [load, profile?.id]);
 
+    const categorizedMatches = {
+        active: matches
+            .filter((match) => ["OPEN", "FULL", "READY", "CONFIRMED"].includes(match.status))
+            .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)),
+        completed: matches
+            .filter((match) => match.status === "COMPLETED")
+            .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`)),
+        cancelled: matches
+            .filter((match) => match.status === "CANCELLED")
+            .sort((a, b) => `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`)),
+    };
+
     const handleCancel = async () => {
         if (!cancelMatchConfirmation) return;
         const match = cancelMatchConfirmation;
@@ -151,9 +204,9 @@ export default function MyListingsPage() {
         setNotice(null);
         try {
             await cancelMatch(match.id);
-            setMatches((prev) => prev.filter((item) => item.id !== match.id));
+            setMatches((prev) => prev.map((item) => item.id === match.id ? { ...item, status: "CANCELLED" } : item));
             setCancelMatchConfirmation(null);
-            setNotice({ message: "Game cancelled and removed from listings.", kind: "success" });
+            setNotice({ message: "Game cancelled. It remains available in your Cancelled listings.", kind: "success" });
         } catch (err) {
             setNotice({ message: err instanceof ApiError ? err.message : "Could not cancel the match", kind: "error" });
         } finally {
@@ -162,27 +215,103 @@ export default function MyListingsPage() {
     };
 
     const handleBookCourt = async (match: MatchRead) => {
-        if (!match.court_id) return;
+        if (!match.court_id || !match.venue_id) return;
         if (hasMatchStarted(match.date, match.time)) {
             setNotice({ message: "This game has already started. Court booking requests are no longer available.", kind: "error" });
             return;
         }
         setBusyId(match.id);
+        setBookingLoading(true);
+        setQuoteError(null);
+        try {
+            const duration = match.court_duration_minutes ?? 60;
+            const [available, discounts] = await Promise.all([
+                searchCourts({
+                    date: match.date,
+                    start_time: match.time.slice(0, 5),
+                    duration_minutes: duration,
+                    sport: match.sport,
+                    location: match.venue_name ?? undefined,
+                    page_size: 100,
+                }),
+                listVenueDiscounts(match.venue_id),
+            ]);
+            const sameVenue = available.items.filter((court) => court.venue_id === match.venue_id);
+            setBookingCourts(sameVenue);
+            setSelectedCourtIds(sameVenue.some((court) => court.id === match.court_id) ? [match.court_id] : []);
+            setBookingDiscounts(discounts.filter((discount) =>
+                discount.active && discount.code && discount.valid_until >= localDate()
+                && (discount.usage_limit === null || discount.usage_count < discount.usage_limit)
+            ));
+            setPromoCode("");
+            setBookingQuote(null);
+            setBookingMatch(match);
+        } catch (err) {
+            setNotice({ message: err instanceof ApiError ? err.message : "Could not load available courts.", kind: "error" });
+        } finally {
+            setBusyId(null);
+            setBookingLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (!bookingMatch || selectedCourtIds.length === 0) {
+            setBookingQuote(null);
+            setQuoteError(null);
+            return;
+        }
+        let current = true;
+        setQuoteLoading(true);
+        setBookingQuote(null);
+        setQuoteError(null);
+        const timer = window.setTimeout(() => {
+            void quoteBooking({
+                match_id: bookingMatch.id,
+                court_ids: selectedCourtIds,
+                duration_minutes: bookingMatch.court_duration_minutes ?? 60,
+                promo_code: promoCode.trim() || null,
+            }).then((quote) => {
+                if (current) setBookingQuote(quote);
+            }).catch((err: unknown) => {
+                if (current) setQuoteError(err instanceof ApiError ? err.message : "Could not calculate this booking.");
+            }).finally(() => {
+                if (current) setQuoteLoading(false);
+            });
+        }, 200);
+        return () => {
+            current = false;
+            window.clearTimeout(timer);
+        };
+    }, [bookingMatch, selectedCourtIds, promoCode]);
+
+    const toggleCourt = (courtId: string) => {
+        setSelectedCourtIds((selected) => selected.includes(courtId)
+            ? selected.filter((id) => id !== courtId)
+            : [...selected, courtId]);
+    };
+
+    const submitBooking = async () => {
+        if (!bookingMatch || selectedCourtIds.length === 0) return;
+        setBusyId(bookingMatch.id);
         setNotice({ message: "Sending your court booking request…", kind: "info" });
         try {
             const booking = await createBooking({
-                match_id: match.id,
-                court_id: match.court_id,
-                duration_minutes: match.court_duration_minutes ?? 60,
+                match_id: bookingMatch.id,
+                court_id: bookingMatch.court_id ?? undefined,
+                court_ids: selectedCourtIds,
+                duration_minutes: bookingMatch.court_duration_minutes ?? 60,
+                promo_code: promoCode.trim() || null,
             });
             setMatches((current) => current.map((item) =>
-                item.id === match.id
-                    ? { ...item, court_booking_status: booking.status }
-                    : item
+                item.id === bookingMatch.id ? { ...item, court_booking_status: booking.status } : item
             ));
-            setNotice({ message: "Booking request sent to the venue. You’ll be notified when it’s reviewed.", kind: "success" });
+            setBookingMatch(null);
+            setNotice({
+                message: `Booking request sent for ${booking.selected_court_names?.join(", ") ?? `${selectedCourtIds.length} court(s)`}. Total: ${formatPrice(booking.final_total ?? bookingQuote?.final_total ?? 0)}. The venue will review it.`,
+                kind: "success",
+            });
         } catch (err) {
-            setNotice({ message: err instanceof ApiError ? err.message : "Could not book the selected court.", kind: "error" });
+            setNotice({ message: err instanceof ApiError ? err.message : "Could not book the selected courts.", kind: "error" });
         } finally {
             setBusyId(null);
         }
@@ -278,6 +407,27 @@ export default function MyListingsPage() {
                     </p>
                 )}
 
+                {!loading && !error && count > 0 && (
+                    <div className="mb-6 flex w-full max-w-xl rounded-2xl border border-[#E8E3DE] bg-white p-1 shadow-sm" role="tablist" aria-label="My game listings">
+                        {([
+                            ["active", "Active"],
+                            ["completed", "Completed"],
+                            ["cancelled", "Cancelled"],
+                        ] as const).map(([key, label]) => (
+                            <button
+                                key={key}
+                                type="button"
+                                role="tab"
+                                aria-selected={listingTab === key}
+                                onClick={() => setListingTab(key)}
+                                className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${listingTab === key ? "bg-[#201405] text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                            >
+                                {label} <span className="ml-1 opacity-75">{categorizedMatches[key].length}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Content */}
                 {loading ? (
                     <div className="space-y-4">
@@ -324,9 +474,16 @@ export default function MyListingsPage() {
                             Host a game
                         </Link>
                     </div>
+                ) : categorizedMatches[listingTab].length === 0 ? (
+                    <div className="rounded-3xl border border-[#EAD9C2] bg-white px-6 py-16 text-center shadow-sm">
+                        <p className="font-bold text-slate-800">No {listingTab} games</p>
+                        <p className="mt-1 text-sm text-slate-500">
+                            {listingTab === "active" ? "Upcoming games you host will appear here." : "Your game history will appear here."}
+                        </p>
+                    </div>
                 ) : (
                     <div className="grid gap-4">
-                        {matches.map((match) => {
+                        {categorizedMatches[listingTab].map((match) => {
                             const skill = skillLabel(match.skill_level);
                             const canCancel = match.status === "OPEN" || match.status === "FULL" || match.status === "CONFIRMED";
                             const matchStarted = hasMatchStarted(match.date, match.time);
@@ -355,13 +512,20 @@ export default function MyListingsPage() {
                                                         <p className="text-sm text-slate-500">Host</p>
                                                     </div>
                                                 </div>
-                                                <span className="shrink-0 rounded-full bg-[#FFF0E1] px-3 py-1.5 text-xs font-semibold text-[#B85D14]">
-                                                    {skill}
-                                                </span>
+                                                <div className="flex shrink-0 items-center gap-2">
+                                                    {gameStatusLabel(match.status) && (
+                                                        <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${match.status === "CANCELLED" ? "bg-rose-50 text-rose-700" : match.status === "COMPLETED" ? "bg-slate-100 text-slate-700" : "bg-amber-50 text-amber-700"}`}>
+                                                            {gameStatusLabel(match.status)}
+                                                        </span>
+                                                    )}
+                                                    <span className="rounded-full bg-[#FFF0E1] px-3 py-1.5 text-xs font-semibold text-[#B85D14]">
+                                                        {skill}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <h2 className="mb-2 text-lg font-bold text-slate-950 sm:text-xl">
-                                                {match.sport} — {gameStatusLabel(match.status)}
+                                                {match.sport}
                                             </h2>
                                             <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
                                                 <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
@@ -392,12 +556,7 @@ export default function MyListingsPage() {
                                             </div>
 
                                             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEAE5] pt-4">
-                                                <p className="text-sm text-slate-600">
-                                                    <span className="font-semibold text-slate-900">Skill level:</span> {skill}
-                                                    <span className="ml-3 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                                                        {gameStatusLabel(match.status)}
-                                                    </span>
-                                                </p>
+                                                <span className="text-sm text-slate-500">{match.venue_name ?? match.location}</span>
                                                 <div className="flex items-center gap-2">
                                                     {canEdit && (
                                                         <button
@@ -425,7 +584,7 @@ export default function MyListingsPage() {
                                                                 ? <Loader2 size={15} className="animate-spin" />
                                                                 : null}
                                                             {busyId === match.id
-                                                                ? "Sending request…"
+                                                                ? bookingLoading ? "Checking courts…" : "Sending request…"
                                                                 : match.court_booking_status === "AVAILABLE" ? "Request court booking" : "Request again"}
                                                         </button>
                                                     )}
@@ -455,6 +614,150 @@ export default function MyListingsPage() {
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+
+                {bookingMatch && (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                        role="presentation"
+                        onClick={() => setBookingMatch(null)}
+                    >
+                        <section
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="booking-title"
+                            className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <div className="mb-5 flex items-start justify-between gap-3">
+                                <div>
+                                    <h2 id="booking-title" className="text-xl font-bold text-slate-950">Book courts</h2>
+                                    <p className="mt-1 text-sm text-slate-500">{bookingMatch.venue_name} · {formatGameDate(bookingMatch.date)} at {bookingMatch.time.slice(0, 5)}</p>
+                                </div>
+                                <button type="button" onClick={() => setBookingMatch(null)} aria-label="Close booking" className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <fieldset className="space-y-2">
+                                <legend className="mb-2 text-sm font-bold text-slate-800">Available courts at this venue</legend>
+                                {bookingCourts.length > 0 && !bookingCourts.some((court) => court.id === bookingMatch.court_id) && (
+                                    <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                                        The court selected for this game is no longer available for this time slot.
+                                    </p>
+                                )}
+                                {bookingCourts.length === 0 ? (
+                                    <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                        No courts are available for this date and time. Refresh the listing and try again later.
+                                    </p>
+                                ) : bookingCourts.map((court) => {
+                                    const requiredCourt = court.id === bookingMatch.court_id;
+                                    return (
+                                        <label key={court.id} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 hover:border-emerald-300 hover:bg-emerald-50/40">
+                                            <span className="flex min-w-0 items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedCourtIds.includes(court.id)}
+                                                    disabled={requiredCourt || !bookingCourts.some((available) => available.id === bookingMatch.court_id) || (selectedCourtIds.length >= 10 && !selectedCourtIds.includes(court.id))}
+                                                    onChange={() => toggleCourt(court.id)}
+                                                    className="h-4 w-4 accent-emerald-600"
+                                                />
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-sm font-semibold text-slate-800">{court.name}{requiredCourt ? " · selected for this game" : ""}</span>
+                                                    <span className="block text-xs text-slate-500">{court.sport}</span>
+                                                </span>
+                                            </span>
+                                            <span className="shrink-0 text-sm font-semibold text-slate-700">
+                                                {court.price_per_hour !== null ? `${formatPrice(court.price_per_hour)}/hour` : "Price not set"}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                                {bookingCourts.length > 0 && !selectedCourtIds.includes(bookingMatch.court_id ?? "") && (
+                                    <p role="alert" className="text-xs text-rose-700">The court selected for this game must be available and included.</p>
+                                )}
+                            </fieldset>
+
+                            <div className="mt-5">
+                                <label htmlFor="booking-promo" className="mb-2 block text-sm font-bold text-slate-800">Promo code</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        id="booking-promo"
+                                        value={promoCode}
+                                        onChange={(event) => setPromoCode(event.target.value)}
+                                        placeholder="Enter a promo code"
+                                        maxLength={50}
+                                        className="min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-500"
+                                    />
+                                    {promoCode && (
+                                        <button type="button" onClick={() => setPromoCode("")} className="rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+                                {bookingDiscounts.length > 0 && (
+                                    <div className="mt-3 rounded-xl bg-emerald-50 p-3">
+                                        <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-emerald-800"><Tag size={13} /> Available offers</p>
+                                        <ul className="space-y-1.5 text-xs text-emerald-900">
+                                            {bookingDiscounts.map((discount) => (
+                                                <li key={discount.id}>
+                                                    <button type="button" onClick={() => setPromoCode(discount.code ?? "")} className="font-bold underline decoration-emerald-300 underline-offset-2">
+                                                        {discount.code}
+                                                    </button>
+                                                    {" — "}
+                                                    {discount.percent_off !== null ? `${discount.percent_off}% off` : `${formatPrice(discount.amount_off ?? 0)} off`}
+                                                    {discount.usage_limit !== null && ` · ${Math.max(0, discount.usage_limit - discount.usage_count)} uses left`}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+
+                            <section aria-label="Booking price summary" className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <h3 className="mb-3 text-sm font-bold text-slate-900">Price summary</h3>
+                                {quoteLoading ? (
+                                    <p className="text-sm text-slate-500">Checking availability and calculating total…</p>
+                                ) : quoteError ? (
+                                    <p role="alert" className="text-sm text-rose-700">{quoteError}</p>
+                                ) : bookingQuote ? (
+                                    <>
+                                        <div className="mb-3 space-y-1.5">
+                                            {bookingQuote.courts.map((court) => (
+                                                <div key={court.id} className="flex justify-between gap-3 text-sm text-slate-600">
+                                                    <span>{court.name} · {formatPrice(court.price_per_hour)}/hour × {bookingQuote.duration_minutes / 60}h</span>
+                                                    <span>{formatPrice(court.line_total)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <dl className="space-y-2 border-t border-slate-200 pt-3 text-sm">
+                                            <div className="flex justify-between text-slate-600"><dt>Courts selected</dt><dd>{bookingQuote.courts.length}</dd></div>
+                                            <div className="flex justify-between text-slate-600"><dt>Duration</dt><dd>{bookingQuote.duration_minutes} minutes</dd></div>
+                                            <div className="flex justify-between text-slate-700"><dt>Original total</dt><dd>{formatPrice(bookingQuote.original_total)}</dd></div>
+                                            {Number(bookingQuote.discount_amount) > 0 && (
+                                                <div className="flex justify-between font-medium text-emerald-700"><dt>Discount{bookingQuote.promo_code ? ` (${bookingQuote.promo_code})` : ""}</dt><dd>−{formatPrice(bookingQuote.discount_amount)}</dd></div>
+                                            )}
+                                            <div className="flex justify-between border-t border-slate-200 pt-2 text-base font-extrabold text-slate-950"><dt>Final total</dt><dd>{formatPrice(bookingQuote.final_total)}</dd></div>
+                                        </dl>
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-slate-500">Select an available court to see the total.</p>
+                                )}
+                            </section>
+
+                            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                <button type="button" onClick={() => setBookingMatch(null)} className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                                <button
+                                    type="button"
+                                    disabled={busyId === bookingMatch.id || quoteLoading || !bookingQuote || !!quoteError}
+                                    onClick={() => void submitBooking()}
+                                    className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {busyId === bookingMatch.id ? "Sending request…" : "Request booking"}
+                                </button>
+                            </div>
+                        </section>
                     </div>
                 )}
 
@@ -641,9 +944,10 @@ export default function MyListingsPage() {
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="mb-5 flex items-center justify-between">
-                                <h2 id="view-game-title" className="text-xl font-bold text-slate-950">
-                                    {viewMatch.sport} — {gameStatusLabel(viewMatch.status)}
-                                </h2>
+                                <div className="flex items-center gap-2">
+                                    <h2 id="view-game-title" className="text-xl font-bold text-slate-950">{viewMatch.sport}</h2>
+                                    {gameStatusLabel(viewMatch.status) && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{gameStatusLabel(viewMatch.status)}</span>}
+                                </div>
                                 <button
                                     onClick={() => setViewMatch(null)}
                                     aria-label="Close game details"
