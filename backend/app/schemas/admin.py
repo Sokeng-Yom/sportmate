@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from app.core.clock import UtcDateTime
+
 
 class RestrictUser(BaseModel):
     days: int = Field(ge=1, le=365)
@@ -16,9 +18,9 @@ class AdminUserRead(BaseModel):
     email: str | None = None
     role: str
     avatar: str | None = None
-    restricted_until: datetime | None = None
+    restricted_until: UtcDateTime | None = None
     restricted: bool
-    created_at: datetime | None = None
+    created_at: UtcDateTime | None = None
 
 
 class PaginatedAdminUsers(BaseModel):
@@ -35,7 +37,7 @@ class SecurityLogRead(BaseModel):
     action: str
     ip_address: str | None = None
     details: str | None = None
-    created_at: datetime | None = None
+    created_at: UtcDateTime | None = None
 
 
 class PaginatedSecurityLogs(BaseModel):

@@ -386,6 +386,19 @@ export interface PostCreate {
   content: string;
 }
 
+export interface ReportedPostRead extends PostRead {
+  report_count: number;
+  reasons: string[];
+}
+
+export interface DismissResult {
+  dismissed: number;
+}
+
+export interface VenueRejectionPayload {
+  reason: string;
+}
+
 
 export interface TimeWindow {
   start: string; // "HH:MM"
@@ -422,4 +435,34 @@ export interface CourtCreate {
 export interface CourtSearchItem extends CourtRead {
   venue_name: string;
   venue_address: string;
+}
+
+// ---------------------------------------------------------------------------
+// Admin Console & Security Logs
+// ---------------------------------------------------------------------------
+
+export interface AdminUserRead {
+  id: string;
+  name: string;
+  email: string | null;
+  role: "PLAYER" | "VENUE_OWNER" | "ADMIN" | string;
+  avatar: string | null;
+  restricted_until: string | null;
+  restricted: boolean;
+  created_at: string | null;
+}
+
+export interface RestrictUserPayload {
+  days: number;
+  reason: string;
+}
+
+export interface SecurityLogRead {
+  id: string;
+  user_id: string | null;
+  user_name: string | null;
+  action: string;
+  ip_address: string | null;
+  details: string | null;
+  created_at: string | null;
 }

@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.constants import BookingStatus
 from app.core.deps import get_current_profile, require_profile_role
 from app.core.enums import VenueStatus
 from app.db.session import get_db
+from app.models.booking import Booking
 from app.models.profile import Profile
 from app.models.venue import Court, Venue
 from app.schemas.court import CourtCreate, CourtRead, CourtUpdate
@@ -116,3 +118,35 @@ def update_court(
         raise HTTPException(status_code=400, detail=DUPLICATE_NAME)
     db.refresh(court)
     return court
+
+
+@router.delete(
+    "/courts/{court_id}",
+    status_code=204,
+    summary="Delete a court (owner or admin)",
+)
+def delete_court(
+    court_id: UUID,
+    profile: Profile = Depends(require_profile_role("VENUE_OWNER", "ADMIN")),
+    db: Session = Depends(get_db),
+):
+    court = db.query(Court).filter(Court.id == court_id).first()
+    if court is None:
+        raise HTTPException(status_code=404, detail="Court not found")
+    _require_manageable_approved_venue(db, profile, court.venue_id)
+
+    existing_booking = (
+        db.query(Booking.id)
+        .filter(Booking.court_id == court.id)
+        .first()
+    )
+    if existing_booking:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete a court with existing bookings or booking history",
+        )
+
+    db.delete(court)
+    db.commit()
+    return None
+

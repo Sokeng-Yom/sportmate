@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
+from app.core.clock import UtcDateTime
+
 MessageContent = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
 
@@ -19,7 +21,16 @@ class MessageRead(BaseModel):
     sender_id: UUID
     sender_name: str = ""
     content: str
-    created_at: datetime
+    created_at: UtcDateTime
+
+
+class UnreadMessageCount(BaseModel):
+    unread_count: int
+
+
+class ChatReadMarked(BaseModel):
+    marked: bool
+
 
 
 class ChatMember(BaseModel):

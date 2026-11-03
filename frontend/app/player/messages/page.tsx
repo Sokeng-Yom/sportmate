@@ -22,6 +22,7 @@ import type {
   MessageRead,
   VenueOwnerConversation,
 } from "../../../lib/types";
+import { formatUtcTime } from "../../../lib/dateUtils";
 
 interface MatchConversationSummary {
   kind: "match";
@@ -50,10 +51,10 @@ function matchTitle(match: MatchRead): string {
 }
 
 function formatTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? ""
-    : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return formatUtcTime(value);
+
+
+
 }
 
 function summaryTime(item: ConversationSummary): string {

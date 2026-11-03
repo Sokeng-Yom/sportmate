@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
+from app.core.clock import UtcDateTime
+
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 Description = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
@@ -64,7 +66,7 @@ class VenueDiscountRead(BaseModel):
     active: bool = True
     usage_limit: int | None = None
     usage_count: int = 0
-    created_at: datetime
+    created_at: UtcDateTime
 
 
 class VenueEventCreate(BaseModel):
@@ -96,4 +98,4 @@ class VenueEventRead(BaseModel):
     event_time: time
     sport: str
     price_label: str
-    created_at: datetime
+    created_at: UtcDateTime

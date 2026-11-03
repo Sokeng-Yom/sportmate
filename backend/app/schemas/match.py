@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.core.clock import UtcDateTime
 from app.core.enums import SkillLevel
 
 
@@ -91,7 +92,7 @@ class MatchPlayerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
     user_id: UUID
-    joined_at: datetime
+    joined_at: UtcDateTime
 
 
 class MatchRead(BaseModel):
@@ -106,7 +107,7 @@ class MatchRead(BaseModel):
     status: str
     created_by: UUID
     host_name: str | None = None
-    created_at: datetime
+    created_at: UtcDateTime
     court_id: UUID | None = None
     court_duration_minutes: int | None = None
     court_name: str | None = None

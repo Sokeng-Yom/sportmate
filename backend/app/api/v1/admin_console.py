@@ -3,7 +3,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import String, column, or_, table
+from sqlalchemy import String, cast, column, func, or_, table
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Session
 
@@ -12,9 +12,13 @@ from app.core.constants import NotificationType
 from app.core.deps import require_profile_role
 from app.core.search import contains_pattern
 from app.db.session import get_db
+from app.models.booking import Booking
 from app.models.profile import Profile
 from app.models.system import SecurityLog
+from app.models.venue import Court, Venue
 from app.schemas.admin import AdminUserRead, PaginatedAdminUsers, PaginatedSecurityLogs, RestrictUser
+from app.schemas.booking import BookingRead, PaginatedBookings
+from app.schemas.court import CourtRead, PaginatedCourtSearch
 from app.services.notifications import create_notification
 from app.services.security_log import log_security_event
 
@@ -155,3 +159,110 @@ def security_logs(
         for log, name in rows
     ]
     return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/bookings", response_model=PaginatedBookings, summary="List and filter all bookings (admin)")
+def list_admin_bookings(
+    q: str | None = Query(None, max_length=100),
+    status: str | None = None,
+    venue_id: UUID | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    admin: Profile = Depends(require_profile_role("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(Booking, Court, Venue, Profile)
+        .join(Court, Court.id == Booking.court_id)
+        .join(Venue, Venue.id == Court.venue_id)
+        .outerjoin(Profile, Profile.id == Booking.booked_by)
+    )
+
+    if status and status.strip():
+        query = query.filter(Booking.status == status.strip().upper())
+
+    if venue_id:
+        query = query.filter(Venue.id == venue_id)
+
+    if q and q.strip():
+        pattern = contains_pattern(q.strip())
+        query = query.filter(
+            or_(
+                Court.name.ilike(pattern, escape="\\"),
+                Venue.name.ilike(pattern, escape="\\"),
+                Profile.name.ilike(pattern, escape="\\"),
+                cast(Booking.id, String).ilike(pattern, escape="\\"),
+            )
+        )
+
+    total = query.count()
+    rows = (
+        query.order_by(Booking.start_time.desc(), Booking.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    items = [
+        {
+            **BookingRead.model_validate(b).model_dump(),
+            "court_name": c.name,
+            "venue_id": v.id,
+            "venue_name": v.name,
+            "booker_name": p.name if p else None,
+        }
+        for b, c, v, p in rows
+    ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/courts", response_model=PaginatedCourtSearch, summary="List and filter all courts (admin)")
+def list_admin_courts(
+    q: str | None = Query(None, max_length=100),
+    sport: str | None = Query(None, max_length=50),
+    venue_id: UUID | None = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    admin: Profile = Depends(require_profile_role("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    query = (
+        db.query(Court, Venue)
+        .join(Venue, Venue.id == Court.venue_id)
+    )
+
+    if sport and sport.strip():
+        query = query.filter(func.lower(Court.sport) == sport.strip().lower())
+
+    if venue_id:
+        query = query.filter(Court.venue_id == venue_id)
+
+    if q and q.strip():
+        pattern = contains_pattern(q.strip())
+        query = query.filter(
+            or_(
+                Court.name.ilike(pattern, escape="\\"),
+                Venue.name.ilike(pattern, escape="\\"),
+                Venue.address.ilike(pattern, escape="\\"),
+                Court.sport.ilike(pattern, escape="\\"),
+            )
+        )
+
+    total = query.count()
+    rows = (
+        query.order_by(Venue.name.asc(), Court.name.asc(), Court.id.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+
+    items = [
+        {
+            **CourtRead.model_validate(c).model_dump(),
+            "venue_name": v.name,
+            "venue_address": v.address,
+        }
+        for c, v in rows
+    ]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+

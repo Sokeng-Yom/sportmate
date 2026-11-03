@@ -14,6 +14,7 @@ import {
     updateMatch,
 } from "../../../lib/api";
 import type { BookingQuoteRead, CourtSearchItem, MatchRead, VenueDiscountRead } from "../../../lib/types";
+import { formatUtcDateTime, formatLocalDateString } from "../../../lib/dateUtils";
 import { useAuth } from "../../../lib/auth";
 import { supabase } from "../../../lib/supabaseClient";
 
@@ -36,9 +37,9 @@ const SKILL_LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 type Notice = { message: string; kind: "info" | "success" | "error" };
 
 function formatGameDate(dateStr: string): string {
-    const d = new Date(`${dateStr}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    return formatLocalDateString(dateStr);
+
+
 }
 
 function hasMatchStarted(date: string, time: string): boolean {
@@ -47,15 +48,15 @@ function hasMatchStarted(date: string, time: string): boolean {
 }
 
 function formatPostedDateTime(dateTime: string): string {
-    const d = new Date(dateTime);
-    if (Number.isNaN(d.getTime())) return dateTime;
-    return d.toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
+    return formatUtcDateTime(dateTime);
+
+
+
+
+
+
+
+
 }
 
 function skillLabel(level: string): string {
@@ -386,13 +387,12 @@ export default function MyListingsPage() {
                     <p
                         role="status"
                         aria-live="polite"
-                        className={`mb-6 text-sm font-medium border rounded-xl px-4 py-3 shadow-sm ${
-                            notice.kind === "error"
+                        className={`mb-6 text-sm font-medium border rounded-xl px-4 py-3 shadow-sm ${notice.kind === "error"
                                 ? "text-red-700 bg-red-50 border-red-200"
                                 : notice.kind === "success"
                                     ? "text-emerald-700 bg-emerald-50 border-emerald-200"
                                     : "text-slate-700 bg-white border-gray-100"
-                        }`}
+                            }`}
                     >
                         {notice.message}
                     </p>

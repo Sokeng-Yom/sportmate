@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, StringConstraints
 
+from app.core.clock import UtcDateTime
+
 from app.schemas.court import CourtRead
 from app.schemas.venue_marketing import VenueDiscountRead, VenueEventRead
 
@@ -42,8 +44,8 @@ class VenueRead(BaseModel):
     photo_url: str | None = None
     status: str
     rejection_reason: str | None = None
-    reviewed_at: datetime | None = None
-    created_at: datetime
+    reviewed_at: UtcDateTime | None = None
+    created_at: UtcDateTime
 
 
 class PaginatedVenues(BaseModel):

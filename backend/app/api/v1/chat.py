@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 from uuid import UUID
@@ -5,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.clock import utc_now_naive
@@ -19,11 +21,20 @@ from app.models.venue_direct_chat import (
     VenueDirectMessage,
     VenueDirectReadState,
 )
-from app.schemas.chat import ChatInfo, MessageCreate, MessagePage, MessageRead
+from app.schemas.chat import (
+    ChatInfo,
+    ChatReadMarked,
+    MessageCreate,
+    MessagePage,
+    MessageRead,
+    UnreadMessageCount,
+)
 from app.services.chat import get_or_create_conversation
 from app.services.match_participants import is_match_participant, participant_ids
 from app.services.rate_limit import count_recent
 from app.services.security_log import log_security_event
+
+logger = logging.getLogger("sportmate")
 
 router = APIRouter(prefix="/api/v1/matches", tags=["chat"])
 
@@ -51,68 +62,81 @@ def _message_read(message: Message, sender_name: str) -> dict:
     return data
 
 
-@router.get("/chat/unread-count", summary="Count unread incoming messages for the current user")
+@router.get(
+    "/chat/unread-count",
+    response_model=UnreadMessageCount,
+    summary="Count unread incoming messages for the current user",
+)
 def unread_message_count(
     profile: Profile = Depends(get_current_profile),
     db: Session = Depends(get_db),
 ):
-    is_participant = or_(
-        Match.created_by == profile.id,
-        db.query(MatchPlayer.id)
-        .filter(MatchPlayer.match_id == Match.id, MatchPlayer.user_id == profile.id)
-        .exists(),
-    )
-    count = (
-        db.query(func.count(Message.id))
-        .join(Conversation, Conversation.id == Message.conversation_id)
-        .join(Match, Match.id == Conversation.match_id)
-        .outerjoin(
-            ConversationReadState,
-            and_(
-                ConversationReadState.conversation_id == Conversation.id,
-                ConversationReadState.user_id == profile.id,
-            ),
+    try:
+        is_participant = or_(
+            Match.created_by == profile.id,
+            db.query(MatchPlayer.id)
+            .filter(MatchPlayer.match_id == Match.id, MatchPlayer.user_id == profile.id)
+            .exists(),
         )
-        .filter(
-            Message.sender_id != profile.id,
-            is_participant,
-            or_(
-                ConversationReadState.last_read_at.is_(None),
-                Message.created_at > ConversationReadState.last_read_at,
-            ),
+        count = (
+            db.query(func.count(Message.id))
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .join(Match, Match.id == Conversation.match_id)
+            .outerjoin(
+                ConversationReadState,
+                and_(
+                    ConversationReadState.conversation_id == Conversation.id,
+                    ConversationReadState.user_id == profile.id,
+                ),
+            )
+            .filter(
+                Message.sender_id != profile.id,
+                is_participant,
+                or_(
+                    ConversationReadState.last_read_at.is_(None),
+                    Message.created_at > ConversationReadState.last_read_at,
+                ),
+            )
+            .scalar()
         )
-        .scalar()
-    )
-    direct_count = (
-        db.query(func.count(VenueDirectMessage.id))
-        .join(
-            VenueDirectConversation,
-            VenueDirectConversation.id == VenueDirectMessage.conversation_id,
+        direct_count = (
+            db.query(func.count(VenueDirectMessage.id))
+            .join(
+                VenueDirectConversation,
+                VenueDirectConversation.id == VenueDirectMessage.conversation_id,
+            )
+            .outerjoin(
+                VenueDirectReadState,
+                and_(
+                    VenueDirectReadState.conversation_id == VenueDirectConversation.id,
+                    VenueDirectReadState.user_id == profile.id,
+                ),
+            )
+            .filter(
+                VenueDirectMessage.sender_id != profile.id,
+                or_(
+                    VenueDirectConversation.host_id == profile.id,
+                    VenueDirectConversation.owner_id == profile.id,
+                ),
+                or_(
+                    VenueDirectReadState.last_read_at.is_(None),
+                    VenueDirectMessage.created_at > VenueDirectReadState.last_read_at,
+                ),
+            )
+            .scalar()
         )
-        .outerjoin(
-            VenueDirectReadState,
-            and_(
-                VenueDirectReadState.conversation_id == VenueDirectConversation.id,
-                VenueDirectReadState.user_id == profile.id,
-            ),
-        )
-        .filter(
-            VenueDirectMessage.sender_id != profile.id,
-            or_(
-                VenueDirectConversation.host_id == profile.id,
-                VenueDirectConversation.owner_id == profile.id,
-            ),
-            or_(
-                VenueDirectReadState.last_read_at.is_(None),
-                VenueDirectMessage.created_at > VenueDirectReadState.last_read_at,
-            ),
-        )
-        .scalar()
-    )
-    return {"unread_count": (count or 0) + (direct_count or 0)}
+        return {"unread_count": (count or 0) + (direct_count or 0)}
+    except ProgrammingError as exc:
+        db.rollback()
+        logger.warning("Failed to query unread message count (table may not exist yet): %s", exc)
+        return {"unread_count": 0}
 
 
-@router.post("/{match_id}/chat/read", summary="Mark incoming messages in a match chat as read")
+@router.post(
+    "/{match_id}/chat/read",
+    response_model=ChatReadMarked,
+    summary="Mark incoming messages in a match chat as read",
+)
 def mark_chat_read(
     match_id: UUID,
     request: Request,
@@ -122,16 +146,21 @@ def mark_chat_read(
     _participant_match(db, match_id, profile, request)
     conversation = get_or_create_conversation(db, match_id)
     now = utc_now_naive()
-    db.execute(
-        pg_insert(ConversationReadState)
-        .values(conversation_id=conversation.id, user_id=profile.id, last_read_at=now)
-        .on_conflict_do_update(
-            index_elements=["conversation_id", "user_id"],
-            set_={"last_read_at": func.greatest(ConversationReadState.last_read_at, now)},
+    try:
+        db.execute(
+            pg_insert(ConversationReadState)
+            .values(conversation_id=conversation.id, user_id=profile.id, last_read_at=now)
+            .on_conflict_do_update(
+                index_elements=["conversation_id", "user_id"],
+                set_={"last_read_at": func.greatest(ConversationReadState.last_read_at, now)},
+            )
         )
-    )
-    db.commit()
-    return {"marked": True}
+        db.commit()
+        return {"marked": True}
+    except ProgrammingError as exc:
+        db.rollback()
+        logger.warning("Failed to mark chat as read (table may not exist yet): %s", exc)
+        return {"marked": False}
 
 
 @router.get(
