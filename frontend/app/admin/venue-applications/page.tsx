@@ -277,9 +277,9 @@ export default function VenueApplicationsPage() {
                   setStatusFilter(tab.id);
                   setPage(1);
                 }}
-                className={`rounded-xl px-3.5 py-2 text-xs font-bold whitespace-nowrap transition ${active
-                    ? "bg-slate-900 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                className={`rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-colors border ${active
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                    : "bg-white text-slate-600 border-gray-200 hover:border-gray-300 hover:text-slate-900"
                   }`}
               >
                 {tab.label}

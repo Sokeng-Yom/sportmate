@@ -64,9 +64,9 @@ export function ConfirmModal({
     },
     primary: {
       button:
-        "bg-slate-900 hover:bg-slate-800 text-white focus:ring-slate-900 shadow-slate-900/20",
-      icon: <HelpCircle className="h-6 w-6 text-slate-700" />,
-      iconBg: "bg-slate-100",
+        "bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-emerald-500 shadow-emerald-600/20",
+      icon: <HelpCircle className="h-6 w-6 text-emerald-600" />,
+      iconBg: "bg-emerald-50",
     },
   }[variant];
 
