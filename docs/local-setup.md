@@ -5,6 +5,8 @@
    2. From Settings → API and Settings → Database, collect your own copies of the project
       URL, anon key, JWT secret, and database connection string.
    3. You will not install Postgres locally — Supabase hosts it.
+      4. After the existing storage setup scripts, run `backend/supabase/010_venue_payment_proofs.sql`
+         in the SQL Editor for both projects.
 
    ## Backend
    1. `cd backend && python -m venv venv && source venv/bin/activate`

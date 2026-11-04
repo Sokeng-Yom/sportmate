@@ -13,6 +13,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Address = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
 PhotoUrl = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+PaymentProofPath = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 Reason = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
 
 
@@ -33,6 +34,14 @@ class VenueRejection(BaseModel):
     reason: Reason
 
 
+class VenuePaymentConfirmation(BaseModel):
+    payment_proof_path: PaymentProofPath
+
+
+class VenuePaymentProofUrl(BaseModel):
+    signed_url: str
+
+
 class VenueRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,6 +51,7 @@ class VenueRead(BaseModel):
     address: str
     description: str | None = None
     photo_url: str | None = None
+    payment_proof_path: str | None = None
     status: str
     rejection_reason: str | None = None
     reviewed_at: UtcDateTime | None = None

@@ -18,7 +18,13 @@ def test_venue_owner_journey_from_application_to_a_cancelled_booking(
     assert venue["status"] == "PAYMENT_PENDING"
     court_body = {"name": "Court 1", "sport": sport, "price_per_hour": 20, "availability": ALWAYS_OPEN}
     assert client.post(f"/api/v1/venues/{vid}/courts", json=court_body, headers=owner).status_code == 400
-    assert client.post(f"/api/v1/venues/{vid}/confirm-payment", headers=owner).json()["status"] == "PENDING_REVIEW"
+    submitted = client.post(
+        f"/api/v1/venues/{vid}/confirm-payment",
+        json={"payment_proof_path": f"{vid}/payment-proof.png"},
+        headers=owner,
+    )
+    assert submitted.json()["status"] == "PENDING_REVIEW"
+    assert submitted.json()["payment_proof_path"] == f"{vid}/payment-proof.png"
     assert client.post(f"/api/v1/venues/{vid}/courts", json=court_body, headers=owner).status_code == 400
 
     # 2. the admin approves; the owner is told and can edit the venue's details
@@ -70,7 +76,11 @@ def test_rejected_application_gives_a_clear_state_and_a_second_chance(client, au
     owner, admin, player = auth_headers_for("VENUE_OWNER"), auth_headers_for("ADMIN"), auth_headers_for("PLAYER")
     name = f"Rejected Hall {uuid.uuid4().hex[:6]}"
     venue = client.post("/api/v1/venues", json={"name": name, "address": "Unknown"}, headers=owner).json()
-    client.post(f"/api/v1/venues/{venue['id']}/confirm-payment", headers=owner)
+    client.post(
+        f"/api/v1/venues/{venue['id']}/confirm-payment",
+        json={"payment_proof_path": f"{venue['id']}/payment-proof.png"},
+        headers=owner,
+    )
 
     rejected = client.post(f"/api/v1/admin/venues/{venue['id']}/reject", json={"reason": "Address cannot be verified"}, headers=admin)
     assert rejected.status_code == 200

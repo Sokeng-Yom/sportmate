@@ -99,7 +99,7 @@ type VenueOwnerContextType = {
     loading: boolean;
     loadError: string | null;
     refresh: () => Promise<void>;
-    confirmPayment: (venueId: string) => Promise<MutationResult>;
+    confirmPayment: (venueId: string, paymentProofPath: string) => Promise<MutationResult>;
     addVenue: (venue: Omit<Venue, "id" | "status">) => Promise<MutationResult>;
     addCourt: (court: Omit<Court, "id">) => Promise<MutationResult>;
     updateCourt: (id: string, court: Partial<Court>) => Promise<MutationResult>;
@@ -274,9 +274,9 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
         }
     }, [refresh]);
 
-    const confirmPayment = useCallback(async (venueId: string): Promise<MutationResult> => {
+    const confirmPayment = useCallback(async (venueId: string, paymentProofPath: string): Promise<MutationResult> => {
         try {
-            await confirmVenuePayment(venueId);
+            await confirmVenuePayment(venueId, paymentProofPath);
             await refresh();
             return { ok: true };
         } catch (err) {

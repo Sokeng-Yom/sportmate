@@ -176,7 +176,11 @@ def make_approved_venue(client, auth_headers_for):
         )
         assert created.status_code == 201, created.text
         venue_id = created.json()["id"]
-        assert client.post(f"/api/v1/venues/{venue_id}/confirm-payment", headers=owner).status_code == 200
+        assert client.post(
+            f"/api/v1/venues/{venue_id}/confirm-payment",
+            json={"payment_proof_path": f"{venue_id}/payment-proof.png"},
+            headers=owner,
+        ).status_code == 200
         approved = client.post(f"/api/v1/admin/venues/{venue_id}/approve", headers=admin)
         assert approved.status_code == 200, approved.text
         return owner, approved.json()

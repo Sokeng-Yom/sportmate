@@ -157,8 +157,10 @@ export const getVenue = (venueId: string) =>
 export const updateVenue = (venueId: string, payload: VenueUpdate) =>
   apiClient.patch<VenueRead>(`/api/v1/venues/${venueId}`, payload);
 
-export const confirmVenuePayment = (venueId: string) =>
-  apiClient.post<VenueRead>(`/api/v1/venues/${venueId}/confirm-payment`);
+export const confirmVenuePayment = (venueId: string, paymentProofPath: string) =>
+  apiClient.post<VenueRead>(`/api/v1/venues/${venueId}/confirm-payment`, {
+    payment_proof_path: paymentProofPath,
+  });
 
 export const listVenueDiscounts = (venueId: string) =>
   apiClient.get<VenueDiscountRead[]>(`/api/v1/venues/${venueId}/discounts`);
@@ -328,6 +330,11 @@ export interface AdminVenueListParams {
 export const listAdminVenues = (params?: AdminVenueListParams) =>
   apiClient.get<Paginated<VenueRead>>(`/api/v1/admin/venues${qs(params)}`);
 
+export const getAdminVenuePaymentProofUrl = (venueId: string) =>
+  apiClient.get<{ signed_url: string }>(
+    `/api/v1/admin/venues/${venueId}/payment-proof-url`,
+  );
+
 export const approveAdminVenue = (venueId: string) =>
   apiClient.post<VenueRead>(`/api/v1/admin/venues/${venueId}/approve`);
 
@@ -391,4 +398,3 @@ export interface AdminCourtListParams {
 
 export const listAdminCourts = (params?: AdminCourtListParams) =>
   apiClient.get<Paginated<CourtSearchItem>>(`/api/v1/admin/courts${qs(params)}`);
-
