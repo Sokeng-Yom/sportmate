@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Clock,
   Filter,
+  FileText,
   Image as ImageIcon,
   MapPin,
   RefreshCw,
@@ -21,6 +22,7 @@ import {
 } from "lucide-react";
 import {
   approveAdminVenue,
+  getAdminVenuePaymentProofUrl,
   listAdminVenues,
   rejectAdminVenue,
 } from "../../../lib/api";
@@ -32,6 +34,50 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { EmptyState } from "../components/EmptyState";
 
 type StatusTab = "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "ALL";
+
+function PaymentProofLink({ venueId, path }: { venueId: string; path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void getAdminVenuePaymentProofUrl(venueId).then(({ signed_url }) => {
+      if (!active) return;
+      setUrl(signed_url);
+    }).catch(() => {
+      if (active) setError(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [venueId]);
+
+  if (error) return <p className="mt-3 text-xs text-rose-600">Could not load payment proof.</p>;
+  if (!url) return <p className="mt-3 text-xs text-slate-500">Loading payment proof…</p>;
+  const isPdf = path.toLowerCase().endsWith(".pdf");
+  return (
+    <div className="mt-3">
+      {isPdf ? (
+        <iframe
+          title="Venue payment proof"
+          src={url}
+          className="h-64 w-full rounded-lg border border-slate-200"
+        />
+      ) : (
+        <a href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+          <img
+            src={url}
+            alt="Uploaded venue payment proof"
+            className="max-h-64 w-full object-contain"
+          />
+        </a>
+      )}
+      <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800">
+        <FileText size={14} /> Open payment proof
+      </a>
+    </div>
+  );
+}
 
 export default function VenueApplicationsPage() {
   const { success, error: toastError } = useAdminToast();
@@ -438,6 +484,14 @@ export default function VenueApplicationsPage() {
                       {venue.description}
                     </p>
                   )}
+
+                  {venue.payment_proof_path ? (
+                    <PaymentProofLink venueId={venue.id} path={venue.payment_proof_path} />
+                  ) : isPending ? (
+                    <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                      No payment proof was submitted for this application.
+                    </p>
+                  ) : null}
 
                   {/* Metadata fields */}
                   <div className="space-y-2 text-xs text-slate-500 mb-4 pt-1">

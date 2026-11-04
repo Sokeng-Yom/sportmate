@@ -95,6 +95,7 @@ export default function MyListingsPage() {
     const [cancelMatchConfirmation, setCancelMatchConfirmation] = useState<MatchRead | null>(null);
     const [listingTab, setListingTab] = useState<ListingTab>("active");
     const [bookingMatch, setBookingMatch] = useState<MatchRead | null>(null);
+    const [bookingConfirmationOpen, setBookingConfirmationOpen] = useState(false);
     const [bookingLoading, setBookingLoading] = useState(false);
     const [bookingCourts, setBookingCourts] = useState<CourtSearchItem[]>([]);
     const [selectedCourtIds, setSelectedCourtIds] = useState<string[]>([]);
@@ -246,6 +247,7 @@ export default function MyListingsPage() {
             ));
             setPromoCode("");
             setBookingQuote(null);
+            setBookingConfirmationOpen(false);
             setBookingMatch(match);
         } catch (err) {
             setNotice({ message: err instanceof ApiError ? err.message : "Could not load available courts.", kind: "error" });
@@ -306,6 +308,7 @@ export default function MyListingsPage() {
             setMatches((current) => current.map((item) =>
                 item.id === bookingMatch.id ? { ...item, court_booking_status: booking.status } : item
             ));
+            setBookingConfirmationOpen(false);
             setBookingMatch(null);
             setNotice({
                 message: `Booking request sent for ${booking.selected_court_names?.join(", ") ?? `${selectedCourtIds.length} court(s)`}. Total: ${formatPrice(booking.final_total ?? bookingQuote?.final_total ?? 0)}. The venue will review it.`,
@@ -621,7 +624,10 @@ export default function MyListingsPage() {
                     <div
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
                         role="presentation"
-                        onClick={() => setBookingMatch(null)}
+                        onClick={() => {
+                            setBookingConfirmationOpen(false);
+                            setBookingMatch(null);
+                        }}
                     >
                         <section
                             role="dialog"
@@ -635,7 +641,10 @@ export default function MyListingsPage() {
                                     <h2 id="booking-title" className="text-xl font-bold text-slate-950">Book courts</h2>
                                     <p className="mt-1 text-sm text-slate-500">{bookingMatch.venue_name} · {formatGameDate(bookingMatch.date)} at {bookingMatch.time.slice(0, 5)}</p>
                                 </div>
-                                <button type="button" onClick={() => setBookingMatch(null)} aria-label="Close booking" className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
+                                <button type="button" onClick={() => {
+                                    setBookingConfirmationOpen(false);
+                                    setBookingMatch(null);
+                                }} aria-label="Close booking" className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
                                     <X size={18} />
                                 </button>
                             </div>
@@ -747,14 +756,65 @@ export default function MyListingsPage() {
                             </section>
 
                             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                                <button type="button" onClick={() => setBookingMatch(null)} className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                                <button type="button" onClick={() => {
+                                    setBookingConfirmationOpen(false);
+                                    setBookingMatch(null);
+                                }} className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
                                 <button
                                     type="button"
                                     disabled={busyId === bookingMatch.id || quoteLoading || !bookingQuote || !!quoteError}
-                                    onClick={() => void submitBooking()}
+                                    onClick={() => setBookingConfirmationOpen(true)}
                                     className="rounded-full bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    {busyId === bookingMatch.id ? "Sending request…" : "Request booking"}
+                                    Confirm booking details
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                )}
+
+                {bookingConfirmationOpen && bookingMatch && bookingQuote && (
+                    <div
+                        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+                        role="presentation"
+                        onClick={() => {
+                            if (busyId !== bookingMatch.id) setBookingConfirmationOpen(false);
+                        }}
+                    >
+                        <section
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="confirm-booking-title"
+                            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+                            onClick={(event) => event.stopPropagation()}
+                        >
+                            <h2 id="confirm-booking-title" className="text-xl font-bold text-slate-950">
+                                Send booking request to venue?
+                            </h2>
+                            <p className="mt-3 text-sm text-slate-600">
+                                You’re requesting {bookingQuote.courts.map((court) => court.name).join(", ")} at{" "}
+                                {bookingMatch.venue_name} for {formatGameDate(bookingMatch.date)} at{" "}
+                                {bookingMatch.time.slice(0, 5)}. The venue will review your request.
+                            </p>
+                            <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
+                                Total: {formatPrice(bookingQuote.final_total)}
+                            </p>
+                            <div className="mt-6 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    disabled={busyId === bookingMatch.id}
+                                    onClick={() => setBookingConfirmationOpen(false)}
+                                    className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={busyId === bookingMatch.id}
+                                    onClick={() => void submitBooking()}
+                                    className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+                                >
+                                    {busyId === bookingMatch.id ? "Sending request…" : "Confirm and send"}
                                 </button>
                             </div>
                         </section>

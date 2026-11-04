@@ -1,15 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, MapPin, Plus, Pencil, X, ShieldCheck } from "lucide-react";
+import { ChevronRight, MapPin, Plus, Pencil, X, ShieldCheck, Upload, FileText } from "lucide-react";
 import { useVenueOwnerData, Court } from "../../context/VenueOwnerContext";
 import { StatusBadge, EmptyState, ToastProvider, useToast } from "../../components/ui";
+import { supabase } from "../../../../lib/supabaseClient";
+
+const PAYMENT_PROOF_MAX_SIZE = 5 * 1024 * 1024;
+const PAYMENT_PROOF_TYPES: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "application/pdf": "pdf",
+};
 
 const courtSchema = z.object({
     name: z.string().trim().min(1, "Court name is required"),
@@ -136,6 +145,11 @@ function VenueDetailContent() {
     const { venues, courts, addCourt, updateCourt, confirmPayment } = useVenueOwnerData();
     const { toast } = useToast();
     const [courtModal, setCourtModal] = useState<{ open: boolean; court?: Court }>({ open: false });
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+    const [paymentProof, setPaymentProof] = useState<File | null>(null);
+    const [paymentError, setPaymentError] = useState<string | null>(null);
+    const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const paymentInputRef = useRef<HTMLInputElement>(null);
 
     const venue = venues.find((v) => v.id === venueId);
     const venueCourts = courts.filter((c) => c.venueId === venueId);
@@ -151,10 +165,62 @@ function VenueDetailContent() {
         );
     }
 
-    const handleConfirmPayment = async () => {
-        const result = await confirmPayment(venueId);
-        if (result.ok) toast("Payment confirmed — your venue has been submitted for review.");
-        else toast(result.error ?? "Could not confirm payment.", "error");
+    const handlePaymentProofChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] ?? null;
+        event.target.value = "";
+        setPaymentError(null);
+        if (!file) return;
+        setPaymentProof(null);
+        if (!PAYMENT_PROOF_TYPES[file.type]) {
+            setPaymentError("Choose a JPG, PNG, WebP, or PDF file.");
+            return;
+        }
+        if (file.size > PAYMENT_PROOF_MAX_SIZE) {
+            setPaymentError("Payment proof must be 5 MB or smaller.");
+            return;
+        }
+        setPaymentProof(file);
+    };
+
+    const handleConfirmPayment = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!paymentProof) {
+            setPaymentError("Upload your payment proof before confirming.");
+            return;
+        }
+
+        setIsSubmittingPayment(true);
+        setPaymentError(null);
+        const filePath = `${venueId}/payment-proof.${PAYMENT_PROOF_TYPES[paymentProof.type]}`;
+        try {
+            const { error: uploadError } = await supabase.storage
+                .from("venue-payment-proofs")
+                .upload(filePath, paymentProof, {
+                    cacheControl: "3600",
+                    contentType: paymentProof.type,
+                    upsert: true,
+                });
+            if (uploadError) throw uploadError;
+
+            const result = await confirmPayment(venueId, filePath);
+            if (!result.ok) {
+                setPaymentError(result.error ?? "Could not confirm payment.");
+                return;
+            }
+            toast("Payment proof submitted — your venue is now under review.");
+            setPaymentModalOpen(false);
+            setPaymentProof(null);
+        } catch (error) {
+            console.error("Failed to upload venue payment proof:", error);
+            const message = error instanceof Error
+                ? error.message
+                : typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+                    ? error.message
+                    : "Please try again.";
+            setPaymentError(`Could not upload payment proof: ${message}`);
+        } finally {
+            setIsSubmittingPayment(false);
+        }
     };
 
     return (
@@ -184,7 +250,10 @@ function VenueDetailContent() {
                         </div>
                         <div className="flex flex-col items-start sm:items-end gap-2">
                             {venue.rawStatus === "PAYMENT_PENDING" && (
-                                <button onClick={handleConfirmPayment}
+                                <button onClick={() => {
+                                    setPaymentError(null);
+                                    setPaymentModalOpen(true);
+                                }}
                                     className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors">
                                     <ShieldCheck size={16} /> Confirm payment & submit
                                 </button>
@@ -194,6 +263,79 @@ function VenueDetailContent() {
                     <p className="text-slate-500 text-sm mt-4 leading-relaxed">{venue.description}</p>
                 </div>
             </div>
+
+            <AnimatePresence>
+                {paymentModalOpen && (
+                    <motion.div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <motion.div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="payment-proof-title"
+                            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+                            initial={{ scale: 0.96, y: 12 }}
+                            animate={{ scale: 1, y: 0 }}
+                            exit={{ scale: 0.96, y: 12 }}
+                        >
+                            <div className="mb-5 flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 id="payment-proof-title" className="text-xl font-extrabold text-slate-900">Upload payment proof</h2>
+                                    <p className="mt-1 text-sm text-slate-500">Attach your payment receipt before submitting this venue for review.</p>
+                                </div>
+                                <button type="button" onClick={() => setPaymentModalOpen(false)} aria-label="Close dialog" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleConfirmPayment}>
+                                <input
+                                    ref={paymentInputRef}
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+                                    onChange={handlePaymentProofChange}
+                                    className="hidden"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => paymentInputRef.current?.click()}
+                                    className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 px-4 py-5 text-left hover:border-emerald-400 hover:bg-emerald-50/40"
+                                >
+                                    {paymentProof ? <FileText size={22} className="shrink-0 text-emerald-600" /> : <Upload size={22} className="shrink-0 text-slate-400" />}
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-sm font-bold text-slate-800">{paymentProof?.name ?? "Choose a receipt or payment screenshot"}</span>
+                                        <span className="mt-1 block text-xs text-slate-500">JPG, PNG, WebP, or PDF · up to 5 MB</span>
+                                    </span>
+                                </button>
+
+                                {paymentError && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{paymentError}</p>}
+
+                                <div className="mt-6 flex justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setPaymentModalOpen(false)}
+                                        disabled={isSubmittingPayment}
+                                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={!paymentProof || isSubmittingPayment}
+                                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        <ShieldCheck size={16} />
+                                        {isSubmittingPayment ? "Uploading…" : "Confirm & submit"}
+                                    </button>
+                                </div>
+                            </form>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Courts Section */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

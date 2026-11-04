@@ -5,7 +5,11 @@ from app.models.system import SecurityLog
 
 def _submit_venue(client, owner):
     venue = client.post("/api/v1/venues", json={"name": f"Hall {uuid.uuid4().hex[:6]}", "address": "St 9"}, headers=owner).json()
-    client.post(f"/api/v1/venues/{venue['id']}/confirm-payment", headers=owner)
+    client.post(
+        f"/api/v1/venues/{venue['id']}/confirm-payment",
+        json={"payment_proof_path": f"{venue['id']}/payment-proof.png"},
+        headers=owner,
+    )
     return venue["id"]
 
 

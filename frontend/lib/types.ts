@@ -154,6 +154,7 @@ export interface VenueRead {
   address: string;
   description: string | null;
   photo_url: string | null;
+  payment_proof_path: string | null;
   status: VenueStatus;
   rejection_reason: string | null;
   reviewed_at: string | null;

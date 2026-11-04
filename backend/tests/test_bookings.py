@@ -42,7 +42,7 @@ def booking_setup(auth_headers_for, make_approved_venue, make_court):
     }
 
 
-def test_participant_books_a_court_for_a_full_match(
+def test_host_books_a_court_for_a_full_match(
     client, new_match, booking_setup, db_session, user_id_of
 ):
     s = booking_setup
@@ -118,6 +118,7 @@ def test_participant_books_a_court_for_a_full_match(
     )
 
     db_session.expire_all()
+
     for headers in (s["creator"], s["filler"]):
         count = (
             db_session.query(Notification)
@@ -139,6 +140,42 @@ def test_participant_books_a_court_for_a_full_match(
     assert logged == 2
 
 
+def test_only_host_can_request_a_court_for_a_full_match(
+    client, new_match, booking_setup, auth_headers_for
+):
+    s = booking_setup
+    match_id, _ = _full_match(client, new_match, s["creator"], s["filler"])
+
+    outsider = auth_headers_for("PLAYER")
+    assert _book(client, outsider, match_id, s["court"]["id"]).status_code == 403
+    filler_quote = client.post(
+        "/api/v1/bookings/quote",
+        json={
+            "match_id": match_id,
+            "court_ids": [s["court"]["id"]],
+            "duration_minutes": 60,
+        },
+        headers=s["filler"],
+    )
+    assert filler_quote.status_code == 403
+    assert filler_quote.json()["detail"] == "Only the host can request a court booking"
+    filler_booking = _book(client, s["filler"], match_id, s["court"]["id"])
+    assert filler_booking.status_code == 403
+    assert filler_booking.json()["detail"] == "Only the host can request a court booking"
+
+    host_quote = client.post(
+        "/api/v1/bookings/quote",
+        json={
+            "match_id": match_id,
+            "court_ids": [s["court"]["id"]],
+            "duration_minutes": 60,
+        },
+        headers=s["creator"],
+    )
+    assert host_quote.status_code == 200, host_quote.text
+    assert _book(client, s["creator"], match_id, s["court"]["id"]).status_code == 201
+
+
 def test_only_managing_venue_owner_can_review_booking(
     client, new_match, booking_setup, auth_headers_for
 ):
@@ -157,29 +194,29 @@ def test_booking_approval_message_only_reaches_the_requester(
 ):
     s = booking_setup
     match_id, _ = _full_match(client, new_match, s["creator"], s["filler"])
-    booking = _book(client, s["filler"], match_id, s["court"]["id"]).json()
+    booking = _book(client, s["creator"], match_id, s["court"]["id"]).json()
 
     approved = _approve(client, s["owner"], booking["id"])
     assert approved.status_code == 200, approved.text
 
     requester_conversations = client.get(
-        "/api/v1/player/venue-messages", headers=s["filler"]
+        "/api/v1/player/venue-messages", headers=s["creator"]
     ).json()["items"]
     assert len(requester_conversations) == 1
     conversation_id = requester_conversations[0]["conversation_id"]
     messages = client.get(
         f"/api/v1/player/venue-messages/{conversation_id}/messages",
-        headers=s["filler"],
+        headers=s["creator"],
     ).json()["items"]
     assert any("Your court booking is confirmed." in message["content"] for message in messages)
 
     host_conversations = client.get(
-        "/api/v1/player/venue-messages", headers=s["creator"]
+        "/api/v1/player/venue-messages", headers=s["filler"]
     ).json()["items"]
     assert host_conversations == []
     assert client.get(
         f"/api/v1/player/venue-messages/{conversation_id}/messages",
-        headers=s["creator"],
+        headers=s["filler"],
     ).status_code == 404
 
 
@@ -352,15 +389,6 @@ def test_cancelling_a_match_with_pending_request_withdraws_it(client, new_match,
         next(item for item in venue_bookings if item["id"] == booking["id"])["status"]
         == "CANCELLED"
     )
-
-
-def test_only_participants_can_book(client, new_match, booking_setup, auth_headers_for):
-    s = booking_setup
-    match_id, _ = _full_match(client, new_match, s["creator"], s["filler"])
-    assert _book(client, auth_headers_for("PLAYER"), match_id, s["court"]["id"]).status_code == 403
-    assert (
-        _book(client, s["filler"], match_id, s["court"]["id"]).status_code == 201
-    )  # joined players may book
 
 
 def test_match_must_be_full(client, new_match, booking_setup):

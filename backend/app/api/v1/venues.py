@@ -18,6 +18,7 @@ from app.schemas.venue import (
     PaginatedVenueBrowse,
     PaginatedVenues,
     VenueCreate,
+    VenuePaymentConfirmation,
     VenueRead,
     VenueUpdate,
 )
@@ -187,6 +188,7 @@ def update_venue(
 )
 def confirm_payment(
     venue_id: UUID,
+    payload: VenuePaymentConfirmation,
     owner: Profile = Depends(require_profile_role("VENUE_OWNER")),
     db: Session = Depends(get_db),
 ):
@@ -194,11 +196,14 @@ def confirm_payment(
     venue = get_venue_or_404(db, venue_id, lock=True)
     if venue.owner_id != owner.id:
         raise HTTPException(status_code=403, detail="You do not own this venue")
+    if not payload.payment_proof_path.startswith(f"{venue_id}/"):
+        raise HTTPException(status_code=422, detail="Payment proof must be uploaded to this venue")
     if venue.status != VenueStatus.PAYMENT_PENDING:
         raise HTTPException(
             status_code=400,
             detail=f"Payment cannot be confirmed for a venue with status {venue.status}",
         )
+    venue.payment_proof_path = payload.payment_proof_path
     venue.status = VenueStatus.PENDING_REVIEW
     db.commit()
     db.refresh(venue)

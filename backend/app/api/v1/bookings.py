@@ -36,7 +36,7 @@ from app.schemas.booking import (
     PaginatedBookings,
 )
 from app.services.court_availability import is_open
-from app.services.match_participants import is_match_participant, participant_ids
+from app.services.match_participants import participant_ids
 from app.services.notifications import create_notification
 from app.services.security_log import log_security_event
 from app.services.venue_access import can_manage, get_venue_or_404
@@ -170,9 +170,9 @@ def _prepare_booking(
     match = match_query.first()
     if match is None:
         raise HTTPException(status_code=404, detail="Match not found")
-    if not is_match_participant(db, match, profile.id):
+    if match.created_by != profile.id:
         raise HTTPException(
-            status_code=403, detail="Only participants of the match can book a court"
+            status_code=403, detail="Only the host can request a court booking"
         )
     if match.status == MatchStatus.CONFIRMED:
         raise HTTPException(status_code=400, detail="This match already has a confirmed booking")

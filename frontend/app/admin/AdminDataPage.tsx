@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Clock,
   Eye,
+  FileText,
   Plus,
   RefreshCw,
   Search,
@@ -20,13 +21,14 @@ import {
   SlidersHorizontal,
   Users,
 } from "lucide-react";
-import { adminSections, type AdminRecord } from "./mock-data";
+import { adminSections, type AdminRecord } from "./admin-section-config";
 import {
   approveAdminVenue,
   approveBooking,
   cancelBooking,
   createCourt,
   deleteCourt,
+  getAdminVenuePaymentProofUrl,
   listAdminBookings,
   listAdminCourts,
   listAdminSecurityLogs,
@@ -42,6 +44,7 @@ import {
 import { ApiError } from "../../lib/apiClient";
 import { formatLocalDateString, formatUtcDateTime } from "../../lib/dateUtils";
 import type { VenueRead, WeeklyAvailability } from "../../lib/types";
+import { useAuth } from "../../lib/auth";
 
 function formatTime12h(timeStr?: string): string {
   if (!timeStr) return "";
@@ -176,7 +179,7 @@ function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-dialog-title"
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
       >
         <h2 id="admin-dialog-title" className="mt-4 text-lg font-bold text-slate-900">
           {title}
@@ -187,19 +190,74 @@ function Dialog({
   );
 }
 
-export default function AdminDataPage({ section }: AdminDataPageProps) {
-  const isRealDataSection = [
-    "users",
-    "venues",
-    "activity-logs",
-    "listings",
-    "bookings",
-    "courts",
-  ].includes(section);
+function PaymentProofPreview({ venueId, path }: { venueId: string; path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    void getAdminVenuePaymentProofUrl(venueId)
+      .then(({ signed_url }) => {
+        if (!active) return;
+        setUrl(signed_url);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [venueId]);
+
+  const isPdf = path.toLowerCase().endsWith(".pdf");
+
+  return (
+    <div className="mt-5 border-t border-slate-100 pt-4">
+      <h3 className="mb-2 flex items-center gap-2 text-xs font-bold text-slate-700">
+        <FileText size={14} /> Payment proof
+      </h3>
+      {error ? (
+        <p role="alert" className="text-xs text-rose-600">
+          Could not load the payment proof. Please try again.
+        </p>
+      ) : !url ? (
+        <p className="text-xs text-slate-500">Loading payment proof…</p>
+      ) : isPdf ? (
+        <iframe
+          title="Venue payment proof"
+          src={url}
+          className="h-72 w-full rounded-lg border border-slate-200"
+        />
+      ) : (
+        <a href={url} target="_blank" rel="noreferrer" className="block">
+          <img
+            src={url}
+            alt="Uploaded venue payment proof"
+            className="max-h-72 w-full rounded-lg border border-slate-200 bg-slate-50 object-contain"
+          />
+        </a>
+      )}
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-flex text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+        >
+          Open payment proof in a new tab
+        </a>
+      )}
+    </div>
+  );
+}
+
+export default function AdminDataPage({ section }: AdminDataPageProps) {
+  const { profile, session } = useAuth();
+  const isRealDataSection = Object.prototype.hasOwnProperty.call(adminSections, section);
   const config = adminSections[section];
-  const [records, setRecords] = useState<AdminRecord[]>(config?.records ?? []);
-  const [totalCount, setTotalCount] = useState<number>(config?.records?.length ?? 0);
+  const [records, setRecords] = useState<AdminRecord[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(isRealDataSection);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -262,11 +320,6 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
     setSort(null);
     setPage(1);
     setError(null);
-    if (!isRealDataSection) {
-      setRecords(config?.records ?? []);
-      setTotalCount(config?.records?.length ?? 0);
-      setIsLoading(false);
-    }
   }, [section, config, isRealDataSection]);
 
   useEffect(() => {
@@ -385,6 +438,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
               : "—",
             address: v.address,
             rejectionReason: v.rejection_reason || undefined,
+            paymentProofPath: v.payment_proof_path || undefined,
           }));
 
           setRecords(mapped);
@@ -606,20 +660,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
   }, [isRealDataSection, fetchData]);
 
   const sortedRecords = useMemo(() => {
-    let result = [...records];
-    if (!isRealDataSection) {
-      result = result.filter((record) => {
-        const matchesSearch =
-          !search ||
-          Object.values(record).some((value) =>
-            String(value ?? "").toLowerCase().includes(search.toLowerCase())
-          );
-        const matchesFilters = Object.entries(filters).every(
-          ([key, value]) => !value || record[key as keyof AdminRecord] === value
-        );
-        return matchesSearch && matchesFilters;
-      });
-    }
+    const result = [...records];
     if (sort) {
       result.sort((a, b) => {
         const compared = String(a[sort.key] ?? "").localeCompare(
@@ -631,13 +672,11 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
       });
     }
     return result;
-  }, [records, search, filters, sort, isRealDataSection]);
+  }, [records, sort]);
 
-  const totalRecordsCount = isRealDataSection ? totalCount : sortedRecords.length;
+  const totalRecordsCount = totalCount;
   const pages = Math.max(1, Math.ceil(totalRecordsCount / pageSize));
-  const visibleRecords = isRealDataSection
-    ? sortedRecords
-    : sortedRecords.slice((page - 1) * pageSize, page * pageSize);
+  const visibleRecords = sortedRecords;
 
   if (section === "settings") {
     return (
@@ -654,15 +693,24 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
             </p>
             <div className="mt-6 flex items-center gap-3">
               <div className="grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-800">
-                AD
+                {(profile?.name || session?.user.email || "A")
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((part) => part[0])
+                  .join("")
+                  .toUpperCase()}
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-800">SportMates Admin</p>
-                <p className="mt-1 text-xs text-slate-500">admin@sportmates.app</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  {profile?.name || "Profile unavailable"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {session?.user.email || "Email unavailable"}
+                </p>
               </div>
             </div>
             <div className="mt-5 rounded-lg bg-amber-50 px-3 py-2.5 text-[11px] leading-relaxed text-amber-800">
-              This profile is preview content. Profile updates are managed in user settings.
+              Profile updates are managed in your account settings.
             </div>
           </section>
           <section className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -676,7 +724,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 value={dateRange}
                 onChange={(event) => {
                   setDateRange(event.target.value);
-                  setToast("Display preference updated for this preview.");
+                  setToast("Display preference updated for this session.");
                 }}
                 className="h-10 rounded-lg border border-slate-200 bg-white px-3 font-normal outline-none focus:border-emerald-500"
               >
@@ -704,7 +752,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                     checked={preferences[key]}
                     onChange={() => {
                       setPreferences((old) => ({ ...old, [key]: !old[key] }));
-                      setToast("Notification preference updated for this preview.");
+                      setToast("Notification preference updated for this session.");
                     }}
                     className="h-4 w-4 accent-emerald-600"
                   />
@@ -712,7 +760,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
               ))}
             </div>
             <p className="mt-5 text-[10px] text-slate-400">
-              Preferences are held in temporary page state and reset when you leave.
+              Preferences apply for this session only.
             </p>
           </section>
         </div>
@@ -721,89 +769,15 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
   }
 
   if (section === "analytics") {
-    const values =
-      dateRange === "Last 7 days"
-        ? [32, 46, 40, 58, 53, 71, 62]
-        : dateRange === "Last 90 days"
-        ? [37, 46, 42, 68, 61, 75, 82]
-        : [28, 39, 36, 55, 49, 66, 74];
     return (
       <div className="space-y-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <PageHeading
-            title="Analytics"
-            description="Explore user growth and platform engagement."
-          />
-          <div className="flex items-center gap-2">
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-              Preview data · Aggregation pending
-            </span>
-            <label className="flex items-center gap-2 self-start rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-600 sm:self-auto">
-              <span className="text-slate-400">Period</span>
-              <select
-                value={dateRange}
-                onChange={(event) => setDateRange(event.target.value)}
-                className="h-9 bg-transparent font-semibold outline-none"
-              >
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-                <option>Last 90 days</option>
-              </select>
-            </label>
-          </div>
+        <PageHeading
+          title="Analytics"
+          description="Platform analytics are not available yet."
+        />
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+          Analytics will appear here when live reporting is connected.
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Users", "1,248", "+12.8%"],
-            ["New users", "142", "+9.4%"],
-            ["Game listings", "186", "+8.2%"],
-            ["Active venues", "36", "+4"],
-          ].map(([label, value, trend]) => (
-            <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5">
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="mt-2 text-2xl font-extrabold text-slate-900">{value}</p>
-              <p className="mt-2 text-[10px] font-semibold text-emerald-700">
-                {trend} <span className="font-normal text-slate-400">vs. previous period</span>
-              </p>
-            </div>
-          ))}
-        </div>
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-          <h2 className="text-sm font-bold text-slate-900">User growth</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            New users registered during {dateRange.toLowerCase()} · preview data
-          </p>
-          <div className="mt-7 flex h-64 items-end gap-3 border-b border-slate-100 px-1 sm:gap-6">
-            {values.map((value, index) => (
-              <div
-                key={index}
-                className="flex h-full flex-1 flex-col items-center justify-end gap-2"
-              >
-                <span className="text-[9px] text-slate-400">{value}</span>
-                <div
-                  className="w-full max-w-14 rounded-t-lg bg-gradient-to-t from-emerald-500 to-emerald-300 transition-all"
-                  style={{ height: `${value}%` }}
-                />
-                <span className="pb-2 text-[9px] text-slate-400">
-                  {dateRange === "Last 7 days" ? `D${index + 1}` : `W${index + 1}`}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-3">
-            {[
-              ["Role distribution", "77% players · 19% venue owners · 4% admins"],
-              ["Game activity", "186 active listings across 4 sports"],
-              ["Venue network", "36 active venues with 81 courts"],
-            ].map(([title, text]) => (
-              <div key={title} className="rounded-xl bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-800">{title}</p>
-                <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">{text}</p>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     );
   }
@@ -1008,31 +982,6 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           setTotalCount((c) => Math.max(0, c - 1));
           setToast(`${pending.record.title}: court deleted successfully.`);
         }
-      } else {
-        const nextStatus =
-          pending.action === "Restrict"
-            ? "Restricted"
-            : pending.action === "Reactivate"
-            ? "Active"
-            : pending.action === "Approve"
-            ? "Approved"
-            : pending.action === "Reject"
-            ? "Rejected"
-            : pending.action === "Resolve"
-            ? "Resolved"
-            : pending.action === "Dismiss"
-            ? "Dismissed"
-            : "Removed";
-        setRecords((current) =>
-          current.map((record) =>
-            record.id === pending.record.id
-              ? { ...record, status: nextStatus }
-              : record
-          )
-        );
-        setToast(
-          `${pending.record.title}: ${pending.action.toLowerCase()} completed in preview.`
-        );
       }
       setPending(null);
     } catch (err: unknown) {
@@ -1052,12 +1001,6 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <PageHeading title={config.title} description={config.description} />
-        {!isRealDataSection && (
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-[10px] font-semibold text-amber-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-            Sample data · changes are temporary
-          </span>
-        )}
       </div>
 
       {error && (
@@ -1413,9 +1356,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                       No matching records
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {isRealDataSection
-                        ? "No records found in this view. Try adjusting your search query or status filter."
-                        : "Try changing your search or filters."}
+                      No records found in this view. Try adjusting your search query or status filter.
                     </p>
                     {(search || Object.values(filters).some(Boolean)) && (
                       <button
@@ -1479,12 +1420,6 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
         </div>
       </section>
 
-      {!isRealDataSection && (
-        <p className="text-[10px] text-slate-400">
-          Actions on these sample records only update the current page state. No live data is changed.
-        </p>
-      )}
-
       {selected && (
         <Dialog title={selected.title} onClose={() => setSelected(null)}>
           <div className="flex items-center justify-between">
@@ -1502,11 +1437,21 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           <p className="mt-1 text-[10px] font-mono uppercase tracking-wider text-slate-400">
             {selected.id}
           </p>
+          {typeof selected.paymentProofPath === "string" ? (
+            <PaymentProofPreview venueId={selected.id} path={selected.paymentProofPath} />
+          ) : selected.status === "Pending" ? (
+            <p className="mt-5 border-t border-slate-100 pt-4 text-xs font-medium text-amber-800">
+              No payment proof was submitted for this application.
+            </p>
+          ) : null}
           <div className="mt-4 space-y-3">
             {Object.entries(selected)
               .filter(
                 ([key, value]) =>
-                  key !== "id" && value && typeof value !== "object"
+                  key !== "id" &&
+                  key !== "paymentProofPath" &&
+                  value &&
+                  typeof value !== "object"
               )
               .map(([key, value]) => (
                 <div
@@ -1544,9 +1489,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           <p className="mt-2 text-sm text-slate-600">
             Confirm you want to {pending.action.toLowerCase()}{" "}
             <strong className="text-slate-800">{pending.record.title}</strong>.
-            {isRealDataSection
-              ? " This action directly executes on the live backend."
-              : " This only changes the preview state."}
+            {" This action directly executes on the live backend."}
           </p>
           <div className="mt-6 flex justify-end gap-2">
             <button

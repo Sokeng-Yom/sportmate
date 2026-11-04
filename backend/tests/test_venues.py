@@ -1,5 +1,7 @@
 import uuid
 
+import httpx
+
 from app.models.system import Notification, SecurityLog
 
 
@@ -14,7 +16,11 @@ def _create(client, headers, name=None):
 
 def _submit(client, headers, name=None):
     venue = _create(client, headers, name)
-    assert client.post(f"/api/v1/venues/{venue['id']}/confirm-payment", headers=headers).status_code == 200
+    assert client.post(
+        f"/api/v1/venues/{venue['id']}/confirm-payment",
+        json={"payment_proof_path": f"{venue['id']}/payment-proof.png"},
+        headers=headers,
+    ).status_code == 200
     return venue
 
 
@@ -42,17 +48,44 @@ def test_invalid_venue_payload_is_rejected(client, auth_headers_for):
 def test_payment_confirmation_moves_the_venue_to_pending_review(client, auth_headers_for):
     owner = auth_headers_for("VENUE_OWNER")
     venue = _create(client, owner)
-    response = client.post(f"/api/v1/venues/{venue['id']}/confirm-payment", headers=owner)
+    response = client.post(
+        f"/api/v1/venues/{venue['id']}/confirm-payment",
+        json={"payment_proof_path": f"{venue['id']}/payment-proof.png"},
+        headers=owner,
+    )
     assert response.status_code == 200
     assert response.json()["status"] == "PENDING_REVIEW"
-    again = client.post(f"/api/v1/venues/{venue['id']}/confirm-payment", headers=owner)
+    assert response.json()["payment_proof_path"] == f"{venue['id']}/payment-proof.png"
+    again = client.post(
+        f"/api/v1/venues/{venue['id']}/confirm-payment",
+        json={"payment_proof_path": f"{venue['id']}/payment-proof.png"},
+        headers=owner,
+    )
     assert again.status_code == 400
+
+
+def test_payment_confirmation_requires_proof_for_the_same_venue(client, auth_headers_for):
+    owner = auth_headers_for("VENUE_OWNER")
+    venue = _create(client, owner)
+    endpoint = f"/api/v1/venues/{venue['id']}/confirm-payment"
+    assert client.post(endpoint, headers=owner).status_code == 422
+    assert client.post(
+        endpoint,
+        json={"payment_proof_path": "another-venue/payment-proof.png"},
+        headers=owner,
+    ).status_code == 422
+    unchanged = client.get(f"/api/v1/venues/{venue['id']}", headers=owner)
+    assert unchanged.json()["status"] == "PAYMENT_PENDING"
 
 
 def test_only_the_owner_can_confirm_payment_or_edit(client, auth_headers_for):
     owner, other = auth_headers_for("VENUE_OWNER"), auth_headers_for("VENUE_OWNER")
     venue = _create(client, owner)
-    assert client.post(f"/api/v1/venues/{venue['id']}/confirm-payment", headers=other).status_code == 403
+    assert client.post(
+        f"/api/v1/venues/{venue['id']}/confirm-payment",
+        json={"payment_proof_path": f"{venue['id']}/payment-proof.png"},
+        headers=other,
+    ).status_code == 403
     assert client.patch(f"/api/v1/venues/{venue['id']}", json={"name": "Hacked"}, headers=other).status_code == 403
 
 
@@ -131,6 +164,41 @@ def test_admin_endpoints_are_admin_only(client, auth_headers_for):
     for headers in (owner, auth_headers_for("PLAYER")):
         assert client.get("/api/v1/admin/venues", headers=headers).status_code == 403
         assert client.post(f"/api/v1/admin/venues/{venue['id']}/approve", headers=headers).status_code == 403
+        assert client.get(
+            f"/api/v1/admin/venues/{venue['id']}/payment-proof-url", headers=headers
+        ).status_code == 403
+
+
+def test_admin_can_get_signed_payment_proof_url(client, auth_headers_for, monkeypatch):
+    owner, admin = auth_headers_for("VENUE_OWNER"), auth_headers_for("ADMIN")
+    venue = _submit(client, owner)
+    expected_path = f"{venue['id']}/payment-proof.png"
+
+    def fake_storage_request(url, **kwargs):
+        assert url.endswith(f"/venue-payment-proofs/{expected_path}")
+        assert kwargs["json"] == {"expiresIn": 300}
+        return httpx.Response(
+            200,
+            json={"signedURL": f"/object/sign/venue-payment-proofs/{expected_path}?token=test"},
+        )
+
+    monkeypatch.setattr("app.api.v1.admin_venues.httpx.post", fake_storage_request)
+    response = client.get(
+        f"/api/v1/admin/venues/{venue['id']}/payment-proof-url", headers=admin
+    )
+    assert response.status_code == 200
+    assert response.json()["signed_url"].endswith(
+        f"/storage/v1/object/sign/venue-payment-proofs/{expected_path}?token=test"
+    )
+
+
+def test_admin_payment_proof_url_is_not_found_when_missing(client, auth_headers_for):
+    owner, admin = auth_headers_for("VENUE_OWNER"), auth_headers_for("ADMIN")
+    venue = _create(client, owner)
+    response = client.get(
+        f"/api/v1/admin/venues/{venue['id']}/payment-proof-url", headers=admin
+    )
+    assert response.status_code == 404
 
 
 def test_admin_status_filter_is_validated(client, auth_headers_for):

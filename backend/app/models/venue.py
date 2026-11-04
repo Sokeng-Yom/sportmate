@@ -16,6 +16,7 @@ class Venue(Base):
     address = Column(String, nullable=False)
     description = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)
+    payment_proof_path = Column(String, nullable=True)
     status = Column(String, nullable=False, default="PAYMENT_PENDING")
     # PAYMENT_PENDING -> PENDING_REVIEW -> APPROVED | REJECTED
     rejection_reason = Column(String, nullable=True)
