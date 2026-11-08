@@ -57,7 +57,7 @@ function inputCls(extra = "") {
 function SaveButton({ loading }: { loading: boolean }) {
     return (
         <button type="submit" disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all flex items-center gap-2 disabled:opacity-75">
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-75 min-h-[44px]">
             {loading ? (
                 <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Saving…</>
             ) : "Save Changes"}
@@ -319,10 +319,10 @@ function SettingsContent() {
             <div className="flex flex-col sm:flex-row gap-6">
                 {/* Tab Nav */}
                 <nav className="sm:w-48 flex-shrink-0">
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="flex sm:flex-col overflow-x-auto bg-white rounded-2xl border border-gray-100 shadow-sm p-1 sm:p-0">
                         {TABS.map((tab) => (
                             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold transition-colors border-b border-slate-50 last:border-0 ${activeTab === tab.id ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50"}`}>
+                                className={`shrink-0 sm:w-full flex items-center justify-center sm:justify-start gap-2 sm:gap-3 px-3.5 sm:px-4 py-2.5 sm:py-3.5 text-xs sm:text-sm font-semibold transition-colors rounded-xl sm:rounded-none border-b-0 sm:border-b sm:border-slate-50 sm:last:border-0 min-h-[44px] ${activeTab === tab.id ? "bg-emerald-50 text-emerald-700 font-bold" : "text-slate-600 hover:bg-slate-50"}`}>
                                 {tab.icon} {tab.label}
                             </button>
                         ))}
@@ -330,7 +330,7 @@ function SettingsContent() {
                 </nav>
 
                 {/* Content */}
-                <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex-1 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
                     <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
                         {sections[activeTab]}
                     </motion.div>

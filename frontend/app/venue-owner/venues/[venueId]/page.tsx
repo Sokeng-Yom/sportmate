@@ -81,7 +81,7 @@ function CourtModal({ open, venueId, court, onClose }: { open: boolean; venueId:
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
                     onClick={onClose}>
                     <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-                        onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
+                        onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl shadow-2xl p-5 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-5">
                             <h3 className="font-extrabold text-slate-900 text-lg">{isEdit ? "Edit Court" : "Add Court"}</h3>
                             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors"><X size={20} /></button>
@@ -355,7 +355,7 @@ function VenueDetailContent() {
                     <EmptyState icon={<Plus size={24} />} title="No courts yet" description="Add your first court to start accepting bookings for this venue." />
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full min-w-[540px]">
                             <thead>
                                 <tr className="border-b border-slate-100">
                                     <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Court</th>

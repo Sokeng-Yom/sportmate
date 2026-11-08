@@ -36,9 +36,9 @@ export default function PlayerProfilePage() {
         <ArrowLeft size={16} aria-hidden="true" />
         Back to Explore
       </Link>
-      <section className="mt-6 overflow-hidden rounded-3xl border border-[#E8E3DE] bg-white shadow-sm">
-        <div className="bg-gradient-to-r from-emerald-50 via-white to-orange-50 px-6 py-8 sm:px-9">
-          <div className="flex items-center gap-5">
+      <section className="mt-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-[#E8E3DE] bg-white shadow-sm">
+        <div className="bg-gradient-to-r from-emerald-50 via-white to-orange-50 px-5 py-6 sm:px-9 sm:py-8">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-5">
             <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-white bg-slate-100 text-slate-500 shadow-sm">
               {profile?.avatar ? (
                 <img src={profile.avatar} alt={`${profile.name}'s profile`} className="h-full w-full object-cover" />
@@ -47,16 +47,16 @@ export default function PlayerProfilePage() {
               )}
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-2xl font-extrabold text-slate-900">{profile?.name || "Your profile"}</h1>
-              <p className="mt-1 truncate text-sm text-slate-500">{session?.user.email ?? "Email unavailable"}</p>
+              <h1 className="truncate text-xl sm:text-2xl font-extrabold text-slate-900">{profile?.name || "Your profile"}</h1>
+              <p className="mt-1 truncate text-xs sm:text-sm text-slate-500">{session?.user.email ?? "Email unavailable"}</p>
               <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">Member</span>
             </div>
           </div>
         </div>
-        <form onSubmit={(event) => void saveProfile(event)} className="space-y-5 p-6 sm:p-9">
+        <form onSubmit={(event) => void saveProfile(event)} className="space-y-5 p-5 sm:p-9">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Profile information</h2>
-            <p className="mt-1 text-sm text-slate-500">Update the name other players see on your games.</p>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">Profile information</h2>
+            <p className="mt-1 text-xs sm:text-sm text-slate-500">Update the name other players see on your games.</p>
           </div>
           {message && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{message}</p>}
           {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
@@ -75,7 +75,7 @@ export default function PlayerProfilePage() {
             <button
               type="submit"
               disabled={saving || !name.trim()}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px]"
             >
               {message && !saving ? <Check size={16} aria-hidden="true" /> : null}
               {saving ? "Saving…" : "Save profile"}

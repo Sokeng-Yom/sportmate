@@ -122,10 +122,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const searchMatches = search.trim()
     ? allNavItems
-        .filter((item) =>
-          item.label.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
+      .filter((item) =>
+        item.label.toLowerCase().includes(search.toLowerCase())
+      )
+      .slice(0, 5)
     : [];
 
   const handleLogout = async () => {
@@ -142,9 +142,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const renderSidebar = (isMobile = false) => (
     <aside
-      className={`${
-        isMobile ? "w-[280px]" : "hidden lg:flex w-[260px]"
-      } fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-gray-100 p-4 h-full`}
+      className={`${isMobile ? "w-[280px]" : "hidden lg:flex w-[260px]"
+        } fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-gray-100 p-4 h-full`}
     >
       {/* Brand Header with SportMates Logo */}
       <div className="px-2 mb-6 mt-2 flex items-center justify-between">
@@ -197,19 +196,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 href === "/admin"
                   ? pathname === href
                   : pathname === href ||
-                    pathname.startsWith(href + "/") ||
-                    (href === "/admin/reported-posts" && pathname === "/admin/reports");
+                  pathname.startsWith(href + "/") ||
+                  (href === "/admin/reported-posts" && pathname === "/admin/reports");
               return (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => isMobile && setMobileNav(false)}
                   aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm ${
-                    active
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm ${active
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
+                    }`}
                 >
                   <Icon
                     size={19}
@@ -218,11 +216,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   <span className="truncate flex-1">{label}</span>
                   {badge && (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        badgeTone === "rose"
-                          ? "bg-rose-100 text-rose-700 border border-rose-200"
-                          : "bg-amber-100 text-amber-800 border border-amber-200"
-                      }`}
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${badgeTone === "rose"
+                        ? "bg-rose-100 text-rose-700 border border-rose-200"
+                        : "bg-amber-100 text-amber-800 border border-amber-200"
+                        }`}
                     >
                       {badge}
                     </span>
@@ -247,11 +244,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   href={href}
                   onClick={() => isMobile && setMobileNav(false)}
                   aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm ${
-                    active
-                      ? "bg-emerald-50 text-emerald-600"
-                      : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm ${active
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
+                    }`}
                 >
                   <Icon
                     size={18}

@@ -136,7 +136,7 @@ export default function MessagesPage() {
     };
 
     return (
-        <div className="flex h-[calc(100vh-160px)] min-h-[500px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="flex h-[calc(100dvh-150px)] min-h-[480px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <aside className={`${selectedConversationId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r border-slate-100 md:w-80`}>
                 <div className="border-b border-slate-100 px-5 py-4">
                     <h1 className="font-bold text-slate-900">Booking messages</h1>
@@ -206,11 +206,14 @@ export default function MessagesPage() {
             <main className={`${selectedConversationId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}>
                 {selected ? (
                     <>
-                        <header className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+                        <header className="flex items-center gap-3 border-b border-slate-100 px-4 sm:px-5 py-3.5 sm:py-4">
                             <button
                                 aria-label="Back to conversations"
-                                onClick={() => setMobileView("list")}
-                                className="text-slate-500 md:hidden"
+                                onClick={() => {
+                                    setSelectedConversationId(null);
+                                    setMobileView("list");
+                                }}
+                                className="p-1.5 -ml-1.5 rounded-lg text-slate-500 hover:bg-slate-100 md:hidden flex items-center justify-center min-h-[40px] min-w-[40px]"
                             >
                                 <ArrowLeft size={20} />
                             </button>

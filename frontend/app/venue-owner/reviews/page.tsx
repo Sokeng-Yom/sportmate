@@ -70,17 +70,17 @@ export default function ReviewsPage() {
             {/* Filters */}
             {reviews.length > 0 && (
                 <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                         <select value={venueFilter} onChange={(e) => setVenueFilter(e.target.value)}
-                            className="appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-9 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all">
+                            className="w-full sm:w-auto appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-9 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all min-h-[44px]">
                             <option value="all">All Venues</option>
                             {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                         </select>
                         <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
-                    <div className="relative">
+                    <div className="relative w-full sm:w-auto">
                         <select value={starFilter} onChange={(e) => setStarFilter(e.target.value)}
-                            className="appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-9 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all">
+                            className="w-full sm:w-auto appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-9 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all min-h-[44px]">
                             <option value="all">All Ratings</option>
                             {[5, 4, 3, 2, 1].map((s) => <option key={s} value={s}>{s} Star{s !== 1 ? "s" : ""}</option>)}
                         </select>

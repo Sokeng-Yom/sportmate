@@ -176,13 +176,13 @@ function HostPageContent() {
     };
 
     return (
-        <div className="min-h-screen bg-[#F8F5F0] py-12 px-4">
+        <div className="min-h-screen bg-[#F8F5F0] py-6 sm:py-12 px-3 sm:px-6">
             <div className="max-w-5xl mx-auto">
-                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-2xl sm:rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
                     <div className="grid md:grid-cols-[280px_1fr]">
 
                         {/* ── Left Panel ── */}
-                        <div className="bg-[#F8F5F0] p-8 flex flex-col gap-6 border-r border-gray-100">
+                        <div className="bg-[#F8F5F0] p-5 sm:p-8 flex flex-col gap-5 sm:gap-6 border-b md:border-b-0 md:border-r border-gray-100">
 
                             {/* Icon */}
                             <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
@@ -252,7 +252,7 @@ function HostPageContent() {
                         </div>
 
                         {/* ── Right Panel (Form) ── */}
-                        <div className="p-8 md:p-10">
+                        <div className="p-5 sm:p-8 md:p-10">
                             {submitted ? (
                                 <div className="flex flex-col items-center justify-center h-full py-20 gap-4 text-center">
                                     <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
@@ -493,7 +493,7 @@ function HostPageContent() {
                                         <button
                                             type="submit"
                                             disabled={submitting}
-                                            className={`font-bold py-3 px-10 rounded-full shadow-md transition-all active:scale-95 text-white disabled:opacity-60 ${bookingType === "Walking"
+                                            className={`w-full sm:w-auto font-bold py-3 px-10 rounded-full shadow-md transition-all active:scale-95 text-white disabled:opacity-60 min-h-[46px] ${bookingType === "Walking"
                                                 ? "bg-blue-600 hover:bg-blue-700"
                                                 : "bg-emerald-600 hover:bg-emerald-700"
                                                 }`}

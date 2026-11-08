@@ -364,12 +364,12 @@ export default function MyListingsPage() {
         <div className="min-h-screen px-4 py-10 sm:px-6 sm:py-12" style={{ background: "#F8F5F0" }}>
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-4xl font-extrabold" style={{ color: "#2B1A0F" }}>
+                        <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: "#2B1A0F" }}>
                             My listings
                         </h1>
-                        <p className="mt-1 text-base font-medium" style={{ color: "#8B6147" }}>
+                        <p className="mt-1 text-sm sm:text-base font-medium" style={{ color: "#8B6147" }}>
                             {count === 0
                                 ? "0 games you're hosting"
                                 : `${count} game${count > 1 ? "s" : ""} you're hosting`}
@@ -378,7 +378,7 @@ export default function MyListingsPage() {
 
                     <Link
                         href="/player/host"
-                        className="flex items-center gap-2 font-bold text-white px-5 py-3 rounded-full shadow-md transition-all text-sm active:scale-95"
+                        className="inline-flex items-center justify-center gap-2 font-bold text-white px-5 py-2.5 sm:py-3 rounded-full shadow-md transition-all text-sm active:scale-95 self-start sm:self-auto min-h-[44px]"
                         style={{ background: "#D97736" }}
                     >
                         <Plus size={16} />
@@ -411,7 +411,7 @@ export default function MyListingsPage() {
                 )}
 
                 {!loading && !error && count > 0 && (
-                    <div className="mb-6 flex w-full max-w-xl rounded-2xl border border-[#E8E3DE] bg-white p-1 shadow-sm" role="tablist" aria-label="My game listings">
+                    <div className="mb-6 flex w-full max-w-xl rounded-2xl border border-[#E8E3DE] bg-white p-1 shadow-sm overflow-x-auto" role="tablist" aria-label="My game listings">
                         {([
                             ["active", "Active"],
                             ["completed", "Completed"],
@@ -423,7 +423,7 @@ export default function MyListingsPage() {
                                 role="tab"
                                 aria-selected={listingTab === key}
                                 onClick={() => setListingTab(key)}
-                                className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${listingTab === key ? "bg-[#201405] text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                                className={`flex-1 min-w-[90px] rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-colors min-h-[42px] ${listingTab === key ? "bg-[#201405] text-white" : "text-slate-600 hover:bg-slate-50"}`}
                             >
                                 {label} <span className="ml-1 opacity-75">{categorizedMatches[key].length}</span>
                             </button>
@@ -527,8 +527,9 @@ export default function MyListingsPage() {
                                                 </div>
                                             </div>
 
-                                            <h2 className="mb-2 text-lg font-bold text-slate-950 sm:text-xl">
-                                                {match.sport}
+                                            <h2 className="mb-2 flex items-center text-lg font-bold text-slate-950 sm:text-xl">
+                                                <span className="text-xl sm:hidden mr-2 shrink-0" aria-hidden="true">{SPORT_ICONS[match.sport] ?? "🏆"}</span>
+                                                <span>{match.sport}</span>
                                             </h2>
                                             <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
                                                 <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
@@ -560,7 +561,7 @@ export default function MyListingsPage() {
 
                                             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEAE5] pt-4">
                                                 <span className="text-sm text-slate-500">{match.venue_name ?? match.location}</span>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                                                     {canEdit && (
                                                         <button
                                                             title="Edit game"
@@ -831,7 +832,7 @@ export default function MyListingsPage() {
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="edit-game-title"
-                            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+                            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="mb-5 flex items-center justify-between">
@@ -1000,7 +1001,7 @@ export default function MyListingsPage() {
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="view-game-title"
-                            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+                            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="mb-5 flex items-center justify-between">

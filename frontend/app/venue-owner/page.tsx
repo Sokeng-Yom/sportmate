@@ -48,28 +48,29 @@ export default function VenueOwnerDashboard() {
         <div className="max-w-[1200px] mx-auto pb-12">
 
             {/* Greeting & Banner Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8 items-center">
                 <div>
-                    <h2 className="text-emerald-600 font-bold mb-1">Welcome back,</h2>
-                    <h1 className="text-4xl font-extrabold text-slate-900 mb-2">{profile.name || "Venue Owner"}!</h1>
-                    <p className="text-slate-500 font-medium">Here's what's happening with your venues today.</p>
+                    <h2 className="text-emerald-600 font-bold text-sm sm:text-base mb-1">Welcome back,</h2>
+                    <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-2 truncate">{profile.name || "Venue Owner"}!</h1>
+                    <p className="text-slate-500 font-medium text-sm sm:text-base">Here's what's happening with your venues today.</p>
                 </div>
 
-                <div className="bg-emerald-50 rounded-2xl overflow-hidden flex items-center border border-emerald-100 shadow-sm relative h-[140px]">
-                    <div className="w-1/2 h-full">
+                <div className="bg-emerald-50 rounded-2xl overflow-hidden flex flex-col sm:flex-row items-stretch sm:items-center border border-emerald-100 shadow-sm relative sm:h-[140px]">
+                    <div className="w-full sm:w-1/2 h-32 sm:h-full shrink-0">
                         <img
                             src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=600&auto=format&fit=crop"
                             alt="Sports Field"
-                            className="w-full h-full object-cover rounded-r-[40px]"
+                            className="w-full h-full object-cover sm:rounded-r-[40px]"
                         />
                     </div>
-                    <div className="w-1/2 p-6 flex flex-col justify-center">
+                    <div className="w-full sm:w-1/2 p-5 sm:p-6 flex flex-col justify-center">
                         <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center mb-2">
                             <Building size={16} />
                         </div>
                         <h3 className="font-bold text-slate-900 mb-1 text-sm">Manage your venues</h3>
-                        <p className="text-xs text-slate-500 mb-2 leading-tight">Keep your schedule updated, respond to bookings, and grow your sports community.</p>
-                        <Link href="/venue-owner/venues" className="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center hover:bg-emerald-200 transition-colors">
+                        <p className="text-xs text-slate-500 mb-3 sm:mb-2 leading-tight">Keep your schedule updated, respond to bookings, and grow your sports community.</p>
+                        <Link href="/venue-owner/venues" className="self-start sm:self-auto sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2 inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 sm:w-8 sm:h-8 sm:bg-emerald-100 sm:rounded-full sm:justify-center sm:hover:bg-emerald-200 transition-colors">
+                            <span className="sm:hidden">Go to Venues</span>
                             <ArrowRight size={16} />
                         </Link>
                     </div>
@@ -77,7 +78,7 @@ export default function VenueOwnerDashboard() {
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px]">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600"><Calendar size={20} /></div>
@@ -195,27 +196,27 @@ export default function VenueOwnerDashboard() {
             </div>
 
             {/* Bottom Banner */}
-            <div className="mt-8 bg-emerald-50/50 rounded-2xl p-6 border border-emerald-50 flex flex-col md:flex-row items-center gap-8 justify-between">
+            <div className="mt-8 bg-emerald-50/50 rounded-2xl p-5 sm:p-6 border border-emerald-50 flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-8 justify-between">
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
                         <ShieldCheck size={24} />
                     </div>
                     <div>
-                        <h4 className="font-bold text-slate-900">Safe & Trusted Community</h4>
-                        <p className="text-sm text-slate-500">Verified venues, secure payments, and a better experience for everyone.</p>
+                        <h4 className="font-bold text-slate-900 text-sm sm:text-base">Safe &amp; Trusted Community</h4>
+                        <p className="text-xs sm:text-sm text-slate-500">Verified venues, secure payments, and a better experience for everyone.</p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-12 border-t md:border-t-0 md:border-l border-emerald-100 pt-6 md:pt-0 md:pl-12 w-full md:w-auto">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 lg:gap-12 border-t md:border-t-0 md:border-l border-emerald-100 pt-5 md:pt-0 md:pl-8 lg:pl-12 w-full md:w-auto">
                     <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1"><ShieldCheck size={16} /></div>
+                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"><ShieldCheck size={16} /></div>
                         <div>
                             <h5 className="font-bold text-slate-900 text-sm">Verified Venues</h5>
                             <p className="text-xs text-slate-500">All venues are verified and reviewed.</p>
                         </div>
                     </div>
                     <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1"><Lock size={16} /></div>
+                        <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"><Lock size={16} /></div>
                         <div>
                             <h5 className="font-bold text-slate-900 text-sm">Secure Payments</h5>
                             <p className="text-xs text-slate-500">Safe and transparent transactions.</p>

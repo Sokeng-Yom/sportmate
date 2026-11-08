@@ -86,19 +86,24 @@ function MatchCard({
     const progressPercent = Math.min((otherPlayersJoined / playerCapacity) * 100, 100);
 
     return (
-        <article className="rounded-2xl border border-[#E8E3DE] bg-white p-5 shadow-sm sm:p-6">
+        <article className="rounded-2xl border border-[#E8E3DE] bg-white p-4 sm:p-6 shadow-sm">
             <div className="flex gap-4">
                 <div className="hidden h-[104px] w-[104px] shrink-0 items-center justify-center rounded-2xl bg-[#EAD7C2] text-5xl sm:flex">
                     {SPORT_ICONS[match.sport] ?? "🏆"}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                        <h3 className="text-lg font-bold text-slate-950 sm:text-xl">
-                            {match.sport} — {isFull
-                                ? "Hosting full"
-                                : gameStatusLabel(match.status === "FULL" ? "OPEN" : match.status)}
-                        </h3>
-                        <span className="shrink-0 rounded-full bg-[#FFF0E1] px-3 py-1.5 text-xs font-semibold text-[#B85D14]">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-2xl sm:hidden shrink-0" aria-hidden="true">
+                                {SPORT_ICONS[match.sport] ?? "🏆"}
+                            </span>
+                            <h3 className="text-base sm:text-xl font-bold text-slate-950 truncate">
+                                {match.sport} — {isFull
+                                    ? "Hosting full"
+                                    : gameStatusLabel(match.status === "FULL" ? "OPEN" : match.status)}
+                            </h3>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-[#FFF0E1] px-2.5 sm:px-3 py-1 text-xs font-semibold text-[#B85D14]">
                             {skillLabel(match.skill_level)}
                         </span>
                     </div>
@@ -141,21 +146,21 @@ function MatchCard({
                     </div>
 
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEAE5] pt-4">
-                        <p className="text-sm text-slate-600">
+                        <p className="text-xs sm:text-sm text-slate-600">
                             <span className="font-semibold text-slate-900">Skill level:</span> {skillLabel(match.skill_level)}
                         </p>
                         {isJoined ? (
                             <button
                                 onClick={() => onLeave(match.id)}
                                 disabled={busy}
-                                className="rounded-full border border-red-200 px-5 py-2.5 text-sm font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
+                                className="w-full sm:w-auto rounded-full border border-red-200 px-5 py-2.5 text-sm font-bold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50 min-h-[44px]"
                             >
                                 Leave game
                             </button>
                         ) : isFull ? (
                             <button
                                 disabled
-                                className="cursor-not-allowed rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white opacity-90"
+                                className="w-full sm:w-auto cursor-not-allowed rounded-full bg-red-500 px-6 py-2.5 text-sm font-bold text-white opacity-90 min-h-[44px]"
                             >
                                 Full
                             </button>
@@ -163,7 +168,7 @@ function MatchCard({
                             <button
                                 onClick={() => onJoin(match.id)}
                                 disabled={busy}
-                                className="rounded-full bg-[#201405] px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#39260D] disabled:opacity-50"
+                                className="w-full sm:w-auto rounded-full bg-[#201405] px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#39260D] disabled:opacity-50 min-h-[44px]"
                             >
                                 Join game
                             </button>
@@ -305,20 +310,20 @@ export default function PlayerDashboard() {
     return (
         <div className="pb-24">
             {/* Hero Section */}
-            <section className="pt-20 pb-12 px-6 flex flex-col items-center text-center max-w-4xl mx-auto">
-                <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4 text-slate-900">
+            <section className="pt-8 sm:pt-14 pb-8 sm:pb-12 px-4 sm:px-6 flex flex-col items-center text-center max-w-4xl mx-auto">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight mb-3 sm:mb-4 text-slate-900">
                     Find your next game, together
                 </h1>
-                <p className="text-lg text-slate-600 max-w-2xl text-balance">
+                <p className="text-base sm:text-lg text-slate-600 max-w-2xl text-balance">
                     Browse open spots from players near you and lock in a match before the light fades.
                 </p>
             </section>
 
             {/* Search / Filter Bar */}
-            <section className="max-w-4xl mx-auto px-6 mb-12">
-                <div className="bg-white rounded-full shadow-sm border border-gray-200 p-2 flex flex-col md:flex-row items-center gap-2">
+            <section className="max-w-4xl mx-auto px-4 sm:px-6 mb-10 sm:mb-12">
+                <div className="bg-white rounded-2xl md:rounded-full shadow-xs border border-gray-200 p-2.5 md:p-2 flex flex-col md:flex-row items-center gap-2">
                     <div className="flex-1 flex items-center gap-3 px-4 py-2 text-slate-500 min-w-40 border-b md:border-b-0 md:border-r border-gray-100 w-full md:w-auto">
-                        <Search size={20} className="text-slate-400" />
+                        <Search size={20} className="text-slate-400 shrink-0" />
                         <select
                             value={sport}
                             onChange={(e) => setSport(e.target.value)}
@@ -326,11 +331,11 @@ export default function PlayerDashboard() {
                         >
                             {SPORTS.map((s) => <option key={s}>{s}</option>)}
                         </select>
-                        <ChevronDown size={16} className="text-slate-400 -ml-2 pointer-events-none" />
+                        <ChevronDown size={16} className="text-slate-400 -ml-2 pointer-events-none shrink-0" />
                     </div>
 
                     <div className="flex-1 flex items-center gap-3 px-4 py-2 text-slate-500 min-w-40 border-b md:border-b-0 md:border-r border-gray-100 w-full md:w-auto">
-                        <MapPin size={18} className="text-slate-400" />
+                        <MapPin size={18} className="text-slate-400 shrink-0" />
                         <input
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
@@ -350,14 +355,14 @@ export default function PlayerDashboard() {
                             <option>Intermediate</option>
                             <option>Advanced</option>
                         </select>
-                        <ChevronDown size={16} className="text-slate-400 -ml-2 pointer-events-none" />
+                        <ChevronDown size={16} className="text-slate-400 -ml-2 pointer-events-none shrink-0" />
                     </div>
 
-                    <div className="flex items-center gap-4 w-full md:w-auto justify-end px-2 mt-2 md:mt-0">
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end px-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100">
                         <button
                             onClick={() => setApplied((a) => !a)}
                             disabled={loading}
-                            className="bg-[#D97736] hover:bg-[#c26529] text-white px-8 py-2.5 rounded-full font-bold transition-colors disabled:opacity-60"
+                            className="flex-1 md:flex-none bg-[#D97736] hover:bg-[#c26529] text-white px-7 py-2.5 rounded-full font-bold transition-colors disabled:opacity-60 min-h-[44px]"
                         >
                             Search
                         </button>
@@ -368,7 +373,7 @@ export default function PlayerDashboard() {
                                 setSkill("Any level");
                                 setApplied(false);
                             }}
-                            className="text-slate-500 hover:text-slate-800 font-medium text-sm px-2"
+                            className="text-slate-500 hover:text-slate-800 font-medium text-sm px-3 py-2"
                         >
                             Reset
                         </button>
@@ -384,7 +389,7 @@ export default function PlayerDashboard() {
 
 
             {/* Match list */}
-            <section className="max-w-4xl mx-auto px-6">
+            <section className="max-w-4xl mx-auto px-4 sm:px-6">
                 {loading ? (
                     <LoadingCards />
                 ) : error ? (
@@ -433,10 +438,10 @@ export default function PlayerDashboard() {
 
             {/* Recommended matches */}
             {!loading && !error && recommended.length > 0 && (
-                <section className="max-w-4xl mx-auto px-6 mt-16">
+                <section className="max-w-4xl mx-auto px-4 sm:px-6 mt-12 sm:mt-16">
                     <div className="flex items-center gap-2 mb-5">
                         <Star size={20} className="text-[#D97736]" />
-                        <h2 className="text-2xl font-extrabold text-slate-900">Recommended for you</h2>
+                        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Recommended for you</h2>
                     </div>
                     <div className="space-y-4">
                         {recommended.map((match) => (
@@ -454,10 +459,10 @@ export default function PlayerDashboard() {
             )}
 
             {!loading && !error && confirmedJoinedMatches.length > 0 && (
-                <section className="max-w-4xl mx-auto px-6 mt-16">
+                <section className="max-w-4xl mx-auto px-4 sm:px-6 mt-12 sm:mt-16">
                     <div className="flex items-center gap-2 mb-5">
                         <ShieldCheck size={20} className="text-emerald-600" />
-                        <h2 className="text-2xl font-extrabold text-slate-900">Your confirmed games</h2>
+                        <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Your confirmed games</h2>
                     </div>
                     <div className="space-y-4">
                         {confirmedJoinedMatches.map((match) => (
@@ -475,15 +480,15 @@ export default function PlayerDashboard() {
             )}
 
             {/* Court search */}
-            <section className="max-w-4xl mx-auto px-6 mt-16">
+            <section className="max-w-4xl mx-auto px-4 sm:px-6 mt-12 sm:mt-16">
                 <div className="flex items-center gap-2 mb-5">
                     <Trophy size={20} className="text-[#D97736]" />
-                    <h2 className="text-2xl font-extrabold text-slate-900">Find a free court</h2>
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900">Find a free court</h2>
                 </div>
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                    <div className="grid sm:grid-cols-4 gap-3">
-                        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-                            <Calendar size={16} className="text-slate-400" />
+                <div className="bg-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5">
+                            <Calendar size={16} className="text-slate-400 shrink-0" />
                             <input
                                 type="date"
                                 value={courtDate}
@@ -491,8 +496,8 @@ export default function PlayerDashboard() {
                                 className="outline-none text-sm text-slate-700 w-full"
                             />
                         </div>
-                        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-                            <Clock3 size={16} className="text-slate-400" />
+                        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5">
+                            <Clock3 size={16} className="text-slate-400 shrink-0" />
                             <input
                                 type="time"
                                 value={courtTime}
@@ -500,8 +505,8 @@ export default function PlayerDashboard() {
                                 className="outline-none text-sm text-slate-700 w-full"
                             />
                         </div>
-                        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2">
-                            <Trophy size={16} className="text-slate-400" />
+                        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5">
+                            <Trophy size={16} className="text-slate-400 shrink-0" />
                             <select
                                 value={courtSport}
                                 onChange={(e) => setCourtSport(e.target.value)}
@@ -514,7 +519,7 @@ export default function PlayerDashboard() {
                         <button
                             onClick={runCourtSearch}
                             disabled={courtLoading}
-                            className="bg-[#2B1A0F] hover:opacity-90 text-white font-bold text-sm px-6 py-2 rounded-xl transition-colors disabled:opacity-50"
+                            className="bg-[#2B1A0F] hover:opacity-90 text-white font-bold text-sm px-6 py-2.5 rounded-xl transition-colors disabled:opacity-50 min-h-[44px]"
                         >
                             {courtLoading ? "Searching…" : "Search courts"}
                         </button>

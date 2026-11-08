@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { VenueOwnerDataProvider } from "./context/VenueOwnerContext";
 import { RouteGuard, useAuth } from "../../lib/auth";
 import NotificationsBell from "../components/NotificationsBell";
 import UserProfileMenu from "../components/UserProfileMenu";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import {
     LayoutDashboard,
     Building2,
@@ -15,12 +15,41 @@ import {
     Star,
     Settings,
     Tag,
-    ChevronDown,
+    Menu,
+    X,
+    LogOut,
+    User,
     ArrowRight
 } from "lucide-react";
 
 export default function VenueOwnerLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
+    const router = useRouter();
+    const { profile, signOut } = useAuth();
+    const [mobileNav, setMobileNav] = useState(false);
+
+    // Prevent body scrolling when mobile drawer is open
+    useEffect(() => {
+        if (mobileNav) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [mobileNav]);
+
+    // Close on Escape key
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && mobileNav) {
+                setMobileNav(false);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [mobileNav]);
 
     const sidebarLinks = [
         { name: "Dashboard", href: "/venue-owner", icon: LayoutDashboard },
@@ -44,13 +73,29 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
         return "Dashboard";
     };
 
-    return (
-        <RouteGuard roles={["VENUE_OWNER", "ADMIN"]}>
-            <div className="min-h-screen bg-[#F9FBF9] flex text-slate-900 font-sans">
-            {/* Sidebar */}
-            <aside className="w-[260px] bg-white border-r border-gray-100 flex flex-col fixed h-full z-40 p-4">
-                {/* Logo */}
-                <div className="px-2 mb-8 mt-2 flex items-center gap-2">
+    const handleLogout = async () => {
+        try {
+            await signOut();
+            router.push("/login");
+        } catch (err) {
+            console.error("Sign out error:", err);
+            router.push("/login");
+        }
+    };
+
+    const renderSidebar = (isMobile = false) => (
+        <aside
+            className={`${
+                isMobile ? "w-[280px]" : "hidden lg:flex w-[260px]"
+            } fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-gray-100 p-4 h-full`}
+        >
+            {/* Logo */}
+            <div className="px-2 mb-6 mt-2 flex items-center justify-between">
+                <Link
+                    href="/venue-owner"
+                    className="flex items-center gap-2"
+                    onClick={() => isMobile && setMobileNav(false)}
+                >
                     <div className="flex gap-0.5">
                         <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
@@ -59,79 +104,157 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
                     <span className="font-extrabold text-xl tracking-tight text-slate-900">
                         Sport<span className="text-emerald-500">Mates</span>
                     </span>
-                </div>
-
-                {/* Role Switcher */}
-                <div className="mb-8 px-2">
-                    <button className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl p-3 shadow-sm hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center gap-3 text-emerald-600">
-                            <Building2 size={20} />
-                            <span className="font-semibold text-slate-700 text-sm">Venue Owner</span>
-                        </div>
-                        <ChevronDown size={18} className="text-slate-400" />
+                </Link>
+                {isMobile && (
+                    <button
+                        onClick={() => setMobileNav(false)}
+                        aria-label="Close navigation"
+                        className="rounded-lg p-1.5 text-slate-400 hover:bg-gray-100 hover:text-slate-700"
+                    >
+                        <X size={18} />
                     </button>
+                )}
+            </div>
+
+            {/* Role Switcher / Indicator Pill */}
+            <div className="mb-6 px-2">
+                <div className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl p-3 shadow-xs">
+                    <div className="flex items-center gap-3 text-emerald-600">
+                        <Building2 size={20} />
+                        <span className="font-semibold text-slate-700 text-sm">Venue Owner</span>
+                    </div>
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
+            </div>
 
-                {/* Sidebar Navigation */}
-                <nav className="flex-1 space-y-1">
-                    {sidebarLinks.map((link) => {
-                        const Icon = link.icon;
-                        const isActive = pathname === link.href || (pathname.startsWith(link.href) && link.href !== '/venue-owner');
+            {/* Sidebar Navigation */}
+            <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
+                {sidebarLinks.map((link) => {
+                    const Icon = link.icon;
+                    const isActive =
+                        pathname === link.href ||
+                        (pathname.startsWith(link.href) && link.href !== "/venue-owner");
 
-                        return (
-                            <Link
-                                key={link.name}
-                                href={link.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-semibold text-sm ${isActive
+                    return (
+                        <Link
+                            key={link.name}
+                            href={link.href}
+                            onClick={() => isMobile && setMobileNav(false)}
+                            aria-current={isActive ? "page" : undefined}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-semibold text-sm ${
+                                isActive
                                     ? "bg-emerald-50 text-emerald-600"
                                     : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
-                                    }`}
-                            >
-                                <Icon size={20} className={isActive ? "text-emerald-600" : "text-slate-400"} />
-                                {link.name}
-                            </Link>
-                        );
-                    })}
-                </nav>
+                            }`}
+                        >
+                            <Icon
+                                size={19}
+                                className={isActive ? "text-emerald-600" : "text-slate-400"}
+                            />
+                            <span className="truncate">{link.name}</span>
+                        </Link>
+                    );
+                })}
+            </nav>
 
-                {/* Bottom Promo Card */}
-                <div className="bg-emerald-50 rounded-2xl p-5 mt-8 border border-emerald-100">
-                    <div className="bg-white w-10 h-10 rounded-xl flex items-center justify-center shadow-sm mb-4">
-                        <Building2 size={20} className="text-emerald-600" />
-                    </div>
-                    <h4 className="font-bold text-slate-900 mb-2 text-sm">Grow your venue with SportMates</h4>
-                    <p className="text-xs text-slate-600 mb-4 text-balance">
-                        More players. More bookings. More revenue.
-                    </p>
-                    <button className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-bold transition-colors flex items-center gap-2">
-                        View Tips <ArrowRight size={14} />
+            {/* Mobile Drawer Quick Account Links */}
+            {isMobile && (
+                <div className="mt-4 pt-4 border-t border-gray-100 space-y-1">
+                    <Link
+                        href="/venue-owner/settings"
+                        onClick={() => setMobileNav(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-600 hover:bg-gray-50 text-sm font-semibold"
+                    >
+                        <User size={18} className="text-slate-400" />
+                        <span className="truncate">{profile?.name || "Settings"}</span>
+                    </Link>
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-sm font-semibold transition-colors"
+                    >
+                        <LogOut size={18} />
+                        <span>Sign out</span>
                     </button>
                 </div>
-            </aside>
+            )}
 
-            {/* Main Content */}
-            <div className="flex-1 ml-[260px] flex flex-col min-h-screen">
-                {/* Top Header */}
-                <header className="h-[72px] bg-white border-b border-gray-100 px-8 flex items-center justify-between sticky top-0 z-30">
-                    <div className="flex items-center gap-8 h-full">
-                        <h2 className="text-xl font-bold text-slate-900">{getPageTitle()}</h2>
+            {/* Bottom Promo Card */}
+            {!isMobile && (
+                <div className="bg-emerald-50 rounded-2xl p-4 mt-4 border border-emerald-100">
+                    <div className="bg-white w-9 h-9 rounded-xl flex items-center justify-center shadow-xs mb-3 text-emerald-600">
+                        <Building2 size={18} />
                     </div>
+                    <h4 className="font-bold text-slate-900 mb-1 text-xs">Grow your venue</h4>
+                    <p className="text-[11px] text-slate-600 leading-relaxed mb-3">
+                        More players, seamless court bookings, and higher revenue.
+                    </p>
+                    <Link
+                        href="/venue-owner/venues"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800"
+                    >
+                        Manage venues <ArrowRight size={13} />
+                    </Link>
+                </div>
+            )}
+        </aside>
+    );
 
-                    <div className="flex items-center gap-6">
-                        <NotificationsBell />
+    return (
+        <RouteGuard roles={["VENUE_OWNER", "ADMIN"]}>
+            <div className="min-h-screen bg-[#F9FBF9] flex text-slate-900 font-sans">
+                {/* Desktop Sidebar */}
+                {renderSidebar(false)}
 
-                        <UserProfileMenu />
+                {/* Mobile Drawer Backdrop & Drawer */}
+                {mobileNav && (
+                    <div
+                        className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs lg:hidden"
+                        onClick={() => setMobileNav(false)}
+                        role="presentation"
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Navigation menu"
+                            className="h-full"
+                        >
+                            {renderSidebar(true)}
+                        </div>
                     </div>
-                </header>
+                )}
 
-                {/* Page Content */}
-                <main className="flex-1 p-8">
-                    <Suspense fallback={null}>
-                        <VenueOwnerDataProvider>
-                            {children}
-                        </VenueOwnerDataProvider>
-                    </Suspense>
-                </main>
+                {/* Main Content */}
+                <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
+                    {/* Top Header */}
+                    <header className="h-[72px] bg-white border-b border-gray-100 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+                        <div className="flex items-center gap-3 sm:gap-4 h-full">
+                            <button
+                                onClick={() => setMobileNav(true)}
+                                aria-label="Open navigation menu"
+                                className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+                            >
+                                <Menu size={20} />
+                            </button>
+                            <h2 className="text-xl font-bold text-slate-900 truncate">
+                                {getPageTitle()}
+                            </h2>
+                        </div>
+
+                        <div className="flex items-center gap-4 sm:gap-6">
+                            <NotificationsBell />
+                            <UserProfileMenu />
+                        </div>
+                    </header>
+
+                    {/* Page Content */}
+                    <main className="flex-1 p-4 sm:p-6 md:p-8">
+                        <Suspense fallback={null}>
+                            <VenueOwnerDataProvider>
+                                {children}
+                            </VenueOwnerDataProvider>
+                        </Suspense>
+                    </main>
                 </div>
             </div>
         </RouteGuard>

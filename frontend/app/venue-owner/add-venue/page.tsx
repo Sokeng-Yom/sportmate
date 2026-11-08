@@ -90,9 +90,9 @@ export default function AddVenuePage() {
                 <p className="text-slate-500">Provide the details for your new sports facility.</p>
             </div>
 
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
+            <div className="bg-white rounded-2xl sm:rounded-3xl border border-gray-100 shadow-xl overflow-hidden">
                 <form onSubmit={handleSubmit(onSubmit)}>
-                    <div className="p-8 space-y-8">
+                    <div className="p-5 sm:p-8 space-y-6 sm:space-y-8">
 
                         {/* Basic Details */}
                         <section>
@@ -165,10 +165,10 @@ export default function AddVenuePage() {
                         </section>
                     </div>
 
-                    <div className="bg-slate-50 p-6 sm:px-8 border-t border-slate-100 flex flex-col items-end gap-3">
-                        {submitError && <p className="text-red-500 text-sm font-medium">{submitError}</p>}
+                    <div className="bg-slate-50 p-4 sm:p-6 sm:px-8 border-t border-slate-100 flex flex-col sm:flex-row items-center sm:justify-end gap-3">
+                        {submitError && <p className="text-red-500 text-sm font-medium w-full sm:w-auto text-center sm:text-right">{submitError}</p>}
                         <button type="submit" disabled={isSubmitting}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-emerald-600/25 flex items-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed">
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 disabled:opacity-75 disabled:cursor-not-allowed min-h-[46px]">
                             {isSubmitting ? (
                                 <>
                                     <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">

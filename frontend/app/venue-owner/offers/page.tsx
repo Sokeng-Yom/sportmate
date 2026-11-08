@@ -225,20 +225,18 @@ export default function VenueOffersPage() {
               <form onSubmit={submitDiscount} className="space-y-3">
                 <input className={fieldClass} required maxLength={120} placeholder="Offer title" value={discountForm.title} onChange={(e) => setDiscountForm({ ...discountForm, title: e.target.value })} />
                 <textarea className={fieldClass} required maxLength={2000} placeholder="Description" value={discountForm.description} onChange={(e) => setDiscountForm({ ...discountForm, description: e.target.value })} />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input className={fieldClass} type="number" min={1} max={100} placeholder="% off (optional)" value={discountForm.percent_off} onChange={(e) => setDiscountForm({ ...discountForm, percent_off: e.target.value, amount_off: "" })} />
                   <input className={fieldClass} maxLength={50} placeholder="Promo code (optional)" value={discountForm.code} onChange={(e) => setDiscountForm({ ...discountForm, code: e.target.value })} />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input className={fieldClass} type="number" min={0.01} step="0.01" placeholder="Fixed amount off ($)" value={discountForm.amount_off} onChange={(e) => setDiscountForm({ ...discountForm, amount_off: e.target.value, percent_off: "" })} />
                   <input className={fieldClass} type="number" min={1} step={1} placeholder="Usage limit (optional)" value={discountForm.usage_limit} onChange={(e) => setDiscountForm({ ...discountForm, usage_limit: e.target.value })} />
                 </div>
-                <div className="flex gap-3">
-                  <label className="flex-1 text-xs font-semibold text-slate-500">Valid until<input className={`${fieldClass} mt-1`} type="date" required value={discountForm.valid_until} onChange={(e) => setDiscountForm({ ...discountForm, valid_until: e.target.value })} /></label>
-                  <div className="mt-5 flex gap-2">
-                    {editingDiscountId && <button type="button" onClick={() => { setEditingDiscountId(null); setDiscountForm({ title: "", description: "", percent_off: "", amount_off: "", code: "", valid_until: today(), active: true, usage_limit: "" }); }} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600">Cancel</button>}
-                    <button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Plus size={16} /> {editingDiscountId ? "Save discount" : "Add discount"}</button>
-                  </div>
+                <label className="block text-xs font-semibold text-slate-500">Valid until<input className={`${fieldClass} mt-1`} type="date" required value={discountForm.valid_until} onChange={(e) => setDiscountForm({ ...discountForm, valid_until: e.target.value })} /></label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {editingDiscountId && <button type="button" onClick={() => { setEditingDiscountId(null); setDiscountForm({ title: "", description: "", percent_off: "", amount_off: "", code: "", valid_until: today(), active: true, usage_limit: "" }); }} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 min-h-[44px]">Cancel</button>}
+                  <button disabled={saving} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 min-h-[44px]"><Plus size={16} /> {editingDiscountId ? "Save discount" : "Add discount"}</button>
                 </div>
                 <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
                   <input type="checkbox" checked={discountForm.active} onChange={(e) => setDiscountForm({ ...discountForm, active: e.target.checked })} />
@@ -263,17 +261,17 @@ export default function VenueOffersPage() {
               <form onSubmit={submitEvent} className="space-y-3">
                 <input className={fieldClass} required maxLength={120} placeholder="Event title" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} />
                 <textarea className={fieldClass} required maxLength={2000} placeholder="Description" value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input className={fieldClass} required placeholder="Sport" value={eventForm.sport} onChange={(e) => setEventForm({ ...eventForm, sport: e.target.value })} />
                   <input className={fieldClass} required maxLength={80} placeholder="Price (e.g. Free, $5 / person)" value={eventForm.price_label} onChange={(e) => setEventForm({ ...eventForm, price_label: e.target.value })} />
                 </div>
-                <div className="flex gap-3">
-                  <label className="flex-1 text-xs font-semibold text-slate-500">Date<input className={`${fieldClass} mt-1`} type="date" required value={eventForm.event_date} onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })} /></label>
-                  <label className="flex-1 text-xs font-semibold text-slate-500">Time<input className={`${fieldClass} mt-1`} type="time" required value={eventForm.event_time} onChange={(e) => setEventForm({ ...eventForm, event_time: e.target.value })} /></label>
-                  <div className="mt-5 flex gap-2">
-                    {editingEventId && <button type="button" onClick={() => { setEditingEventId(null); setEventForm({ title: "", description: "", event_date: today(), event_time: "18:00", sport: "", price_label: "Free" }); }} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600">Cancel</button>}
-                    <button disabled={saving} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Plus size={16} /> {editingEventId ? "Save event" : "Add event"}</button>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="text-xs font-semibold text-slate-500">Date<input className={`${fieldClass} mt-1`} type="date" required value={eventForm.event_date} onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })} /></label>
+                  <label className="text-xs font-semibold text-slate-500">Time<input className={`${fieldClass} mt-1`} type="time" required value={eventForm.event_time} onChange={(e) => setEventForm({ ...eventForm, event_time: e.target.value })} /></label>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {editingEventId && <button type="button" onClick={() => { setEditingEventId(null); setEventForm({ title: "", description: "", event_date: today(), event_time: "18:00", sport: "", price_label: "Free" }); }} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 min-h-[44px]">Cancel</button>}
+                  <button disabled={saving} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50 min-h-[44px]"><Plus size={16} /> {editingEventId ? "Save event" : "Add event"}</button>
                 </div>
               </form>
               <ul className="divide-y divide-slate-100">

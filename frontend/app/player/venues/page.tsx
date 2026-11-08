@@ -77,15 +77,15 @@ export default function VenuesListPage() {
 
     return (
         <div className="min-h-screen bg-[#F8F5F0] pb-20">
-            <section className="px-6 pb-10 pt-16 text-center">
-                <h1 className="mb-3 text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">Discover Venues</h1>
-                <p className="mx-auto max-w-xl text-lg text-slate-500">
+            <section className="px-4 sm:px-6 pb-8 sm:pb-10 pt-10 sm:pt-16 text-center">
+                <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">Discover Venues</h1>
+                <p className="mx-auto max-w-xl text-base sm:text-lg text-slate-500">
                     Browse approved venues, courts, current discounts, and upcoming events.
                 </p>
             </section>
 
-            <section className="mx-auto mb-10 max-w-5xl px-6">
-                <div className="flex flex-col items-stretch gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
+            <section className="mx-auto mb-8 sm:mb-10 max-w-5xl px-4 sm:px-6">
+                <div className="flex flex-col items-stretch gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 sm:p-4 shadow-sm sm:flex-row sm:items-center">
                     <div className="flex flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 focus-within:ring-2 focus-within:ring-emerald-400">
                         <Search size={16} className="shrink-0 text-slate-400" />
                         <input
@@ -98,19 +98,21 @@ export default function VenuesListPage() {
                         />
                         {search && <button onClick={() => setSearch("")} aria-label="Clear search" className="text-slate-400 hover:text-slate-600"><X size={14} /></button>}
                     </div>
-                    <select aria-label="Filter by sport" value={sport} onChange={(event) => setSport(event.target.value)} className="min-w-36 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-slate-700">
-                        <option value="">All sports</option>
-                        {sports.map((item) => <option key={item} value={item}>{item}</option>)}
-                    </select>
-                    <label className="flex cursor-pointer select-none items-center gap-2 px-2 text-sm font-medium text-slate-700">
-                        <input type="checkbox" checked={hasDiscounts} onChange={(event) => setHasDiscounts(event.target.checked)} className="h-4 w-4 cursor-pointer accent-emerald-600" />
-                        <Tag size={14} className="text-amber-500" />
-                        Has discounts
-                    </label>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <select aria-label="Filter by sport" value={sport} onChange={(event) => setSport(event.target.value)} className="flex-1 sm:flex-none min-w-32 rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-slate-700">
+                            <option value="">All sports</option>
+                            {sports.map((item) => <option key={item} value={item}>{item}</option>)}
+                        </select>
+                        <label className="flex cursor-pointer select-none items-center gap-2 px-2 text-sm font-medium text-slate-700 min-h-[42px]">
+                            <input type="checkbox" checked={hasDiscounts} onChange={(event) => setHasDiscounts(event.target.checked)} className="h-4 w-4 cursor-pointer accent-emerald-600" />
+                            <Tag size={14} className="text-amber-500" />
+                            Has discounts
+                        </label>
+                    </div>
                 </div>
             </section>
 
-            <section className="mx-auto max-w-5xl px-6">
+            <section className="mx-auto max-w-5xl px-4 sm:px-6">
                 <div className="mb-5 flex items-center justify-between">
                     <p className="text-sm font-medium text-slate-500">
                         {loading ? "Loading venues…" : `${filtered.length} venue${filtered.length !== 1 ? "s" : ""} found`}
