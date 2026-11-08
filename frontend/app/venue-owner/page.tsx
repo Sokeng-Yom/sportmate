@@ -78,39 +78,47 @@ export default function VenueOwnerDashboard() {
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600"><Calendar size={20} /></div>
-                        <h3 className="text-slate-500 text-sm font-medium">Total Bookings</h3>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4 lg:gap-4 xl:gap-6 mb-6 sm:mb-8">
+                <div className="bg-white rounded-2xl p-3.5 sm:p-4 xl:p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px] sm:h-[125px] xl:h-[130px] min-w-0 transition-shadow hover:shadow-md">
+                    <div className="flex items-center gap-2 xl:gap-3 min-w-0">
+                        <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                            <Calendar size={18} className="w-[18px] h-[18px] xl:w-5 xl:h-5" />
+                        </div>
+                        <h3 className="text-slate-500 text-xs xl:text-sm font-medium leading-tight line-clamp-2 min-w-0">Total Bookings</h3>
                     </div>
-                    <span className="text-3xl font-extrabold text-slate-900">{totalBookings}</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 tracking-tight truncate">{totalBookings}</span>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600"><Users size={20} /></div>
-                        <h3 className="text-slate-500 text-sm font-medium">Active Players</h3>
+                <div className="bg-white rounded-2xl p-3.5 sm:p-4 xl:p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px] sm:h-[125px] xl:h-[130px] min-w-0 transition-shadow hover:shadow-md">
+                    <div className="flex items-center gap-2 xl:gap-3 min-w-0">
+                        <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                            <Users size={18} className="w-[18px] h-[18px] xl:w-5 xl:h-5" />
+                        </div>
+                        <h3 className="text-slate-500 text-xs xl:text-sm font-medium leading-tight line-clamp-2 min-w-0">Active Players</h3>
                     </div>
-                    <span className="text-3xl font-extrabold text-slate-900">{totalPlayers}</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 tracking-tight truncate">{totalPlayers}</span>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600"><Banknote size={20} /></div>
-                        <h3 className="text-slate-500 text-sm font-medium">Revenue (Completed)</h3>
+                <div className="bg-white rounded-2xl p-3.5 sm:p-4 xl:p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px] sm:h-[125px] xl:h-[130px] min-w-0 transition-shadow hover:shadow-md">
+                    <div className="flex items-center gap-2 xl:gap-3 min-w-0">
+                        <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                            <Banknote size={18} className="w-[18px] h-[18px] xl:w-5 xl:h-5" />
+                        </div>
+                        <h3 className="text-slate-500 text-xs xl:text-sm font-medium leading-tight line-clamp-2 min-w-0">Revenue (Completed)</h3>
                     </div>
-                    <span className="text-3xl font-extrabold text-slate-900">${revenue}</span>
+                    <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 tracking-tight truncate">${revenue}</span>
                 </div>
 
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px]">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600"><Star size={20} /></div>
-                        <h3 className="text-slate-500 text-sm font-medium">Average Rating</h3>
+                <div className="bg-white rounded-2xl p-3.5 sm:p-4 xl:p-5 border border-gray-100 shadow-sm flex flex-col justify-between h-[120px] sm:h-[125px] xl:h-[130px] min-w-0 transition-shadow hover:shadow-md">
+                    <div className="flex items-center gap-2 xl:gap-3 min-w-0">
+                        <div className="w-8 h-8 xl:w-10 xl:h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                            <Star size={18} className="w-[18px] h-[18px] xl:w-5 xl:h-5" />
+                        </div>
+                        <h3 className="text-slate-500 text-xs xl:text-sm font-medium leading-tight line-clamp-2 min-w-0">Average Rating</h3>
                     </div>
-                    <div className="flex items-end gap-2">
-                        <span className="text-3xl font-extrabold text-slate-900">{avgRating ?? "N/A"}</span>
-                        {avgRating && <span className="text-xs text-slate-400 mb-1">/ {reviews.length} reviews</span>}
+                    <div className="flex items-baseline gap-1 sm:gap-1.5 flex-wrap min-w-0">
+                        <span className="text-2xl xl:text-3xl font-extrabold text-slate-900 tracking-tight">{avgRating ?? "N/A"}</span>
+                        {avgRating && <span className="text-[10px] xl:text-xs text-slate-400 mb-0.5 whitespace-nowrap">/ {reviews.length} reviews</span>}
                     </div>
                 </div>
             </div>
