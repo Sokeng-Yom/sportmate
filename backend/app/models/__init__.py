@@ -14,3 +14,4 @@ from app.models.venue_direct_chat import (
 )
 from app.models.community import Post, Comment, PostLike
 from app.models.system import Notification, SecurityLog
+from app.models.venue_review import VenueReview

@@ -25,7 +25,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 export default function ReviewsPage() {
-    const { reviews, venues } = useVenueOwnerData();
+    const { reviews, venues, loading, loadError } = useVenueOwnerData();
     const [venueFilter, setVenueFilter] = useState("all");
     const [starFilter, setStarFilter] = useState("all");
 
@@ -90,21 +90,30 @@ export default function ReviewsPage() {
             )}
 
             {/* Review List */}
-            {filtered.length === 0 ? (
+            {loadError ? (
+                <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{loadError}</p>
+            ) : loading ? (
+                <p role="status" className="py-8 text-center text-sm text-slate-500">Loading reviews…</p>
+            ) : filtered.length === 0 ? (
                 <EmptyState icon={<Star size={24} />} title={reviews.length === 0 ? "No reviews yet" : "No reviews match filter"} description={reviews.length === 0 ? "Reviews from players will appear here." : "Try adjusting your filters."} />
             ) : (
                 <div className="space-y-4">
                     {filtered.map((r) => {
-                        const venueName = venues.find((v) => v.id === r.venueId)?.name ?? "Unknown Venue";
                         return (
                             <div key={r.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex gap-4">
-                                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${r.playerName}`} alt="" className="w-10 h-10 rounded-full bg-slate-100 flex-shrink-0" />
+                                {r.playerAvatar ? (
+                                    <img src={r.playerAvatar} alt="" className="w-10 h-10 rounded-full bg-slate-100 flex-shrink-0" />
+                                ) : (
+                                    <div aria-hidden="true" className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-full bg-emerald-50 font-bold text-emerald-700">
+                                        {r.playerName.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
                                         <p className="font-bold text-slate-900 text-sm">{r.playerName}</p>
                                         <Stars rating={r.rating} />
                                     </div>
-                                    <p className="text-xs text-slate-400 mb-2">{venueName} · {new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                                    <p className="text-xs text-slate-400 mb-2">{r.venueName} · {new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
                                     <p className="text-sm text-slate-600 leading-relaxed">{r.comment}</p>
                                 </div>
                             </div>

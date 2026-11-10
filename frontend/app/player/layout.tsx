@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { RouteGuard, useAuth } from "../../lib/auth";
-import { getUnreadMessageCount } from "../../lib/api";
+import { getUnreadMessageCount, listEligibleVenueReviews } from "../../lib/api";
 import { supabase } from "../../lib/supabaseClient";
 import NotificationsBell from "../components/NotificationsBell";
 import UserProfileMenu from "../components/UserProfileMenu";
@@ -14,6 +14,7 @@ import {
     ClipboardList,
     Building2,
     MessageSquare,
+    Star,
     Menu,
     X,
     UserRound,
@@ -26,6 +27,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     const router = useRouter();
     const { profile, signOut } = useAuth();
     const [unreadMessages, setUnreadMessages] = useState(0);
+    const [hasPendingFeedback, setHasPendingFeedback] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // Prevent background scrolling when mobile drawer is open
@@ -59,6 +61,36 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
             console.error("Failed to load unread message count:", error);
         }
     }, []);
+
+    const refreshPendingFeedback = useCallback(async () => {
+        try {
+            const eligibleReviews = await listEligibleVenueReviews();
+            setHasPendingFeedback(eligibleReviews.length > 0);
+        } catch (error) {
+            console.error("Failed to load pending feedback:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+
+        void refreshPendingFeedback();
+        const intervalId = window.setInterval(() => void refreshPendingFeedback(), 60000);
+        const refreshOnFocus = () => {
+            if (document.visibilityState === "visible") void refreshPendingFeedback();
+        };
+        const refreshOnFeedbackSubmitted = () => void refreshPendingFeedback();
+        window.addEventListener("focus", refreshOnFocus);
+        window.addEventListener("sportmate:feedback-submitted", refreshOnFeedbackSubmitted);
+        document.addEventListener("visibilitychange", refreshOnFocus);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", refreshOnFocus);
+            window.removeEventListener("sportmate:feedback-submitted", refreshOnFeedbackSubmitted);
+            document.removeEventListener("visibilitychange", refreshOnFocus);
+        };
+    }, [profile?.id, refreshPendingFeedback]);
 
     useEffect(() => {
         if (!profile?.id) return;
@@ -100,6 +132,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
         { name: "Host", href: "/player/host", icon: PlusCircle },
         { name: "My Listings", href: "/player/listings", icon: ClipboardList },
         { name: "Venues", href: "/player/venues", icon: Building2 },
+        { name: "Feedback", href: "/player/reviews", icon: Star },
         { name: "Messages", href: "/player/messages", icon: MessageSquare },
     ];
 
@@ -152,6 +185,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                         {navLinks.map((link) => {
                             const active = isLinkActive(link.href);
                             const hasBadge = link.name === "Messages" && unreadMessages > 0;
+                            const hasFeedbackBadge = link.name === "Feedback" && hasPendingFeedback;
 
                             return (
                                 <Link
@@ -161,6 +195,8 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                     aria-label={
                                         hasBadge
                                             ? `Messages, ${unreadMessages} unread`
+                                            : hasFeedbackBadge
+                                            ? "Feedback, unfinished reviews"
                                             : link.name
                                     }
                                     className={`relative py-1 text-sm transition-colors ${
@@ -171,6 +207,12 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                 >
                                     <span className="relative flex items-center gap-1.5">
                                         {link.name}
+                                        {hasFeedbackBadge && (
+                                            <span
+                                                aria-hidden="true"
+                                                className="h-2 w-2 rounded-full bg-red-500"
+                                            />
+                                        )}
                                         {hasBadge && (
                                             <span
                                                 className={`flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1.5 py-0.2 ${
@@ -252,6 +294,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                     const Icon = link.icon;
                                     const active = isLinkActive(link.href);
                                     const hasBadge = link.name === "Messages" && unreadMessages > 0;
+                                    const hasFeedbackBadge = link.name === "Feedback" && hasPendingFeedback;
 
                                     return (
                                         <Link
@@ -276,6 +319,12 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                                 <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
                                                     {unreadMessages}
                                                 </span>
+                                            )}
+                                            {hasFeedbackBadge && (
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="h-2 w-2 rounded-full bg-red-500"
+                                                />
                                             )}
                                         </Link>
                                     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowDown,
@@ -43,7 +43,7 @@ import {
 } from "../../lib/api";
 import { ApiError } from "../../lib/apiClient";
 import { formatLocalDateString, formatUtcDateTime } from "../../lib/dateUtils";
-import type { VenueRead, WeeklyAvailability } from "../../lib/types";
+import type { SecurityLogRead, VenueRead, WeeklyAvailability } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 
 function formatTime12h(timeStr?: string): string {
@@ -257,6 +257,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
   const isRealDataSection = Object.prototype.hasOwnProperty.call(adminSections, section);
   const config = adminSections[section];
   const [records, setRecords] = useState<AdminRecord[]>([]);
+  const securityLogsRef = useRef<AdminRecord[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(isRealDataSection);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -314,6 +315,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
 
   // Reset page state on section change
   useEffect(() => {
+    securityLogsRef.current = null;
     setSearch("");
     setDebouncedSearch("");
     setFilters({});
@@ -444,43 +446,60 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           setRecords(mapped);
           setTotalCount(res.total);
         } else if (section === "activity-logs") {
-          const res = await listAdminSecurityLogs({
-            page,
-            page_size: pageSize,
-          });
+          let allLogs = securityLogsRef.current;
+          if (!allLogs || showRefreshIndicator) {
+            const logs: SecurityLogRead[] = [];
+            let logPage = 1;
+            let total = 0;
 
-          let items = res.items;
+            do {
+              const res = await listAdminSecurityLogs({
+                page: logPage,
+                page_size: 100,
+              });
+              logs.push(...res.items);
+              total = res.total;
+              if (logs.length >= total) break;
+              if (res.items.length === 0) {
+                throw new Error("Could not retrieve all activity logs.");
+              }
+              logPage += 1;
+            } while (logs.length < total);
+
+            allLogs = logs.map((l) => ({
+              id: l.id,
+              date: l.created_at
+                ? new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(new Date(l.created_at))
+                : "—",
+              owner:
+                l.user_name ||
+                (l.user_id ? `User (${l.user_id.slice(0, 8)})` : "System"),
+              title: l.action.replace(/_/g, " "),
+              target: l.details || "—",
+              result: "Success",
+              ipAddress: l.ip_address || undefined,
+            }));
+            securityLogsRef.current = allLogs;
+          }
+
+          let items = allLogs;
           if (debouncedSearch.trim()) {
             const q = debouncedSearch.toLowerCase();
             items = items.filter(
               (l) =>
-                l.action.toLowerCase().includes(q) ||
-                (l.user_name && l.user_name.toLowerCase().includes(q)) ||
-                (l.details && l.details.toLowerCase().includes(q))
+                l.title.toLowerCase().includes(q) ||
+                (l.owner && l.owner.toLowerCase().includes(q)) ||
+                (l.target && l.target.toLowerCase().includes(q))
             );
           }
 
-          const mapped: AdminRecord[] = items.map((l) => ({
-            id: l.id,
-            date: l.created_at
-              ? new Intl.DateTimeFormat("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                }).format(new Date(l.created_at))
-              : "—",
-            owner:
-              l.user_name ||
-              (l.user_id ? `User (${l.user_id.slice(0, 8)})` : "System"),
-            title: l.action.replace(/_/g, " "),
-            target: l.details || "—",
-            result: "Success",
-            ipAddress: l.ip_address || undefined,
-          }));
-
-          setRecords(mapped);
-          setTotalCount(res.total);
+          setRecords(items);
+          setTotalCount(items.length);
         } else if (section === "listings") {
           let statusParam: string | undefined = undefined;
           if (filters.status === "Open") statusParam = "OPEN";
@@ -630,6 +649,9 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           setTotalCount(res.total);
         }
       } catch (err: unknown) {
+        if (section === "activity-logs") {
+          securityLogsRef.current = null;
+        }
         let msg = "Failed to load records from backend.";
         if (err instanceof ApiError) {
           if (err.status === 403) {
@@ -676,7 +698,10 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
 
   const totalRecordsCount = totalCount;
   const pages = Math.max(1, Math.ceil(totalRecordsCount / pageSize));
-  const visibleRecords = sortedRecords;
+  const visibleRecords =
+    section === "activity-logs"
+      ? sortedRecords.slice((page - 1) * pageSize, page * pageSize)
+      : sortedRecords;
 
   if (section === "settings") {
     return (

@@ -14,6 +14,7 @@ import {
     updateMatch,
 } from "../../../lib/api";
 import type { BookingQuoteRead, CourtSearchItem, MatchRead, VenueDiscountRead } from "../../../lib/types";
+import { SPORTS } from "../../../lib/sports";
 import { formatUtcDateTime, formatLocalDateString } from "../../../lib/dateUtils";
 import { useAuth } from "../../../lib/auth";
 import { supabase } from "../../../lib/supabaseClient";
@@ -31,7 +32,6 @@ const SPORT_ICONS: Record<string, string> = {
     Running: "🏃",
 };
 
-const SPORTS = Object.keys(SPORT_ICONS);
 const SKILL_LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
 type Notice = { message: string; kind: "info" | "success" | "error" };

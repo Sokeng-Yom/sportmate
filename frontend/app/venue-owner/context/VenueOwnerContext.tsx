@@ -13,6 +13,7 @@ import {
     approveBooking as approveBookingApi,
     rejectBooking as rejectBookingApi,
     updateProfile as updateProfileApi,
+    listOwnerVenueReviews,
 } from "../../../lib/api";
 import { ApiError } from "../../../lib/apiClient";
 import { useAuth } from "../../../lib/auth";
@@ -75,6 +76,7 @@ export type HostedGame = {
 export type Review = {
     id: string;
     venueId: string;
+    venueName: string;
     playerName: string;
     playerAvatar?: string;
     rating: number;
@@ -199,13 +201,6 @@ function toUiBooking(b: BookingRead): Booking {
     };
 }
 
-const initialReviews: Review[] = [
-    { id: "r1", venueId: "v1", playerName: "John Doe", rating: 5, comment: "Amazing courts! Highly recommend.", date: "2026-09-28" },
-    { id: "r2", venueId: "v1", playerName: "Alice Johnson", rating: 4, comment: "Good facilities, but parking was full.", date: "2026-09-25" },
-    { id: "r3", venueId: "v2", playerName: "Jane Smith", rating: 5, comment: "Loved the clay courts.", date: "2026-09-20" },
-    { id: "r4", venueId: "v2", playerName: "Bob Williams", rating: 2, comment: "Court was closed for maintenance unexpectedly.", date: "2026-09-15" },
-];
-
 export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): JSX.Element => {
     const { profile: authProfile, session, refreshProfile } = useAuth();
 
@@ -213,8 +208,8 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
     const [venues, setVenues] = useState<Venue[]>([]);
     const [courts, setCourts] = useState<Court[]>([]);
     const [bookings, setBookings] = useState<Booking[]>([]);
-    // Mock-only areas with no backend endpoints yet.
-    const [reviews, setReviews] = useState<Review[]>(initialReviews);
+    // Review data is empty until a backend review endpoint is available.
+    const [reviews, setReviews] = useState<Review[]>([]);
 
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -238,10 +233,21 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
             const bookingPages = await Promise.all(
                 venueRows.map((v: VenueRead) => listVenueBookings(v.id, { page_size: 100 }))
             );
+            const reviewPage = await listOwnerVenueReviews({ page_size: 100 });
 
             setVenues(venueRows.map((v: VenueRead, i: number) => toUiVenue(v, courtSets[i] ?? [])));
             setCourts(courtSets.flatMap((rows) => rows).map(toUiCourt));
             setBookings(bookingPages.flatMap((page) => page.items).map(toUiBooking));
+            setReviews(reviewPage.items.map((review) => ({
+                id: review.id,
+                venueId: review.venue_id,
+                venueName: review.venue_name,
+                playerName: review.player_name || "Player",
+                playerAvatar: review.player_avatar ?? undefined,
+                rating: review.rating,
+                comment: review.comment ?? "",
+                date: review.created_at,
+            })));
         } catch (err) {
             setLoadError(errorMessage(err));
         } finally {

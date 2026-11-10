@@ -9,6 +9,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useVenueOwnerData } from "../context/VenueOwnerContext";
+import { SPORTS } from "../../../lib/sports";
 
 const venueSchema = z.object({
     name: z.string().min(3, "Venue name must be at least 3 characters"),
@@ -20,7 +21,6 @@ const venueSchema = z.object({
 
 type VenueFormValues = z.infer<typeof venueSchema>;
 
-const SPORTS = ["Football", "Basketball", "Tennis", "Badminton", "Volleyball"];
 const AMENITIES = ["Parking", "WiFi", "Locker Room", "Cafe", "Equipment Rental"];
 
 export default function AddVenuePage() {

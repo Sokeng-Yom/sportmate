@@ -11,6 +11,7 @@ import { ChevronRight, MapPin, Plus, Pencil, X, ShieldCheck, Upload, FileText } 
 import { useVenueOwnerData, Court } from "../../context/VenueOwnerContext";
 import { StatusBadge, EmptyState, ToastProvider, useToast } from "../../components/ui";
 import { supabase } from "../../../../lib/supabaseClient";
+import { SPORTS } from "../../../../lib/sports";
 
 const PAYMENT_PROOF_MAX_SIZE = 5 * 1024 * 1024;
 const PAYMENT_PROOF_TYPES: Record<string, string> = {
@@ -36,7 +37,6 @@ const courtSchema = z.object({
     active: z.boolean(),
 });
 type CourtFormValues = z.infer<typeof courtSchema>;
-const SPORTS = ["Football", "Basketball", "Tennis", "Badminton", "Volleyball"];
 
 function CourtModal({ open, venueId, court, onClose }: { open: boolean; venueId: string; court?: Court; onClose: () => void }) {
     const { addCourt, updateCourt } = useVenueOwnerData();

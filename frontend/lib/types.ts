@@ -278,6 +278,28 @@ export interface BookingRead {
   promo_code?: string | null;
 }
 
+export interface EligibleVenueReview {
+  booking_transaction_id: string;
+  venue_id: string;
+  venue_name: string;
+  court_names: string[];
+  start_time: string;
+  end_time: string;
+}
+
+export interface VenueReviewRead {
+  id: string;
+  booking_transaction_id: string;
+  venue_id: string;
+  venue_name: string;
+  player_id: string;
+  player_name: string;
+  player_avatar: string | null;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------

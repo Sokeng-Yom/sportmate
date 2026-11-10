@@ -10,8 +10,9 @@ import { ApiError } from "../../../lib/apiClient";
 import { joinMatch, leaveMatch, listMatches, listRecommendedMatches, searchCourts } from "../../../lib/api";
 import type { MatchRead, RecommendedMatch, CourtSearchItem } from "../../../lib/types";
 import { formatUtcDateTime, formatLocalDateString } from "../../../lib/dateUtils";
+import { SPORTS as ALL_SPORTS } from "../../../lib/sports";
 
-const SPORTS = ["Any sport", "Badminton", "Football", "Tennis", "Basketball", "Volleyball"];
+const SPORTS = ["Any sport", ...ALL_SPORTS];
 
 function formatTime(time: string): string {
     // "18:00:00" -> "18:00"

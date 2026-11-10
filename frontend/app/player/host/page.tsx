@@ -9,11 +9,7 @@ import {
 import { ApiError } from "../../../lib/apiClient";
 import { createMatch, joinMatch, listVenueCourts, listVenues } from "../../../lib/api";
 import type { CourtRead, VenueRead } from "../../../lib/types";
-
-const SPORTS = [
-    "Tennis", "Basketball", "Running", "Badminton", "Football",
-    "Volleyball", "Swimming", "Cycling", "Golf", "Cricket",
-];
+import { SPORTS } from "../../../lib/sports";
 
 const DURATIONS = [
     "30 min", "45 min", "1 hour", "1.5 hours", "2 hours", "2.5 hours", "3 hours",
