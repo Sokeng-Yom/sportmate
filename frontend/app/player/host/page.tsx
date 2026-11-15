@@ -154,6 +154,7 @@ function HostPageContent() {
             // Best-effort: the match itself is already live.
             try {
                 await joinMatch(match.id);
+                window.dispatchEvent(new Event("sportmate:game-joined"));
             } catch (err) {
                 setSubmitError(
                     `Your game was posted, but you could not join it: ${err instanceof ApiError ? err.message : "Please open My listings and retry."

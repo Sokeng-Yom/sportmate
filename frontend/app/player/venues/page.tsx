@@ -15,10 +15,14 @@ function localDate(): string {
 
 function SkeletonCard() {
     return (
-        <div className="space-y-3 rounded-2xl border border-gray-100 bg-white p-5 animate-pulse">
-            <div className="h-4 w-40 rounded bg-gray-200" />
-            <div className="h-3 w-52 rounded bg-gray-100" />
-            <div className="h-5 w-24 rounded bg-emerald-100" />
+        <div className="flex min-h-28 animate-pulse gap-3 rounded-2xl border border-slate-100 bg-white p-2 shadow-sm">
+            <div className="w-[36%] shrink-0 rounded-xl bg-slate-200" />
+            <div className="flex flex-1 flex-col gap-3 py-2">
+                <div className="h-4 w-40 rounded bg-gray-200" />
+                <div className="h-3 w-24 rounded bg-gray-100" />
+                <div className="h-3 w-48 rounded bg-gray-100" />
+                <div className="mt-auto h-5 w-24 rounded-full bg-emerald-100" />
+            </div>
         </div>
     );
 }
@@ -77,14 +81,14 @@ export default function VenuesListPage() {
 
     return (
         <div className="min-h-screen bg-[#F8F5F0] pb-20">
-            <section className="px-4 sm:px-6 pb-8 sm:pb-10 pt-10 sm:pt-16 text-center">
+            <section className="px-4 sm:px-6 pb-8 sm:pb-10 pt-5 sm:pt-8 text-center">
                 <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl md:text-5xl">Discover Venues</h1>
                 <p className="mx-auto max-w-xl text-base sm:text-lg text-slate-500">
                     Browse approved venues, courts, current discounts, and upcoming events.
                 </p>
             </section>
 
-            <section className="mx-auto mb-8 sm:mb-10 max-w-5xl px-4 sm:px-6">
+            <section className="mx-auto mb-8 sm:mb-10 max-w-screen-2xl px-4 sm:px-6">
                 <div className="flex flex-col items-stretch gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 sm:p-4 shadow-sm sm:flex-row sm:items-center">
                     <div className="flex flex-1 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 focus-within:ring-2 focus-within:ring-emerald-400">
                         <Search size={16} className="shrink-0 text-slate-400" />
@@ -112,9 +116,10 @@ export default function VenuesListPage() {
                 </div>
             </section>
 
-            <section className="mx-auto max-w-5xl px-4 sm:px-6">
+            <section className="mx-auto max-w-screen-2xl px-4 sm:px-6">
                 <div className="mb-5 flex items-center justify-between">
-                    <p className="text-sm font-medium text-slate-500">
+                    <p className="flex items-center gap-2 text-base font-extrabold text-slate-800">
+                        <span className="h-5 w-1 rounded-full bg-emerald-500" aria-hidden="true" />
                         {loading ? "Loading venues…" : `${filtered.length} venue${filtered.length !== 1 ? "s" : ""} found`}
                     </p>
                     <div className="flex items-center gap-4">
@@ -126,7 +131,7 @@ export default function VenuesListPage() {
                 {error ? (
                     <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">{error}</div>
                 ) : loading ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 5 }).map((_, index) => <SkeletonCard key={index} />)}</div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <SkeletonCard key={index} />)}</div>
                 ) : filtered.length === 0 ? (
                     <div className="rounded-2xl border border-gray-100 bg-white">
                         <EmptyState
@@ -137,7 +142,7 @@ export default function VenuesListPage() {
                         />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
                         {filtered.map((venue) => <VenueCard key={venue.id} venue={venue} />)}
                     </div>
                 )}

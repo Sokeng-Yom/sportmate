@@ -277,11 +277,32 @@ export default function MessagesPage() {
               {filtered.map((conversation) => {
                 const title = conversation.kind === "match"
                   ? matchTitle(conversation.match)
-                  : conversation.conversation.owner_name;
+                  : conversation.conversation.venue_names.join(", ") || conversation.conversation.owner_name;
                 const subtitle = conversation.kind === "match"
                   ? conversation.members.filter((member) => member.user_id !== profile?.id).map((member) => member.name).join(", ") || conversation.match.location
-                  : `${conversation.conversation.venue_names.join(", ")} · ${conversation.conversation.court_names.join(", ")}`;
-                const preview = conversation.lastMessage?.content ?? "No messages yet";
+                  : conversation.conversation.court_names.join(", ");
+                const lastMessage = conversation.lastMessage;
+                const venueSender = conversation.kind === "venue"
+                  ? lastMessage && lastMessage.sender_id === profile?.id
+                    ? "You"
+                    : lastMessage?.sender_id === conversation.conversation.owner_id
+                      ? conversation.conversation.owner_name || lastMessage.sender_name || "Venue owner"
+                      : lastMessage
+                        ? conversation.conversation.host_name || lastMessage.sender_name || "Player"
+                        : conversation.conversation.owner_name || "Venue owner"
+                  : null;
+                const previewSender = lastMessage
+                  ? lastMessage.sender_id === profile?.id
+                    ? "You"
+                    : conversation.kind === "match"
+                      ? conversation.members.find((member) => member.user_id === lastMessage.sender_id)?.name
+                        || lastMessage.sender_name
+                        || "Match participant"
+                      : ""
+                  : "";
+                const preview = lastMessage
+                  ? `${previewSender ? `${previewSender}: ` : ""}${lastMessage.content}`
+                  : "No messages yet";
                 return (
                   <li key={conversation.id}>
                     <button onClick={() => setSelectedId(conversation.id)} className={`w-full rounded-2xl px-3 py-3 text-left transition-colors min-h-[48px] ${selectedId === conversation.id ? "bg-white shadow-sm" : "hover:bg-white/60"}`}>
@@ -289,7 +310,14 @@ export default function MessagesPage() {
                         <p className="truncate text-sm font-semibold text-slate-800">{title}</p>
                         <span className="shrink-0 text-xs text-slate-400">{conversation.lastMessage ? formatTime(conversation.lastMessage.created_at) : ""}</span>
                       </div>
-                      <p className="mt-1 truncate text-xs text-slate-500">{conversation.kind === "venue" ? "Private venue message · " : ""}{subtitle}</p>
+                      {conversation.kind === "venue" && (
+                        <p className="mt-1 truncate text-xs font-semibold text-slate-600">
+                          {lastMessage
+                            ? lastMessage.sender_id === profile?.id ? profile?.name?.trim() || "You" : venueSender
+                            : venueSender}
+                        </p>
+                      )}
+                      {subtitle && <p className="mt-1 truncate text-xs text-slate-500">{subtitle}</p>}
                       <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
                     </button>
                   </li>
@@ -307,12 +335,16 @@ export default function MessagesPage() {
               <button aria-label="Back to conversations" onClick={() => setSelectedId(null)} className="p-1.5 -ml-1.5 rounded-lg text-slate-500 hover:bg-slate-100 md:hidden"><ArrowLeft size={20} /></button>
               <div className="min-w-0">
                 <h2 className="truncate font-extrabold text-slate-900">
-                  {selected.kind === "match" ? matchTitle(selected.match) : selected.conversation.owner_name}
+                  {selected.kind === "match"
+                    ? matchTitle(selected.match)
+                    : selected.conversation.venue_names.join(", ") || selected.conversation.owner_name}
                 </h2>
                 <p className="truncate text-xs text-slate-500">
                   {selected.kind === "match"
                     ? `${selected.match.location} · ${otherMembers.map((member) => member.name).join(", ") || "Just you"}`
-                    : `Private venue conversation · ${selected.conversation.venue_names.join(", ")} · ${selected.conversation.court_names.join(", ")}`}
+                    : [selected.conversation.court_names.join(", "), selected.conversation.owner_name]
+                      .filter(Boolean)
+                      .join(" · ")}
                 </p>
               </div>
               <span className={`ml-auto inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold ${liveUpdatesActive ? "text-emerald-700" : "text-slate-500"}`}>
@@ -325,14 +357,19 @@ export default function MessagesPage() {
                 <div className="flex h-full items-center justify-center text-sm text-slate-400">Start the conversation.</div>
               ) : messages.map((message) => {
                 const mine = message.sender_id === profile?.id;
-                const senderName = selected.kind === "venue"
-                  && message.sender_id === selected.conversation.owner_id
-                  ? selected.conversation.owner_name
-                  : message.sender_name;
+                const senderName = mine
+                  ? profile?.name?.trim() || "You"
+                  : selected.kind === "venue"
+                    ? (message.sender_id === selected.conversation.owner_id
+                      ? `Venue owner · ${selected.conversation.owner_name || message.sender_name || "Unknown"}`
+                      : `Player · ${selected.conversation.host_name || message.sender_name || "Unknown"}`)
+                    : selected.members.find((member) => member.user_id === message.sender_id)?.name
+                      || message.sender_name
+                      || "Match participant";
                 return (
                   <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-2.5 ${mine ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-800"}`}>
-                      {!mine && <p className="mb-1 text-xs font-bold opacity-70">{senderName}</p>}
+                      <p className="mb-1 text-xs font-bold opacity-70">{senderName}</p>
                       <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
                       <p className={`mt-1 text-right text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>{formatTime(message.created_at)}</p>
                     </div>

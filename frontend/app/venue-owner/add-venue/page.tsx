@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useState, type ChangeEvent } from "react";
+import { useController, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Building, MapPin, Target, CheckCircle2, ChevronRight } from "lucide-react";
+import { Building, MapPin, Target, CheckCircle2, ChevronRight, ImagePlus } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,13 +15,15 @@ const venueSchema = z.object({
     name: z.string().min(3, "Venue name must be at least 3 characters"),
     address: z.string().min(5, "Address must be at least 5 characters"),
     description: z.string().min(20, "Provide a brief description (at least 20 chars)"),
-    sports: z.array(z.string()).min(1, "Select at least one sport"),
+    sports: z.array(z.string()).length(1, "Select one sport"),
     amenities: z.array(z.string()).optional(),
 });
 
 type VenueFormValues = z.infer<typeof venueSchema>;
 
 const AMENITIES = ["Parking", "WiFi", "Locker Room", "Cafe", "Equipment Rental"];
+const MAX_VENUE_PHOTO_SIZE = 5 * 1024 * 1024;
+const VENUE_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export default function AddVenuePage() {
     const router = useRouter();
@@ -29,24 +31,58 @@ export default function AddVenuePage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [venuePhoto, setVenuePhoto] = useState<File | null>(null);
+    const [venuePhotoPreview, setVenuePhotoPreview] = useState<string | null>(null);
+    const [photoError, setPhotoError] = useState<string | null>(null);
 
-    const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<VenueFormValues>({
+    useEffect(() => {
+        if (!venuePhoto) {
+            setVenuePhotoPreview(null);
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(venuePhoto);
+        setVenuePhotoPreview(previewUrl);
+        return () => URL.revokeObjectURL(previewUrl);
+    }, [venuePhoto]);
+
+    const { register, handleSubmit, control, setValue, formState: { errors } } = useForm<VenueFormValues>({
         resolver: zodResolver(venueSchema),
         defaultValues: { sports: [], amenities: [] },
     });
 
-    const selectedSports = watch("sports");
-    const selectedAmenities = watch("amenities") || [];
+    const { field: sportsField } = useController({ control, name: "sports" });
+    const { field: amenitiesField } = useController({ control, name: "amenities" });
+    const selectedSports = sportsField.value;
+    const selectedAmenities = amenitiesField.value ?? [];
 
-    const toggleItem = (field: "sports" | "amenities", value: string, current: string[]) => {
+    const toggleAmenity = (value: string, current: string[]) => {
         if (current.includes(value)) {
-            setValue(field, current.filter((i) => i !== value), { shouldValidate: true });
+            setValue("amenities", current.filter((item) => item !== value), { shouldValidate: true });
         } else {
-            setValue(field, [...current, value], { shouldValidate: true });
+            setValue("amenities", [...current, value], { shouldValidate: true });
         }
     };
 
+    const handleVenuePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0] ?? null;
+        event.target.value = "";
+        setPhotoError(null);
+        if (!file) return;
+        setVenuePhoto(null);
+        if (!VENUE_PHOTO_TYPES.has(file.type)) {
+            setPhotoError("Choose a JPG, PNG, or WebP image.");
+            return;
+        }
+        if (file.size > MAX_VENUE_PHOTO_SIZE) {
+            setPhotoError("Venue photos must be 5 MB or smaller.");
+            return;
+        }
+        setVenuePhoto(file);
+    };
+
     const onSubmit = async (data: VenueFormValues) => {
+        if (photoError) return;
         setIsSubmitting(true);
         setSubmitError(null);
         const result = await addVenue({
@@ -55,10 +91,11 @@ export default function AddVenuePage() {
             description: data.description,
             sports: data.sports,
             amenities: data.amenities ?? [],
-        });
+        }, venuePhoto ?? undefined);
         setIsSubmitting(false);
         if (!result.ok) {
             setSubmitError(result.error ?? "Unable to create the venue. Please try again.");
+            if (result.created) setSuccess(true);
             return;
         }
         setSuccess(true);
@@ -74,8 +111,15 @@ export default function AddVenuePage() {
                 </motion.div>
                 <motion.h2 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}
                     className="text-3xl font-extrabold text-slate-900 mb-2">Venue Added!</motion.h2>
-                <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
-                    className="text-slate-500 mb-8">Redirecting to My Venues…</motion.p>
+                {submitError ? (
+                    <p role="alert" className="text-amber-700 text-center mb-6">{submitError}</p>
+                ) : (
+                    <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
+                        className="text-slate-500 mb-8">Redirecting to My Venues…</motion.p>
+                )}
+                <Link href="/venue-owner/venues" className="text-emerald-700 font-semibold hover:underline">
+                    Go to My Venues
+                </Link>
             </div>
         );
     }
@@ -121,6 +165,32 @@ export default function AddVenuePage() {
                                         className="w-full min-h-[100px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all resize-y placeholder:text-slate-400" />
                                     {errors.description && <p className="text-red-500 text-xs mt-1 font-medium">{errors.description.message}</p>}
                                 </div>
+                                <div>
+                                    <label htmlFor="venue-photo" className="block text-sm font-semibold text-slate-700 mb-2">Venue Photo (optional)</label>
+                                    <input
+                                        id="venue-photo"
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        onChange={handleVenuePhotoChange}
+                                        className="sr-only"
+                                    />
+                                    <label
+                                        htmlFor="venue-photo"
+                                        className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600 hover:border-emerald-400 hover:bg-emerald-50"
+                                    >
+                                        <ImagePlus size={18} className="text-emerald-600" />
+                                        {venuePhoto ? "Choose a different photo" : "Upload a venue photo"}
+                                    </label>
+                                    <p className="mt-1 text-xs text-slate-500">JPG, PNG, or WebP, up to 5 MB.</p>
+                                    {photoError && <p role="alert" className="mt-1 text-xs font-medium text-red-500">{photoError}</p>}
+                                    {venuePhotoPreview && (
+                                        <img
+                                            src={venuePhotoPreview}
+                                            alt="Venue photo preview"
+                                            className="mt-3 h-40 w-full rounded-xl object-cover"
+                                        />
+                                    )}
+                                </div>
                             </div>
                         </section>
 
@@ -132,13 +202,13 @@ export default function AddVenuePage() {
                                 <Target size={20} className="text-emerald-500" /> Facilities
                             </h3>
                             <div className="mb-6">
-                                <label className="block text-sm font-semibold text-slate-700 mb-3">Available Sports</label>
-                                <div className="flex flex-wrap gap-2">
+                                <label className="block text-sm font-semibold text-slate-700 mb-3">Available Sport (select one)</label>
+                                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Available sport">
                                     {SPORTS.map((sport) => {
                                         const active = selectedSports.includes(sport);
                                         return (
-                                            <button type="button" key={sport}
-                                                onClick={() => toggleItem("sports", sport, selectedSports)}
+                                            <button type="button" key={sport} role="radio" aria-checked={active}
+                                                onClick={() => setValue("sports", [sport], { shouldValidate: true })}
                                                 className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${active ? "bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-600/20" : "bg-white border-slate-200 text-slate-600 hover:border-emerald-200 hover:bg-emerald-50"}`}>
                                                 {sport}
                                             </button>
@@ -154,7 +224,7 @@ export default function AddVenuePage() {
                                         const active = selectedAmenities.includes(amenity);
                                         return (
                                             <button type="button" key={amenity}
-                                                onClick={() => toggleItem("amenities", amenity, selectedAmenities)}
+                                                onClick={() => toggleAmenity(amenity, selectedAmenities)}
                                                 className={`px-4 py-2 rounded-xl border text-sm font-medium transition-all ${active ? "bg-slate-900 border-slate-900 text-white shadow-md shadow-slate-900/20" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}>
                                                 {amenity}
                                             </button>

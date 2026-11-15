@@ -49,7 +49,11 @@ def accept_waiting_list_entry(
 
     entry.status = "ACCEPTED"
     db.add(MatchPlayer(id=uuid.uuid4(), match_id=entry.match_id, user_id=entry.user_id))
-    if joined + 1 >= match.players_needed and match.status == MatchStatus.OPEN:
+    if (
+        str(entry.user_id) != str(match.created_by)
+        and joined + 1 >= match.players_needed
+        and match.status == MatchStatus.OPEN
+    ):
         match.status = MatchStatus.FULL  # a CONFIRMED (booked) match keeps its status
 
     db.commit()

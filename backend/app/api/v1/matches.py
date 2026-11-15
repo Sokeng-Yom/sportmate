@@ -441,7 +441,10 @@ def join_match(
         own_offer.status = "ACCEPTED"
 
     db.add(MatchPlayer(id=uuid.uuid4(), match_id=match_id, user_id=user_id))
-    became_full = joined + 1 >= match.players_needed
+    became_full = (
+        str(match.created_by) != str(user_id)
+        and joined + 1 >= match.players_needed
+    )
     if became_full and match.status == MatchStatus.OPEN:
         match.status = MatchStatus.FULL  # a CONFIRMED (booked) match keeps its status
     notify_player_joined(db, match, uuid.UUID(str(user_id)), profile.name if profile else "", became_full)

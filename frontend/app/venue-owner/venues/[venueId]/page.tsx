@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, MapPin, Plus, Pencil, X, ShieldCheck, Upload, FileText } from "lucide-react";
+import { ChevronRight, MapPin, Plus, Pencil, X, ShieldCheck, Upload, FileText, CloudUpload, Copy, Check } from "lucide-react";
 import { useVenueOwnerData, Court } from "../../context/VenueOwnerContext";
 import { StatusBadge, EmptyState, ToastProvider, useToast } from "../../components/ui";
 import { supabase } from "../../../../lib/supabaseClient";
@@ -149,6 +149,7 @@ function VenueDetailContent() {
     const [paymentProof, setPaymentProof] = useState<File | null>(null);
     const [paymentError, setPaymentError] = useState<string | null>(null);
     const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+    const [accountCopied, setAccountCopied] = useState(false);
     const paymentInputRef = useRef<HTMLInputElement>(null);
 
     const venue = venues.find((v) => v.id === venueId);
@@ -180,6 +181,16 @@ function VenueDetailContent() {
             return;
         }
         setPaymentProof(file);
+    };
+
+    const copyPaymentAccount = async () => {
+        try {
+            await navigator.clipboard.writeText("000 123 456");
+            setAccountCopied(true);
+            window.setTimeout(() => setAccountCopied(false), 2000);
+        } catch {
+            setPaymentError("Could not copy the account number. Please copy it manually.");
+        }
     };
 
     const handleConfirmPayment = async (event: FormEvent<HTMLFormElement>) => {
@@ -276,15 +287,15 @@ function VenueDetailContent() {
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="payment-proof-title"
-                            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+                            className="w-full max-w-3xl rounded-3xl bg-white p-5 shadow-2xl sm:p-8"
                             initial={{ scale: 0.96, y: 12 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.96, y: 12 }}
                         >
-                            <div className="mb-5 flex items-start justify-between gap-4">
+                            <div className="mb-6 flex items-start justify-between gap-4">
                                 <div>
-                                    <h2 id="payment-proof-title" className="text-xl font-extrabold text-slate-900">Upload payment proof</h2>
-                                    <p className="mt-1 text-sm text-slate-500">Attach your payment receipt before submitting this venue for review.</p>
+                                    <h2 id="payment-proof-title" className="text-xl font-extrabold text-slate-900 sm:text-2xl">Confirm your venue payment</h2>
+                                    <p className="mt-1 text-sm text-slate-500">Pay to this account, then upload your receipt or payment screenshot.</p>
                                 </div>
                                 <button type="button" onClick={() => setPaymentModalOpen(false)} aria-label="Close dialog" className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                                     <X size={20} />
@@ -302,30 +313,56 @@ function VenueDetailContent() {
                                 <button
                                     type="button"
                                     onClick={() => paymentInputRef.current?.click()}
-                                    className="flex w-full items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 px-4 py-5 text-left hover:border-emerald-400 hover:bg-emerald-50/40"
+                                    className="flex min-h-24 w-full items-center gap-4 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50/70 px-4 py-4 text-left transition-colors hover:bg-emerald-50 sm:px-7"
                                 >
-                                    {paymentProof ? <FileText size={22} className="shrink-0 text-emerald-600" /> : <Upload size={22} className="shrink-0 text-slate-400" />}
+                                    {paymentProof
+                                        ? <FileText size={32} className="shrink-0 text-emerald-700" />
+                                        : <CloudUpload size={42} className="shrink-0 text-emerald-700" />}
                                     <span className="min-w-0">
-                                        <span className="block truncate text-sm font-bold text-slate-800">{paymentProof?.name ?? "Choose a receipt or payment screenshot"}</span>
-                                        <span className="mt-1 block text-xs text-slate-500">JPG, PNG, WebP, or PDF · up to 5 MB</span>
+                                        <span className="block truncate text-sm font-extrabold text-slate-900 sm:text-base">{paymentProof?.name ?? "Choose a receipt or payment screenshot"}</span>
+                                        <span className="mt-1 block text-xs text-slate-600 sm:text-sm">JPG, PNG, WebP, or PDF · up to 5 MB</span>
                                     </span>
                                 </button>
 
+                                <section aria-label="Payment account details" className="mt-5 grid gap-4 rounded-2xl border border-blue-200 bg-blue-50 p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-6 sm:p-5">
+                                    <div className="flex h-20 w-24 items-center justify-center rounded-xl bg-sky-950 text-white shadow-sm">
+                                        <div className="text-center leading-none">
+                                            <span className="block text-2xl font-black tracking-wide">ABA<span className="text-red-500">.</span></span>
+                                            <span className="mt-1 block text-[10px] font-bold tracking-[0.3em]">BANK</span>
+                                        </div>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-lg font-extrabold text-slate-900">ABA Bank</h3>
+                                        <p className="text-sm text-slate-600">Account Number</p>
+                                        <div className="mt-1 flex items-center justify-between gap-2 rounded-xl bg-blue-100 px-3 py-1.5">
+                                            <span className="font-mono text-lg font-extrabold tracking-wider text-slate-900 sm:text-xl">000 123 456</span>
+                                            <button type="button" onClick={() => void copyPaymentAccount()} aria-label="Copy account number" className="rounded-lg p-1.5 text-blue-700 hover:bg-white/70">
+                                                {accountCopied ? <Check size={19} /> : <Copy size={19} />}
+                                            </button>
+                                        </div>
+                                        <p className="mt-1.5 text-sm text-slate-600">Account Owner: <span className="font-semibold text-slate-800">SportMates</span></p>
+                                    </div>
+                                    <div className="flex items-center gap-2 rounded-xl bg-emerald-100 px-4 py-3 text-sm font-bold text-emerald-800 sm:max-w-44">
+                                        <ShieldCheck size={22} className="shrink-0 text-emerald-700" />
+                                        <span>You can pay to this account</span>
+                                    </div>
+                                </section>
+
                                 {paymentError && <p role="alert" className="mt-3 text-sm font-medium text-rose-600">{paymentError}</p>}
 
-                                <div className="mt-6 flex justify-end gap-3">
+                                <div className="mt-6 flex flex-col-reverse justify-end gap-3 sm:flex-row">
                                     <button
                                         type="button"
                                         onClick={() => setPaymentModalOpen(false)}
                                         disabled={isSubmittingPayment}
-                                        className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                        className="rounded-full border border-slate-200 px-6 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={!paymentProof || isSubmittingPayment}
-                                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         <ShieldCheck size={16} />
                                         {isSubmittingPayment ? "Uploading…" : "Confirm & submit"}

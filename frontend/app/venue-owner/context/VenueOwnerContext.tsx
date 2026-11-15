@@ -6,6 +6,7 @@ import {
     listVenueCourts,
     listVenueBookings,
     createVenue,
+    updateVenue as updateVenueApi,
     confirmVenuePayment,
     createCourt,
     updateCourt as updateCourtApi,
@@ -17,6 +18,7 @@ import {
 } from "../../../lib/api";
 import { ApiError } from "../../../lib/apiClient";
 import { useAuth } from "../../../lib/auth";
+import { supabase } from "../../../lib/supabaseClient";
 import type { BookingRead, CourtRead, VenueRead, WeeklyAvailability } from "../../../lib/types";
 
 export type Venue = {
@@ -102,7 +104,7 @@ type VenueOwnerContextType = {
     loadError: string | null;
     refresh: () => Promise<void>;
     confirmPayment: (venueId: string, paymentProofPath: string) => Promise<MutationResult>;
-    addVenue: (venue: Omit<Venue, "id" | "status">) => Promise<MutationResult>;
+    addVenue: (venue: Omit<Venue, "id" | "status">, photo?: File) => Promise<MutationResult>;
     addCourt: (court: Omit<Court, "id">) => Promise<MutationResult>;
     updateCourt: (id: string, court: Partial<Court>) => Promise<MutationResult>;
     updateBookingStatus: (id: string, status: Booking["status"], reason?: string) => Promise<MutationResult>;
@@ -118,7 +120,7 @@ const VenueOwnerContext = createContext<VenueOwnerContextType | undefined>(undef
 // value and the pages render them as "—".
 // ---------------------------------------------------------------------------
 
-type MutationResult = { ok: boolean; error?: string };
+type MutationResult = { ok: boolean; error?: string; created?: boolean };
 
 const VENUE_STATUS_LABELS: Record<string, string> = {
     PAYMENT_PENDING: "Payment pending",
@@ -128,6 +130,11 @@ const VENUE_STATUS_LABELS: Record<string, string> = {
 };
 
 const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const VENUE_PHOTO_EXTENSIONS: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+};
 
 function errorMessage(err: unknown): string {
     return err instanceof ApiError ? err.message : "Something went wrong. Please try again.";
@@ -261,21 +268,63 @@ export const VenueOwnerDataProvider = ({ children }: { children: ReactNode }): J
 
     // Keep the owner profile shown in the UI in sync with the authenticated profile.
     useEffect(() => {
-        if (!authProfile) return;
+        const metadata = session?.user.user_metadata;
+        const metadataName = [metadata?.name, metadata?.full_name, metadata?.display_name]
+            .find((value): value is string => typeof value === "string" && value.trim().length > 0)
+            ?.trim();
+        const profileName = authProfile?.name?.trim();
+        const displayName = profileName && !["member", "venue owner"].includes(profileName.toLowerCase())
+            ? profileName
+            : metadataName || session?.user.email?.split("@")[0]?.trim() || "Venue Owner";
+
         setProfile((prev) => ({
             ...prev,
-            name: authProfile.name || prev.name,
-            avatar: authProfile.avatar || prev.avatar,
-            email: session?.user?.email || prev.email,
+            name: displayName,
+            avatar: authProfile?.avatar || prev.avatar,
+            email: session?.user.email || prev.email,
         }));
     }, [authProfile, session]);
 
-    const addVenue = useCallback(async (venue: Omit<Venue, "id" | "status">): Promise<MutationResult> => {
+    const addVenue = useCallback(async (venue: Omit<Venue, "id" | "status">, photo?: File): Promise<MutationResult> => {
+        let created = false;
         try {
-            await createVenue({ name: venue.name, address: venue.address, description: venue.description || null });
+            const createdVenue = await createVenue({
+                name: venue.name,
+                address: venue.address,
+                description: venue.description || null,
+            });
+            created = true;
+
+            if (photo) {
+                const extension = VENUE_PHOTO_EXTENSIONS[photo.type];
+                if (!extension) throw new Error("Choose a JPG, PNG, or WebP image.");
+
+                const photoPath = `${createdVenue.id}/cover.${extension}`;
+                const { error: uploadError } = await supabase.storage
+                    .from("venue-photos")
+                    .upload(photoPath, photo, {
+                        cacheControl: "3600",
+                        contentType: photo.type,
+                        upsert: true,
+                    });
+                if (uploadError) throw uploadError;
+
+                const { data } = supabase.storage.from("venue-photos").getPublicUrl(photoPath);
+                await updateVenueApi(createdVenue.id, { photo_url: data.publicUrl });
+            }
+
             await refresh();
             return { ok: true };
         } catch (err) {
+            if (created) {
+                await refresh();
+                const detail = err instanceof Error ? err.message : errorMessage(err);
+                return {
+                    ok: false,
+                    created: true,
+                    error: `Venue was created, but its photo could not be saved: ${detail}`,
+                };
+            }
             return { ok: false, error: errorMessage(err) };
         }
     }, [refresh]);

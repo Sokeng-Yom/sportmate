@@ -27,8 +27,21 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
     const router = useRouter();
     const { profile, signOut } = useAuth();
     const [unreadMessages, setUnreadMessages] = useState(0);
+    const [hasNewGameJoin, setHasNewGameJoin] = useState(false);
     const [hasPendingFeedback, setHasPendingFeedback] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const handleGameJoined = () => setHasNewGameJoin(true);
+        window.addEventListener("sportmate:game-joined", handleGameJoined);
+        return () => window.removeEventListener("sportmate:game-joined", handleGameJoined);
+    }, []);
+
+    useEffect(() => {
+        if (pathname.startsWith("/player/messages")) {
+            setHasNewGameJoin(false);
+        }
+    }, [pathname]);
 
     // Prevent background scrolling when mobile drawer is open
     useEffect(() => {
@@ -185,6 +198,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                         {navLinks.map((link) => {
                             const active = isLinkActive(link.href);
                             const hasBadge = link.name === "Messages" && unreadMessages > 0;
+                            const hasGameJoinDot = link.name === "Messages" && hasNewGameJoin;
                             const hasFeedbackBadge = link.name === "Feedback" && hasPendingFeedback;
 
                             return (
@@ -193,7 +207,11 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                     href={link.href}
                                     aria-current={active ? "page" : undefined}
                                     aria-label={
-                                        hasBadge
+                                        hasGameJoinDot && hasBadge
+                                            ? `Messages, game joined, ${unreadMessages} unread`
+                                            : hasGameJoinDot
+                                            ? "Messages, game joined"
+                                            : hasBadge
                                             ? `Messages, ${unreadMessages} unread`
                                             : hasFeedbackBadge
                                             ? "Feedback, unfinished reviews"
@@ -207,6 +225,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                 >
                                     <span className="relative flex items-center gap-1.5">
                                         {link.name}
+                                        {hasGameJoinDot && (
+                                            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500" />
+                                        )}
                                         {hasFeedbackBadge && (
                                             <span
                                                 aria-hidden="true"
@@ -294,6 +315,7 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                     const Icon = link.icon;
                                     const active = isLinkActive(link.href);
                                     const hasBadge = link.name === "Messages" && unreadMessages > 0;
+                                    const hasGameJoinDot = link.name === "Messages" && hasNewGameJoin;
                                     const hasFeedbackBadge = link.name === "Feedback" && hasPendingFeedback;
 
                                     return (
@@ -319,6 +341,9 @@ export default function PlayerLayout({ children }: { children: React.ReactNode }
                                                 <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
                                                     {unreadMessages}
                                                 </span>
+                                            )}
+                                            {hasGameJoinDot && (
+                                                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500" />
                                             )}
                                             {hasFeedbackBadge && (
                                                 <span

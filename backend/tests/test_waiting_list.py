@@ -177,3 +177,30 @@ def test_accept_transitions_match_to_full_when_capacity_reached(client, auth_hea
 
     match_detail = client.get(f"/api/v1/matches/{match_id}", headers=waiter_headers)
     assert match_detail.json()["status"] == "FULL"
+
+
+def test_host_accepting_waitlist_offer_does_not_fill_additional_slot(
+    client, auth_headers_for
+):
+    creator = auth_headers_for("PLAYER")
+    filler = auth_headers_for("PLAYER")
+    match_id = create_full_match(client, creator, players_needed=1)
+
+    joined = client.post(f"/api/v1/matches/{match_id}/join", headers=filler)
+    assert joined.status_code == 200
+    assert joined.json()["status"] == "FULL"
+
+    waiting = client.post(
+        f"/api/v1/matches/{match_id}/waiting-list",
+        headers=creator,
+    )
+    assert waiting.status_code == 201
+    client.post(f"/api/v1/matches/{match_id}/leave", headers=filler)
+
+    accepted = client.post(
+        f"/api/v1/waiting-list/{waiting.json()['id']}/accept",
+        headers=creator,
+    )
+    assert accepted.status_code == 200
+    detail = client.get(f"/api/v1/matches/{match_id}", headers=creator)
+    assert detail.json()["status"] == "OPEN"

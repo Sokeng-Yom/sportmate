@@ -114,6 +114,32 @@ def test_players_needed_is_additional_to_the_host(client, auth_headers_for, new_
     assert extra_player.status_code == 400
 
 
+def test_host_join_does_not_fill_match_with_one_additional_player(
+    client, auth_headers_for, new_match
+):
+    host = auth_headers_for("PLAYER")
+    match_id, _ = new_match(host, players_needed=1)
+
+    host_joined = client.post(f"/api/v1/matches/{match_id}/join", headers=host)
+    assert host_joined.status_code == 200
+    assert host_joined.json()["status"] == "OPEN"
+    listed_match = client.get(
+        "/api/v1/matches?created_by_me=true",
+        headers=host,
+    )
+    assert listed_match.status_code == 200
+    match = next(item for item in listed_match.json()["items"] if item["id"] == match_id)
+    assert match["status"] == "OPEN"
+    assert match["joined_count_excluding_host"] == 0
+
+    player_joined = client.post(
+        f"/api/v1/matches/{match_id}/join",
+        headers=auth_headers_for("PLAYER"),
+    )
+    assert player_joined.status_code == 200
+    assert player_joined.json()["status"] == "FULL"
+
+
 def test_pending_court_booking_does_not_block_remaining_player_slots(
     client, auth_headers_for, new_match, db_session, make_approved_venue, make_court, user_id_of
 ):
@@ -183,6 +209,14 @@ def test_match_court_selection_shows_booking_review_status(
     match_id = response.json()["id"]
     joined = client.post(f"/api/v1/matches/{match_id}/join", headers=headers)
     assert joined.status_code == 200, joined.text
+    assert joined.json()["status"] == "OPEN"
+    additional_player_joined = client.post(
+        f"/api/v1/matches/{match_id}/join",
+        headers=auth_headers_for("PLAYER"),
+    )
+    assert additional_player_joined.status_code == 200, additional_player_joined.text
+    assert additional_player_joined.json()["status"] == "FULL"
+
     wrong_duration = client.post(
         "/api/v1/bookings",
         json={"match_id": match_id, "court_id": court["id"], "duration_minutes": 60},

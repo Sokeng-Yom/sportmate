@@ -9,6 +9,7 @@ SportMate's frontend is built with Next.js 14, React, TypeScript, and Tailwind C
 - **Accounts:** Sign-up and sign-in use Supabase Auth. Registration collects a name and account type, then routes users to the player or venue-owner area.
 - **Players:** Players can explore games, host a game or request a court booking, view their listings, browse venues, and open a messaging screen.
 - **Venue owners:** Venue owners have screens for a dashboard, venues and courts, bookings, messages, reviews, and settings.
+- **Admins:** Admins can upload and remove sport photos that are randomly shown on game cards.
 - **Shared UI:** Forms use validation, and the app includes reusable empty states, status badges, confirmation dialogs, and toast notifications.
 
 ### Current implementation status
