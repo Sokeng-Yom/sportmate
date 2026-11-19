@@ -6,7 +6,9 @@ import { VenueOwnerDataProvider } from "./context/VenueOwnerContext";
 import { RouteGuard, useAuth } from "../../lib/auth";
 import NotificationsBell from "../components/NotificationsBell";
 import UserProfileMenu from "../components/UserProfileMenu";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { listVenueOwnerConversations } from "../../lib/api";
+import { supabase } from "../../lib/supabaseClient";
 import {
     LayoutDashboard,
     Building2,
@@ -27,6 +29,48 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
     const router = useRouter();
     const { profile, signOut } = useAuth();
     const [mobileNav, setMobileNav] = useState(false);
+    const [unreadMessages, setUnreadMessages] = useState(0);
+
+    const refreshUnreadMessages = useCallback(async () => {
+        try {
+            const page = await listVenueOwnerConversations();
+            setUnreadMessages(
+                page.items.reduce((total, conversation) => total + conversation.unread_count, 0),
+            );
+        } catch (error) {
+            console.error("Failed to load venue-owner unread message count:", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!profile?.id) return;
+
+        void refreshUnreadMessages();
+        const channel = supabase
+            .channel(`venue-owner-unread-messages-${profile.id}`)
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "venue_direct_messages" },
+                () => void refreshUnreadMessages(),
+            )
+            .subscribe();
+        const intervalId = window.setInterval(() => void refreshUnreadMessages(), 15000);
+        const refreshOnFocus = () => {
+            if (document.visibilityState === "visible") void refreshUnreadMessages();
+        };
+        const refreshOnChatRead = () => void refreshUnreadMessages();
+        window.addEventListener("focus", refreshOnFocus);
+        window.addEventListener("sportmate:venue-owner-chat-read", refreshOnChatRead);
+        document.addEventListener("visibilitychange", refreshOnFocus);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener("focus", refreshOnFocus);
+            window.removeEventListener("sportmate:venue-owner-chat-read", refreshOnChatRead);
+            document.removeEventListener("visibilitychange", refreshOnFocus);
+            void supabase.removeChannel(channel);
+        };
+    }, [profile?.id, refreshUnreadMessages]);
 
     // Prevent body scrolling when mobile drawer is open
     useEffect(() => {
@@ -141,17 +185,29 @@ export default function VenueOwnerLayout({ children }: { children: React.ReactNo
                             href={link.href}
                             onClick={() => isMobile && setMobileNav(false)}
                             aria-current={isActive ? "page" : undefined}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-semibold text-sm ${
+                            aria-label={
+                                link.name === "Messages" && unreadMessages > 0
+                                    ? `Messages, ${unreadMessages} unread`
+                                    : link.name
+                            }
+                            className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-colors font-semibold text-sm ${
                                 isActive
                                     ? "bg-emerald-50 text-emerald-600"
                                     : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
                             }`}
                         >
-                            <Icon
-                                size={19}
-                                className={isActive ? "text-emerald-600" : "text-slate-400"}
-                            />
-                            <span className="truncate">{link.name}</span>
+                            <span className="flex min-w-0 items-center gap-3">
+                                <Icon
+                                    size={19}
+                                    className={isActive ? "text-emerald-600" : "text-slate-400"}
+                                />
+                                <span className="truncate">{link.name}</span>
+                            </span>
+                            {link.name === "Messages" && unreadMessages > 0 && (
+                                <span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">
+                                    {unreadMessages > 99 ? "99+" : unreadMessages}
+                                </span>
+                            )}
                         </Link>
                     );
                 })}

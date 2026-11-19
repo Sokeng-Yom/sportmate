@@ -176,9 +176,9 @@ def _prepare_booking(
         )
     if match.status == MatchStatus.CONFIRMED:
         raise HTTPException(status_code=400, detail="This match already has a confirmed booking")
-    if match.status != MatchStatus.FULL:
+    if match.status not in (MatchStatus.OPEN, MatchStatus.FULL):
         raise HTTPException(
-            status_code=400, detail="A court can only be booked once the match is full"
+            status_code=400, detail="A court can only be requested for an open or full match"
         )
     active_booking = (
         db.query(Booking.id)
@@ -331,7 +331,7 @@ def quote_booking(
     "/bookings",
     response_model=BookingRead,
     status_code=201,
-    summary="Book one or more courts for a full match",
+    summary="Request one or more courts for an open or full match",
 )
 def create_booking(
     payload: BookingCreate,
@@ -475,8 +475,6 @@ def approve_booking(
     siblings = _transaction_bookings(db, booking)
     if match is None:
         raise HTTPException(status_code=400, detail="Only match bookings can be approved")
-    if match.status != MatchStatus.FULL:
-        raise HTTPException(status_code=400, detail="The match is no longer full")
     if any(item.status != BookingStatus.PENDING for item in siblings):
         raise HTTPException(
             status_code=400, detail="All courts in this booking must still be pending"

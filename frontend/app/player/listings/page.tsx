@@ -490,6 +490,7 @@ export default function MyListingsPage() {
                             const displayStatus = effectiveMatchStatus(match);
                             const canCancel = displayStatus === "OPEN" || displayStatus === "FULL" || displayStatus === "CONFIRMED";
                             const matchStarted = hasMatchStarted(match.date, match.time);
+                            const canRequestBooking = ["OPEN", "FULL"].includes(displayStatus);
                             const canEdit = match.status !== "CANCELLED"
                                 && match.status !== "COMPLETED";
                             const joinedPlayers = match.joined_count_excluding_host;
@@ -645,12 +646,12 @@ export default function MyListingsPage() {
                                                     Edit game
                                                 </button>
                                             )}
-                                            {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && displayStatus === "FULL" && matchStarted && (
+                                            {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && canRequestBooking && matchStarted && (
                                                 <span className="text-xs font-semibold text-slate-500">
                                                     Game time passed; booking unavailable
                                                 </span>
                                             )}
-                                            {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && displayStatus === "FULL" && !matchStarted && (
+                                            {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && canRequestBooking && !matchStarted && (
                                                 <button
                                                     disabled={busyId === match.id}
                                                     onClick={() => handleBookCourt(match)}

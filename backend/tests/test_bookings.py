@@ -391,15 +391,42 @@ def test_cancelling_a_match_with_pending_request_withdraws_it(client, new_match,
     )
 
 
-def test_match_must_be_full(client, new_match, booking_setup):
+def test_host_can_request_booking_before_match_is_full(
+    client, new_match, booking_setup, auth_headers_for
+):
     s = booking_setup
     match_id, _ = new_match(s["creator"], players_needed=2)
     assert (
         client.post(f"/api/v1/matches/{match_id}/join", headers=s["filler"]).status_code == 200
     )  # 1 of 2
+
+    quote = client.post(
+        "/api/v1/bookings/quote",
+        json={
+            "match_id": match_id,
+            "court_ids": [s["court"]["id"]],
+            "duration_minutes": 60,
+        },
+        headers=s["creator"],
+    )
+    assert quote.status_code == 200, quote.text
+
     response = _book(client, s["creator"], match_id, s["court"]["id"])
-    assert response.status_code == 400
-    assert "full" in response.json()["detail"].lower()
+    assert response.status_code == 201, response.text
+    booking = response.json()
+    assert booking["status"] == "PENDING"
+    approved = _approve(client, s["owner"], booking["id"])
+    assert approved.status_code == 200, approved.text
+    assert approved.json()["status"] == "CONFIRMED"
+    assert (
+        client.get(f"/api/v1/matches/{match_id}", headers=s["creator"]).json()["status"]
+        == "CONFIRMED"
+    )
+
+    final_player = auth_headers_for("PLAYER")
+    joined = client.post(f"/api/v1/matches/{match_id}/join", headers=final_player)
+    assert joined.status_code == 200, joined.text
+    assert joined.json()["status"] == "CONFIRMED"
 
 
 def test_a_match_cannot_be_booked_twice(client, new_match, booking_setup, make_court):

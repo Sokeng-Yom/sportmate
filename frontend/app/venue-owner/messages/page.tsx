@@ -95,7 +95,10 @@ export default function MessagesPage() {
                 page.items.forEach((message) => messageIdsRef.current.add(message.id));
                 if (markRead || hasNewIncoming) {
                     await markVenueOwnerMessagesRead(selected.conversation_id);
-                    if (!cancelled) void loadConversations();
+                    if (!cancelled) {
+                        window.dispatchEvent(new Event("sportmate:venue-owner-chat-read"));
+                        void loadConversations();
+                    }
                 }
             } catch (err) {
                 if (!cancelled) {
