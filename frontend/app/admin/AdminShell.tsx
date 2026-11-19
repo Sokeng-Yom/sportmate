@@ -6,10 +6,8 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
-  Bell,
   Building2,
   CalendarCheck,
-  ChevronDown,
   ClipboardList,
   Gamepad2,
   LayoutDashboard,
@@ -25,6 +23,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { listAdminVenues, listReportedPosts } from "../../lib/api";
+import NotificationsBell from "../components/NotificationsBell";
+import UserProfileMenu from "../components/UserProfileMenu";
 
 interface NavItem {
   label: string;
@@ -43,8 +43,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [moderationOpen, setModerationOpen] = useState(false);
   const [pendingVenuesCount, setPendingVenuesCount] = useState<number | null>(null);
   const [reportedPostsCount, setReportedPostsCount] = useState<number | null>(null);
 
@@ -68,7 +67,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           setReportedPostsCount(postsRes.value.total);
         }
       } catch (err) {
-        // Silently ignore counter failures; page itself will show errors if relevant
         console.error("Failed to fetch sidebar counts:", err);
       }
     }
@@ -81,7 +79,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const primaryNavigation: NavItem[] = [
     {
-      label: "Dashboard Overview",
+      label: "Dashboard",
       href: "/admin",
       icon: LayoutDashboard,
       section: "primary",
@@ -124,20 +122,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   const searchMatches = search.trim()
     ? allNavItems
-        .filter((item) =>
-          item.label.toLowerCase().includes(search.toLowerCase())
-        )
-        .slice(0, 5)
+      .filter((item) =>
+        item.label.toLowerCase().includes(search.toLowerCase())
+      )
+      .slice(0, 5)
     : [];
-
-  const adminName = profile?.name || "Administrator";
-  const adminRole = profile?.role || "ADMIN";
-  const initials = adminName
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
 
   const handleLogout = async () => {
     try {
@@ -149,47 +138,56 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const totalModerationCount = (pendingVenuesCount ?? 0) + (reportedPostsCount ?? 0);
+
   const renderSidebar = (isMobile = false) => (
     <aside
-      className={`${
-        isMobile ? "w-[286px]" : "hidden lg:flex w-[260px]"
-      } fixed inset-y-0 left-0 z-50 flex-col bg-[#0e1e24] px-4 py-5 text-white border-r border-slate-800/60 shadow-xl`}
+      className={`${isMobile ? "w-[280px]" : "hidden lg:flex w-[260px]"
+        } fixed inset-y-0 left-0 z-40 flex flex-col bg-white border-r border-gray-100 p-4 h-full`}
     >
-      {/* Brand Header */}
-      <div className="flex items-center justify-between px-2 pb-6 border-b border-white/[0.08]">
+      {/* Brand Header with SportMates Logo */}
+      <div className="px-2 mb-6 mt-2 flex items-center justify-between">
         <Link
           href="/admin"
-          className="flex items-center gap-2.5 group"
+          className="flex items-center gap-2"
           onClick={() => isMobile && setMobileNav(false)}
         >
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 text-slate-950 font-black shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-            SM
-          </span>
-          <div>
-            <span className="text-[17px] font-black tracking-tight text-white flex items-center gap-1">
-              Sport<span className="text-emerald-400">Mate</span>
-            </span>
-            <span className="block text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">
-              Admin Console
-            </span>
+          <div className="flex gap-0.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-orange-500"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
           </div>
+          <span className="font-extrabold text-xl tracking-tight text-slate-900">
+            Sport<span className="text-emerald-500">Mates</span>
+          </span>
         </Link>
         {isMobile && (
           <button
             onClick={() => setMobileNav(false)}
             aria-label="Close navigation"
-            className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-gray-100 hover:text-slate-700"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         )}
       </div>
 
+      {/* Role Switcher / Indicator Pill (matching Venue Owner) */}
+      <div className="mb-6 px-2">
+        <div className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-xl p-3 shadow-xs">
+          <div className="flex items-center gap-3 text-emerald-600">
+            <ShieldCheck size={20} />
+            <span className="font-semibold text-slate-700 text-sm">Administrator</span>
+          </div>
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+        </div>
+      </div>
+
       {/* Navigation Groups */}
-      <div className="mt-5 flex-1 overflow-y-auto space-y-6 pr-1 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto space-y-6 pr-1">
         {/* Core Admin Navigation */}
         <div>
-          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+          <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
             Main Management
           </p>
           <nav aria-label="Primary Admin navigation" className="space-y-1">
@@ -197,37 +195,31 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               const active =
                 href === "/admin"
                   ? pathname === href
-                  : pathname === href || pathname.startsWith(href + "/") || (href === "/admin/reported-posts" && pathname === "/admin/reports");
+                  : pathname === href ||
+                  pathname.startsWith(href + "/") ||
+                  (href === "/admin/reported-posts" && pathname === "/admin/reports");
               return (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => isMobile && setMobileNav(false)}
                   aria-current={active ? "page" : undefined}
-                  className={`group flex min-h-10 items-center gap-3 rounded-xl px-3 text-[13px] font-semibold transition ${
-                    active
-                      ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20"
-                      : "text-slate-300 hover:bg-white/[0.08] hover:text-white"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm ${active
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
+                    }`}
                 >
                   <Icon
-                    size={18}
-                    className={
-                      active
-                        ? "text-slate-950"
-                        : "text-slate-400 group-hover:text-emerald-300"
-                    }
+                    size={19}
+                    className={active ? "text-emerald-600" : "text-slate-400"}
                   />
                   <span className="truncate flex-1">{label}</span>
                   {badge && (
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                        active
-                          ? "bg-slate-950/20 text-slate-950"
-                          : badgeTone === "rose"
-                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                          : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                      }`}
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${badgeTone === "rose"
+                        ? "bg-rose-100 text-rose-700 border border-rose-200"
+                        : "bg-amber-100 text-amber-800 border border-amber-200"
+                        }`}
                     >
                       {badge}
                     </span>
@@ -240,7 +232,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
         {/* Secondary Navigation */}
         <div>
-          <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+          <p className="mb-2 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
             Platform Records
           </p>
           <nav aria-label="Secondary navigation" className="space-y-1">
@@ -252,13 +244,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   href={href}
                   onClick={() => isMobile && setMobileNav(false)}
                   aria-current={active ? "page" : undefined}
-                  className={`group flex min-h-9 items-center gap-3 rounded-lg px-3 text-xs font-medium transition ${
-                    active
-                      ? "bg-white/10 text-emerald-300"
-                      : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-200"
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors font-semibold text-sm ${active
+                    ? "bg-emerald-50 text-emerald-600"
+                    : "text-slate-600 hover:bg-gray-50 hover:text-slate-900"
+                    }`}
                 >
-                  <Icon size={16} className="text-slate-500 group-hover:text-slate-300" />
+                  <Icon
+                    size={18}
+                    className={active ? "text-emerald-600" : "text-slate-400"}
+                  />
                   <span className="truncate">{label}</span>
                 </Link>
               );
@@ -267,39 +261,28 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Sidebar Footer with Account & Logout */}
-      <div className="mt-4 border-t border-white/[0.08] pt-4 space-y-3">
-        <div className="flex items-center gap-3 px-2 py-1">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-400/20 text-xs font-bold text-emerald-300 border border-emerald-400/30">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-bold text-white">{adminName}</p>
-            <p className="truncate text-[10px] text-emerald-400 font-semibold">{adminRole}</p>
-          </div>
+      {/* Bottom Promo / Info Card (matching Venue Owner) */}
+      <div className="bg-emerald-50 rounded-2xl p-4 mt-4 border border-emerald-100">
+        <div className="bg-white w-9 h-9 rounded-xl flex items-center justify-center shadow-xs mb-3 text-emerald-600">
+          <ShieldCheck size={18} />
         </div>
-
-        <button
-          onClick={handleLogout}
-          type="button"
-          className="flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/15 hover:border-rose-500/30 hover:text-rose-200 transition"
-        >
-          <LogOut size={15} />
-          <span>Log out</span>
-        </button>
+        <h4 className="font-bold text-slate-900 mb-1 text-xs">Platform Governance</h4>
+        <p className="text-[11px] text-slate-600 leading-relaxed">
+          Oversee venue applications, court bookings, user roles, and platform integrity.
+        </p>
       </div>
     </aside>
   );
 
   return (
-    <div className="min-h-screen bg-[#f7f9fa] text-slate-800">
+    <div className="min-h-screen bg-[#F9FBF9] flex text-slate-900 font-sans">
       {/* Desktop Sidebar */}
       {renderSidebar(false)}
 
       {/* Mobile Drawer */}
       {mobileNav && (
         <div
-          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs lg:hidden"
           onClick={() => setMobileNav(false)}
         >
           <div onClick={(e) => e.stopPropagation()}>{renderSidebar(true)}</div>
@@ -307,10 +290,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content Container */}
-      <div className="min-h-screen lg:pl-[260px] flex flex-col">
+      <div className="flex-1 lg:ml-[260px] flex flex-col min-h-screen">
         {/* Top Header */}
-        <header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 backdrop-blur-md sm:px-8">
-          <div className="flex min-w-0 items-center gap-3">
+        <header className="h-[72px] bg-white border-b border-gray-100 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-4">
             <button
               className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
               aria-label="Open navigation"
@@ -319,17 +302,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <Menu size={20} />
             </button>
 
-            <div>
-              <p className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:block">
-                SportMate Admin
-              </p>
-              <p className="text-sm sm:text-base font-extrabold text-slate-900 truncate">
-                {current?.label ?? "Dashboard Overview"}
-              </p>
-            </div>
+            <h2 className="text-xl font-bold text-slate-900 truncate">
+              {current?.label ?? "Dashboard Overview"}
+            </h2>
 
             {/* Quick Search */}
-            <div className="relative ml-4 hidden w-[min(30vw,280px)] md:block">
+            <div className="relative ml-4 hidden md:block w-64 lg:w-72">
               <Search
                 size={15}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -346,10 +324,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   if (e.key === "Escape") setSearchOpen(false);
                 }}
                 placeholder="Search admin pages..."
-                className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-100"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
               />
               {searchOpen && search && (
-                <div className="absolute left-0 right-0 top-11 z-50 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                   {searchMatches.length ? (
                     searchMatches.map((item) => (
                       <Link
@@ -359,9 +337,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                           setSearch("");
                           setSearchOpen(false);
                         }}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-emerald-50 hover:text-emerald-900"
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700"
                       >
-                        <item.icon size={14} className="text-slate-400" />
+                        <item.icon size={15} className="text-slate-400" />
                         <span>{item.label}</span>
                       </Link>
                     ))
@@ -382,146 +360,74 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {/* Right Header: Notifications & Account */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Notifications Button */}
-            <div className="relative">
-              <button
-                aria-label="Notifications"
-                aria-expanded={notificationsOpen}
-                onClick={() => {
-                  setNotificationsOpen(!notificationsOpen);
-                  setProfileOpen(false);
-                }}
-                className="relative grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
-              >
-                <Bell size={17} />
-                {(pendingVenuesCount ?? 0) + (reportedPostsCount ?? 0) > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
-                    {(pendingVenuesCount ?? 0) + (reportedPostsCount ?? 0)}
+          {/* Right Header: Moderation Quick-Action, Notifications & User Menu */}
+          <div className="flex items-center gap-4 sm:gap-6">
+            {/* Moderation Alert Popover (if pending items exist) */}
+            {totalModerationCount > 0 && (
+              <div className="relative">
+                <button
+                  aria-label="Moderation queue alerts"
+                  aria-expanded={moderationOpen}
+                  onClick={() => setModerationOpen(!moderationOpen)}
+                  className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors shadow-xs"
+                >
+                  <AlertTriangle size={14} className="text-amber-600" />
+                  <span className="hidden sm:inline">Review Queue</span>
+                  <span className="rounded-full bg-amber-600 px-1.5 py-0.2 text-[10px] text-white font-extrabold">
+                    {totalModerationCount}
                   </span>
+                </button>
+
+                {moderationOpen && (
+                  <div className="absolute right-0 top-11 z-50 w-72 rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <p className="text-xs font-bold text-slate-900">
+                        Pending Moderation
+                      </p>
+                      <button
+                        onClick={() => setModerationOpen(false)}
+                        className="rounded p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="mt-2.5 space-y-2 text-xs">
+                      <Link
+                        href="/admin/venue-applications"
+                        onClick={() => setModerationOpen(false)}
+                        className="flex items-center justify-between rounded-xl bg-amber-50 p-2.5 text-amber-900 hover:bg-amber-100 transition-colors"
+                      >
+                        <span className="font-semibold">Venue Applications</span>
+                        <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          {pendingVenuesCount ?? 0}
+                        </span>
+                      </Link>
+                      <Link
+                        href="/admin/reported-posts"
+                        onClick={() => setModerationOpen(false)}
+                        className="flex items-center justify-between rounded-xl bg-rose-50 p-2.5 text-rose-900 hover:bg-rose-100 transition-colors"
+                      >
+                        <span className="font-semibold">Reported Posts</span>
+                        <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          {reportedPostsCount ?? 0}
+                        </span>
+                      </Link>
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
+            )}
 
-              {notificationsOpen && (
-                <div className="absolute right-0 top-11 z-50 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <p className="text-xs font-bold text-slate-900">
-                      Moderation Summary
-                    </p>
-                    <button
-                      onClick={() => setNotificationsOpen(false)}
-                      className="rounded p-1 text-slate-400 hover:text-slate-600"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <div className="mt-3 space-y-2 text-xs">
-                    <Link
-                      href="/admin/venue-applications"
-                      onClick={() => setNotificationsOpen(false)}
-                      className="flex items-center justify-between rounded-xl bg-amber-50/80 p-3 text-amber-900 hover:bg-amber-100/80 transition"
-                    >
-                      <span className="font-medium">
-                        Venue Applications Pending
-                      </span>
-                      <span className="rounded-full bg-amber-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                        {pendingVenuesCount ?? 0}
-                      </span>
-                    </Link>
-                    <Link
-                      href="/admin/reported-posts"
-                      onClick={() => setNotificationsOpen(false)}
-                      className="flex items-center justify-between rounded-xl bg-rose-50/80 p-3 text-rose-900 hover:bg-rose-100/80 transition"
-                    >
-                      <span className="font-medium">Reported Posts to Review</span>
-                      <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                        {reportedPostsCount ?? 0}
-                      </span>
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Shared Realtime Notifications Bell */}
+            <NotificationsBell />
 
-            {/* Profile Dropdown */}
-            <div className="relative border-l border-slate-200 pl-3">
-              <button
-                aria-expanded={profileOpen}
-                onClick={() => {
-                  setProfileOpen(!profileOpen);
-                  setNotificationsOpen(false);
-                }}
-                className="flex items-center gap-2.5 rounded-xl p-1.5 hover:bg-slate-50 transition"
-              >
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-100 text-xs font-extrabold text-emerald-800">
-                  {initials}
-                </span>
-                <div className="hidden sm:block text-left">
-                  <p className="max-w-28 truncate text-xs font-bold text-slate-800">
-                    {adminName}
-                  </p>
-                  <p className="text-[10px] font-medium text-emerald-600 uppercase">
-                    {adminRole}
-                  </p>
-                </div>
-                <ChevronDown size={14} className="text-slate-400 hidden sm:block" />
-              </button>
-
-              {profileOpen && (
-                <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
-                  <div className="px-3 py-2 border-b border-slate-100">
-                    <p className="text-xs font-bold text-slate-900 truncate">
-                      {adminName}
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-mono">
-                      Role: {adminRole}
-                    </p>
-                  </div>
-                  <div className="py-1">
-                    <Link
-                      href="/admin"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <LayoutDashboard size={14} />
-                      <span>Dashboard Overview</span>
-                    </Link>
-                    <Link
-                      href="/admin/venue-applications"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <Building2 size={14} />
-                      <span>Venue Applications</span>
-                    </Link>
-                    <Link
-                      href="/admin/reported-posts"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                    >
-                      <ShieldAlert size={14} />
-                      <span>Reported Posts</span>
-                    </Link>
-                  </div>
-                  <div className="border-t border-slate-100 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition"
-                    >
-                      <LogOut size={14} />
-                      <span>Log out</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Shared User Profile Menu */}
+            <UserProfileMenu />
           </div>
         </header>
 
-        {/* Main Content Area */}
-        <main className="flex-1 w-full max-w-[1500px] mx-auto p-4 sm:p-7 md:p-8">
+        {/* Page Content */}
+        <main className="flex-1 p-4 sm:p-7 md:p-8">
           {children}
         </main>
       </div>

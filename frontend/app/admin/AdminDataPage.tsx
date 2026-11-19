@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowDown,
@@ -43,7 +43,7 @@ import {
 } from "../../lib/api";
 import { ApiError } from "../../lib/apiClient";
 import { formatLocalDateString, formatUtcDateTime } from "../../lib/dateUtils";
-import type { VenueRead, WeeklyAvailability } from "../../lib/types";
+import type { SecurityLogRead, VenueRead, WeeklyAvailability } from "../../lib/types";
 import { useAuth } from "../../lib/auth";
 
 function formatTime12h(timeStr?: string): string {
@@ -167,7 +167,7 @@ function Dialog({
   return (
     <div
       role="presentation"
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -179,9 +179,9 @@ function Dialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-dialog-title"
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl"
       >
-        <h2 id="admin-dialog-title" className="mt-4 text-lg font-bold text-slate-900">
+        <h2 id="admin-dialog-title" className="text-lg font-extrabold text-slate-900 mb-2">
           {title}
         </h2>
         {children}
@@ -257,6 +257,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
   const isRealDataSection = Object.prototype.hasOwnProperty.call(adminSections, section);
   const config = adminSections[section];
   const [records, setRecords] = useState<AdminRecord[]>([]);
+  const securityLogsRef = useRef<AdminRecord[] | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState<boolean>(isRealDataSection);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -314,6 +315,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
 
   // Reset page state on section change
   useEffect(() => {
+    securityLogsRef.current = null;
     setSearch("");
     setDebouncedSearch("");
     setFilters({});
@@ -444,43 +446,60 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           setRecords(mapped);
           setTotalCount(res.total);
         } else if (section === "activity-logs") {
-          const res = await listAdminSecurityLogs({
-            page,
-            page_size: pageSize,
-          });
+          let allLogs = securityLogsRef.current;
+          if (!allLogs || showRefreshIndicator) {
+            const logs: SecurityLogRead[] = [];
+            let logPage = 1;
+            let total = 0;
 
-          let items = res.items;
+            do {
+              const res = await listAdminSecurityLogs({
+                page: logPage,
+                page_size: 100,
+              });
+              logs.push(...res.items);
+              total = res.total;
+              if (logs.length >= total) break;
+              if (res.items.length === 0) {
+                throw new Error("Could not retrieve all activity logs.");
+              }
+              logPage += 1;
+            } while (logs.length < total);
+
+            allLogs = logs.map((l) => ({
+              id: l.id,
+              date: l.created_at
+                ? new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  }).format(new Date(l.created_at))
+                : "—",
+              owner:
+                l.user_name ||
+                (l.user_id ? `User (${l.user_id.slice(0, 8)})` : "System"),
+              title: l.action.replace(/_/g, " "),
+              target: l.details || "—",
+              result: "Success",
+              ipAddress: l.ip_address || undefined,
+            }));
+            securityLogsRef.current = allLogs;
+          }
+
+          let items = allLogs;
           if (debouncedSearch.trim()) {
             const q = debouncedSearch.toLowerCase();
             items = items.filter(
               (l) =>
-                l.action.toLowerCase().includes(q) ||
-                (l.user_name && l.user_name.toLowerCase().includes(q)) ||
-                (l.details && l.details.toLowerCase().includes(q))
+                l.title.toLowerCase().includes(q) ||
+                (l.owner && l.owner.toLowerCase().includes(q)) ||
+                (l.target && l.target.toLowerCase().includes(q))
             );
           }
 
-          const mapped: AdminRecord[] = items.map((l) => ({
-            id: l.id,
-            date: l.created_at
-              ? new Intl.DateTimeFormat("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                }).format(new Date(l.created_at))
-              : "—",
-            owner:
-              l.user_name ||
-              (l.user_id ? `User (${l.user_id.slice(0, 8)})` : "System"),
-            title: l.action.replace(/_/g, " "),
-            target: l.details || "—",
-            result: "Success",
-            ipAddress: l.ip_address || undefined,
-          }));
-
-          setRecords(mapped);
-          setTotalCount(res.total);
+          setRecords(items);
+          setTotalCount(items.length);
         } else if (section === "listings") {
           let statusParam: string | undefined = undefined;
           if (filters.status === "Open") statusParam = "OPEN";
@@ -630,6 +649,9 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           setTotalCount(res.total);
         }
       } catch (err: unknown) {
+        if (section === "activity-logs") {
+          securityLogsRef.current = null;
+        }
         let msg = "Failed to load records from backend.";
         if (err instanceof ApiError) {
           if (err.status === 403) {
@@ -676,7 +698,10 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
 
   const totalRecordsCount = totalCount;
   const pages = Math.max(1, Math.ceil(totalRecordsCount / pageSize));
-  const visibleRecords = sortedRecords;
+  const visibleRecords =
+    section === "activity-logs"
+      ? sortedRecords.slice((page - 1) * pageSize, page * pageSize)
+      : sortedRecords;
 
   if (section === "settings") {
     return (
@@ -1021,12 +1046,12 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_2px_10px_rgba(20,48,43,.03)]">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <label className="relative block w-full sm:max-w-[330px]">
+      <section className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <label className="relative block w-full sm:max-w-[340px]">
             <Search
               size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
             />
             <input
               value={search}
@@ -1035,15 +1060,15 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
               }}
               placeholder={config.searchLabel}
               aria-label={config.searchLabel}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
             />
           </label>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             {config.filters?.map((filter) => (
               <label key={filter.key} className="relative">
                 <SlidersHorizontal
-                  size={13}
-                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={14}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
                 <select
                   value={filters[filter.key] ?? ""}
@@ -1055,7 +1080,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                     setPage(1);
                   }}
                   aria-label={filter.label}
-                  className="h-9 min-w-32 appearance-none rounded-lg border border-slate-200 bg-white pl-8 pr-8 text-[11px] font-medium text-slate-600 outline-none hover:border-slate-300 focus:border-emerald-400"
+                  className="h-10 min-w-36 appearance-none rounded-xl border border-slate-200 bg-white pl-9 pr-9 text-xs font-semibold text-slate-700 outline-none hover:border-slate-300 focus:border-emerald-500 transition-colors"
                 >
                   {[filter.label, ...filter.values].map((value, index) => (
                     <option key={value} value={index === 0 ? "" : value}>
@@ -1064,8 +1089,8 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                   ))}
                 </select>
                 <ChevronDown
-                  size={13}
-                  className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                  size={14}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
               </label>
             ))}
@@ -1076,10 +1101,10 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onClick={() => void fetchData(true)}
                 disabled={isLoading || isRefreshing}
                 title="Refresh real data"
-                className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition"
+                className="grid h-10 w-10 place-items-center rounded-xl border border-gray-200 bg-white text-slate-600 hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-xs"
               >
                 <RefreshCw
-                  size={13}
+                  size={14}
                   className={isRefreshing ? "animate-spin text-emerald-600" : ""}
                 />
               </button>
@@ -1089,15 +1114,15 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
               <button
                 type="button"
                 onClick={() => void openAddCourt()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white transition-colors shadow-sm"
               >
-                <Plus size={13} />
+                <Plus size={14} />
                 <span>Add Court</span>
               </button>
             )}
 
-            <span className="ml-1 text-[11px] text-slate-400">
-              <strong className="font-semibold text-slate-600">
+            <span className="ml-1 text-xs text-slate-400">
+              <strong className="font-bold text-slate-700">
                 {totalRecordsCount}
               </strong>{" "}
               records
@@ -1106,36 +1131,36 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[740px] text-left">
-            <thead className="bg-slate-50/70">
+            <thead className="bg-gray-50/70 border-b border-gray-100">
               <tr>
                 {config.columns.map((column) => (
                   <th
                     key={column.key}
-                    className="px-4 py-3 text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400 first:pl-5"
+                    className="px-5 py-3.5 text-xs font-bold uppercase tracking-wider text-slate-500 first:pl-6"
                   >
                     <button
-                      className="inline-flex items-center gap-1.5 hover:text-slate-700"
+                      className="inline-flex items-center gap-1.5 hover:text-slate-800"
                       onClick={() => updateSort(column.key)}
                     >
                       {column.label}
                       {sort?.key === column.key ? (
                         sort.direction === "asc" ? (
-                          <ArrowUp size={11} />
+                          <ArrowUp size={12} />
                         ) : (
-                          <ArrowDown size={11} />
+                          <ArrowDown size={12} />
                         )
                       ) : (
-                        <Settings2 size={11} className="opacity-30" />
+                        <Settings2 size={12} className="opacity-30" />
                       )}
                     </button>
                   </th>
                 ))}
-                <th className="px-4 py-3 pr-5 text-right text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <th className="px-5 py-3.5 pr-6 text-right text-xs font-bold uppercase tracking-wider text-slate-500">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                 [...Array(pageSize)].map((_, i) => (
                   <tr key={i} className="animate-pulse">
@@ -1154,15 +1179,15 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 ))
               ) : visibleRecords.length > 0 ? (
                 visibleRecords.map((record) => (
-                  <tr key={record.id} className="transition hover:bg-slate-50/70">
+                  <tr key={record.id} className="transition-colors hover:bg-gray-50/70">
                     {config.columns.map((column, index) => {
                       const value = record[column.key];
                       return (
                         <td
                           key={column.key}
-                          className={`px-4 py-3.5 text-xs ${
+                          className={`px-5 py-3.5 text-sm ${
                             index === 0
-                              ? "pl-5 font-semibold text-slate-800"
+                              ? "pl-6 font-semibold text-slate-900"
                               : "text-slate-600"
                           }`}
                         >
@@ -1170,7 +1195,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                             <StatusBadge status={String(value)} />
                           ) : column.key === "title" && section === "users" ? (
                             <div className="flex items-center gap-2.5">
-                              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-800">
+                              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-50 text-xs font-bold text-emerald-800 border border-emerald-100">
                                 {record.title
                                   .split(/\s+/)
                                   .map((part) => part[0])
@@ -1184,7 +1209,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                             <span
                               className={
                                 column.key === "id"
-                                  ? "font-mono text-[10px] text-slate-400"
+                                  ? "font-mono text-xs text-slate-400"
                                   : ""
                               }
                             >
@@ -1194,14 +1219,14 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                         </td>
                       );
                     })}
-                    <td className="px-4 py-3.5 pr-5 text-right">
-                      <div className="flex justify-end gap-1">
+                    <td className="px-5 py-3.5 pr-6 text-right">
+                      <div className="flex justify-end items-center gap-1.5">
                         <button
                           onClick={() => setSelected(record)}
                           aria-label={`View details for ${record.title}`}
-                          className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-800"
+                          className="rounded-xl border border-gray-200 p-1.5 text-slate-500 hover:border-slate-300 hover:bg-gray-50 hover:text-slate-800 transition-colors shadow-xs"
                         >
-                          <Eye size={14} />
+                          <Eye size={15} />
                         </button>
                         {section === "users" && (
                           <button
@@ -1212,10 +1237,10 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                                   record.status === "Active" ? "Restrict" : "Reactivate",
                               })
                             }
-                            className={`rounded-md px-2 py-1.5 text-[10px] font-semibold ${
+                            className={`rounded-xl px-2.5 py-1 text-xs font-bold border transition-colors ${
                               record.status === "Active"
-                                ? "text-rose-700 hover:bg-rose-50"
-                                : "text-emerald-700 hover:bg-emerald-50"
+                                ? "text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-100"
+                                : "text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-100"
                             }`}
                           >
                             {record.status === "Active" ? "Restrict" : "Reactivate"}
@@ -1225,13 +1250,13 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                           <>
                             <button
                               onClick={() => setPending({ record, action: "Approve" })}
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors"
                             >
                               Approve
                             </button>
                             <button
                               onClick={() => setPending({ record, action: "Reject" })}
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 transition-colors"
                             >
                               Reject
                             </button>
@@ -1245,13 +1270,13 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                                 onClick={() =>
                                   setPending({ record, action: "Approve" })
                                 }
-                                className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                                className="rounded-xl px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors"
                               >
                                 Approve
                               </button>
                               <button
                                 onClick={() => setPending({ record, action: "Reject" })}
-                                className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                                className="rounded-xl px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 transition-colors"
                               >
                                 Reject
                               </button>
@@ -1265,7 +1290,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                                 onClick={() =>
                                   setPending({ record, action: "Resolve" })
                                 }
-                                className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                                className="rounded-xl px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors"
                               >
                                 Resolve
                               </button>
@@ -1273,7 +1298,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                                 onClick={() =>
                                   setPending({ record, action: "Dismiss" })
                                 }
-                                className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-slate-600 hover:bg-slate-100"
+                                className="rounded-xl px-2.5 py-1 text-xs font-semibold text-slate-600 bg-gray-100 hover:bg-gray-200 transition-colors"
                               >
                                 Dismiss
                               </button>
@@ -1284,7 +1309,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                             onClick={() =>
                               setPending({ record, action: "Remove listing" })
                             }
-                            className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                            className="rounded-xl px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 transition-colors"
                           >
                             Remove
                           </button>
@@ -1295,7 +1320,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                               onClick={() =>
                                 setPending({ record, action: "Approve booking" })
                               }
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-50"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 transition-colors"
                             >
                               Approve
                             </button>
@@ -1303,7 +1328,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                               onClick={() =>
                                 setPending({ record, action: "Reject booking" })
                               }
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 transition-colors"
                             >
                               Reject
                             </button>
@@ -1316,7 +1341,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                               onClick={() =>
                                 setPending({ record, action: "Cancel booking" })
                               }
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-amber-700 hover:bg-amber-50"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-100 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1325,7 +1350,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                           <>
                             <button
                               onClick={() => handleStartEditCourt(record)}
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-100"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
                             >
                               Edit
                             </button>
@@ -1333,7 +1358,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                               onClick={() =>
                                 setPending({ record, action: "Delete court" })
                               }
-                              className="rounded-md px-2 py-1.5 text-[10px] font-semibold text-rose-700 hover:bg-rose-50"
+                              className="rounded-xl px-2.5 py-1 text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-100 transition-colors"
                             >
                               Delete
                             </button>
@@ -1349,14 +1374,16 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                     colSpan={config.columns.length + 1}
                     className="px-6 py-16 text-center"
                   >
-                    <div className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-slate-100 text-slate-400">
-                      <Search size={18} />
+                    <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-slate-400 mb-3">
+                      <Search size={22} />
                     </div>
-                    <p className="mt-3 text-sm font-semibold text-slate-700">
+                    <p className="text-base font-bold text-slate-900">
                       No matching records
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      No records found in this view. Try adjusting your search query or status filter.
+                    <p className="mx-auto mt-1 max-w-sm text-xs text-slate-500">
+                      {isRealDataSection
+                        ? "No records found in this view. Try adjusting your search query or status filter."
+                        : "Try changing your search or filters."}
                     </p>
                     {(search || Object.values(filters).some(Boolean)) && (
                       <button
@@ -1365,7 +1392,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                           setFilters({});
                           setPage(1);
                         }}
-                        className="mt-3 text-xs font-semibold text-emerald-700 hover:underline"
+                        className="mt-3 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
                       >
                         Clear filters
                       </button>
@@ -1376,33 +1403,33 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
             </tbody>
           </table>
         </div>
-        <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[10px] text-slate-500">
+        <div className="flex flex-col gap-3 border-t border-gray-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-500">
             Showing{" "}
-            <span className="font-semibold text-slate-700">
+            <span className="font-bold text-slate-700">
               {totalRecordsCount ? (page - 1) * pageSize + 1 : 0}–
               {Math.min(page * pageSize, totalRecordsCount)}
             </span>{" "}
             of {totalRecordsCount} records
           </p>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button
               aria-label="Previous page"
               disabled={page <= 1}
               onClick={() => setPage((value) => Math.max(1, value - 1))}
-              className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+              className="grid h-8 w-8 place-items-center rounded-xl border border-gray-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} />
             </button>
             {Array.from({ length: pages }, (_, index) => index + 1).map((number) => (
               <button
                 key={number}
                 aria-current={page === number ? "page" : undefined}
                 onClick={() => setPage(number)}
-                className={`h-8 min-w-8 rounded-md px-2 text-[10px] font-semibold ${
+                className={`h-8 min-w-8 rounded-xl px-2.5 text-xs font-bold transition-all ${
                   page === number
-                    ? "bg-emerald-600 text-white"
-                    : "text-slate-500 hover:bg-slate-100"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "border border-gray-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 }`}
               >
                 {number}
@@ -1412,9 +1439,9 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
               aria-label="Next page"
               disabled={page >= pages}
               onClick={() => setPage((value) => Math.min(pages, value + 1))}
-              className="grid h-8 w-8 place-items-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+              className="grid h-8 w-8 place-items-center rounded-xl border border-gray-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>
@@ -1491,18 +1518,18 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
             <strong className="text-slate-800">{pending.record.title}</strong>.
             {" This action directly executes on the live backend."}
           </p>
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-6 flex justify-end gap-2.5">
             <button
               disabled={isPerforming}
               onClick={() => setPending(null)}
-              className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
             <button
               disabled={isPerforming}
               onClick={() => void performAction()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
             >
               {isPerforming ? (
                 <RefreshCw size={14} className="animate-spin" />
@@ -1520,7 +1547,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           title="Add New Court"
           onClose={() => !isPerforming && setShowAddCourtModal(false)}
         >
-          <form onSubmit={handleCreateCourtSubmit} className="mt-4 space-y-3.5">
+          <form onSubmit={handleCreateCourtSubmit} className="mt-4 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700">
                 Venue
@@ -1530,7 +1557,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setCourtForm({ ...courtForm, venueId: e.target.value })
                 }
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
               >
                 {approvedVenues.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -1551,7 +1578,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setCourtForm({ ...courtForm, name: e.target.value })
                 }
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
             <div>
@@ -1563,7 +1590,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setCourtForm({ ...courtForm, sport: e.target.value })
                 }
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
               >
                 <option value="Football">Football</option>
                 <option value="Basketball">Basketball</option>
@@ -1583,7 +1610,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                   onChange={(e) =>
                     setCourtForm({ ...courtForm, openTime: e.target.value })
                   }
-                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <div>
@@ -1596,7 +1623,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                   onChange={(e) =>
                     setCourtForm({ ...courtForm, closeTime: e.target.value })
                   }
-                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
             </div>
@@ -1607,23 +1634,23 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setCourtForm({ ...courtForm, isAvailable: e.target.checked })
                 }
-                className="rounded text-emerald-600 focus:ring-emerald-500"
+                className="rounded-md text-emerald-600 focus:ring-emerald-500"
               />
               <span>Set as active / available immediately</span>
             </label>
-            <div className="mt-5 flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="mt-5 flex justify-end gap-2.5 pt-3 border-t border-gray-100">
               <button
                 type="button"
                 disabled={isPerforming}
                 onClick={() => setShowAddCourtModal(false)}
-                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isPerforming}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
               >
                 {isPerforming ? (
                   <RefreshCw size={14} className="animate-spin" />
@@ -1642,7 +1669,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
           title={`Edit Court: ${editingCourt.title}`}
           onClose={() => !isPerforming && setEditingCourt(null)}
         >
-          <form onSubmit={handleUpdateCourtSubmit} className="mt-4 space-y-3.5">
+          <form onSubmit={handleUpdateCourtSubmit} className="mt-4 space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700">
                 Court Name
@@ -1654,7 +1681,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setEditCourtForm({ ...editCourtForm, name: e.target.value })
                 }
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
               />
             </div>
             <div>
@@ -1666,7 +1693,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setEditCourtForm({ ...editCourtForm, sport: e.target.value })
                 }
-                className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
               >
                 <option value="Football">Football</option>
                 <option value="Basketball">Basketball</option>
@@ -1686,7 +1713,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                   onChange={(e) =>
                     setEditCourtForm({ ...editCourtForm, openTime: e.target.value })
                   }
-                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <div>
@@ -1699,7 +1726,7 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                   onChange={(e) =>
                     setEditCourtForm({ ...editCourtForm, closeTime: e.target.value })
                   }
-                  className="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-emerald-500"
+                  className="mt-1.5 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
             </div>
@@ -1710,23 +1737,23 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
                 onChange={(e) =>
                   setEditCourtForm({ ...editCourtForm, isAvailable: e.target.checked })
                 }
-                className="rounded text-emerald-600 focus:ring-emerald-500"
+                className="rounded-md text-emerald-600 focus:ring-emerald-500"
               />
               <span>Set as active / available</span>
             </label>
-            <div className="mt-5 flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="mt-5 flex justify-end gap-2.5 pt-3 border-t border-gray-100">
               <button
                 type="button"
                 disabled={isPerforming}
                 onClick={() => setEditingCourt(null)}
-                className="rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isPerforming}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-5 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
               >
                 {isPerforming ? (
                   <RefreshCw size={14} className="animate-spin" />
@@ -1743,9 +1770,9 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
       {toast && (
         <div
           role="status"
-          className="fixed bottom-5 right-5 z-[80] flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-xs font-medium text-white shadow-xl"
+          className="fixed bottom-6 right-6 z-[80] flex items-center gap-2.5 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-2xl"
         >
-          <Check size={15} className="text-emerald-400" />
+          <Check size={16} className="text-emerald-400" />
           {toast}
         </div>
       )}
@@ -1756,8 +1783,8 @@ export default function AdminDataPage({ section }: AdminDataPageProps) {
 function PageHeading({ title, description }: { title: string; description: string }) {
   return (
     <div>
-      <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{title}</h1>
-      <p className="mt-1.5 text-xs text-slate-500">{description}</p>
+      <h1 className="text-2xl font-extrabold text-slate-900">{title}</h1>
+      <p className="mt-1 text-sm text-slate-500 font-medium">{description}</p>
     </div>
   );
 }

@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, ClipboardList, RefreshCw, XCircle, Loader2, User, X, Pencil, Tag } from "lucide-react";
+import {
+    Plus, ClipboardList, RefreshCw, XCircle, Loader2, User, X, Pencil, Tag,
+    CalendarDays, Clock3, MapPin, Users, Home, Building2, Zap,
+} from "lucide-react";
 import { ApiError } from "../../../lib/apiClient";
 import {
     cancelMatch,
@@ -14,32 +17,18 @@ import {
     updateMatch,
 } from "../../../lib/api";
 import type { BookingQuoteRead, CourtSearchItem, MatchRead, VenueDiscountRead } from "../../../lib/types";
+import { SPORTS } from "../../../lib/sports";
 import { formatUtcDateTime, formatLocalDateString } from "../../../lib/dateUtils";
 import { useAuth } from "../../../lib/auth";
 import { supabase } from "../../../lib/supabaseClient";
+import { SportArtwork } from "../components/SportArtwork";
 
-const SPORT_ICONS: Record<string, string> = {
-    Basketball: "🏀",
-    Tennis: "🎾",
-    Football: "⚽",
-    Badminton: "🏸",
-    Volleyball: "🏐",
-    Cricket: "🏏",
-    Golf: "⛳",
-    Swimming: "🏊",
-    Cycling: "🚴",
-    Running: "🏃",
-};
-
-const SPORTS = Object.keys(SPORT_ICONS);
 const SKILL_LEVELS = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
 type Notice = { message: string; kind: "info" | "success" | "error" };
 
 function formatGameDate(dateStr: string): string {
-    return formatLocalDateString(dateStr);
-
-
+    return formatLocalDateString(dateStr, { weekday: "short" });
 }
 
 function hasMatchStarted(date: string, time: string): boolean {
@@ -65,11 +54,21 @@ function skillLabel(level: string): string {
 
 function gameStatusLabel(status: string): string {
     switch (status) {
-        case "FULL": return "Full";
+        case "OPEN": return "Open game";
+        case "FULL": return "Hosting full";
+        case "READY": return "Ready";
+        case "CONFIRMED": return "Confirmed";
         case "COMPLETED": return "Completed";
         case "CANCELLED": return "Cancelled";
-        default: return "";
+        default: return status;
     }
+}
+
+function effectiveMatchStatus(match: MatchRead): string {
+    if (!["OPEN", "FULL"].includes(match.status) || match.joined_count_excluding_host === undefined) {
+        return match.status;
+    }
+    return match.joined_count_excluding_host >= match.players_needed ? "FULL" : "OPEN";
 }
 
 type ListingTab = "active" | "completed" | "cancelled";
@@ -364,12 +363,12 @@ export default function MyListingsPage() {
         <div className="min-h-screen px-4 py-10 sm:px-6 sm:py-12" style={{ background: "#F8F5F0" }}>
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
                     <div>
-                        <h1 className="text-4xl font-extrabold" style={{ color: "#2B1A0F" }}>
+                        <h1 className="text-3xl sm:text-4xl font-extrabold" style={{ color: "#2B1A0F" }}>
                             My listings
                         </h1>
-                        <p className="mt-1 text-base font-medium" style={{ color: "#8B6147" }}>
+                        <p className="mt-1 text-sm sm:text-base font-medium" style={{ color: "#8B6147" }}>
                             {count === 0
                                 ? "0 games you're hosting"
                                 : `${count} game${count > 1 ? "s" : ""} you're hosting`}
@@ -378,7 +377,7 @@ export default function MyListingsPage() {
 
                     <Link
                         href="/player/host"
-                        className="flex items-center gap-2 font-bold text-white px-5 py-3 rounded-full shadow-md transition-all text-sm active:scale-95"
+                        className="inline-flex items-center justify-center gap-2 font-bold text-white px-5 py-2.5 sm:py-3 rounded-full shadow-md transition-all text-sm active:scale-95 self-start sm:self-auto min-h-[44px]"
                         style={{ background: "#D97736" }}
                     >
                         <Plus size={16} />
@@ -411,7 +410,7 @@ export default function MyListingsPage() {
                 )}
 
                 {!loading && !error && count > 0 && (
-                    <div className="mb-6 flex w-full max-w-xl rounded-2xl border border-[#E8E3DE] bg-white p-1 shadow-sm" role="tablist" aria-label="My game listings">
+                    <div className="mb-6 flex w-full max-w-xl rounded-2xl border border-[#E8E3DE] bg-white p-1 shadow-sm overflow-x-auto" role="tablist" aria-label="My game listings">
                         {([
                             ["active", "Active"],
                             ["completed", "Completed"],
@@ -423,7 +422,7 @@ export default function MyListingsPage() {
                                 role="tab"
                                 aria-selected={listingTab === key}
                                 onClick={() => setListingTab(key)}
-                                className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${listingTab === key ? "bg-[#201405] text-white" : "text-slate-600 hover:bg-slate-50"}`}
+                                className={`flex-1 min-w-[90px] rounded-xl px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-colors min-h-[42px] ${listingTab === key ? "bg-[#201405] text-white" : "text-slate-600 hover:bg-slate-50"}`}
                             >
                                 {label} <span className="ml-1 opacity-75">{categorizedMatches[key].length}</span>
                             </button>
@@ -488,133 +487,206 @@ export default function MyListingsPage() {
                     <div className="grid gap-4">
                         {categorizedMatches[listingTab].map((match) => {
                             const skill = skillLabel(match.skill_level);
-                            const canCancel = match.status === "OPEN" || match.status === "FULL" || match.status === "CONFIRMED";
+                            const displayStatus = effectiveMatchStatus(match);
+                            const canCancel = displayStatus === "OPEN" || displayStatus === "FULL" || displayStatus === "CONFIRMED";
                             const matchStarted = hasMatchStarted(match.date, match.time);
+                            const canRequestBooking = ["OPEN", "FULL"].includes(displayStatus);
                             const canEdit = match.status !== "CANCELLED"
                                 && match.status !== "COMPLETED";
+                            const joinedPlayers = match.joined_count_excluding_host;
+                            const playerCapacity = Math.max(match.players_needed, 1);
+                            const progressPercent = Math.min(((joinedPlayers ?? 0) / playerCapacity) * 100, 100);
+                            const statusLabel = gameStatusLabel(displayStatus);
+                            const statusBadgeLabel = displayStatus === "OPEN"
+                                ? "Open"
+                                : displayStatus === "FULL"
+                                    ? "Full"
+                                    : statusLabel;
 
                             return (
-                                <div
-                                    key={match.id}
-                                    className="bg-white rounded-2xl shadow-sm border border-[#E8E3DE] p-5 sm:p-6"
-                                >
-                                    <div className="flex gap-4">
-                                        <div className="hidden h-[104px] w-[104px] shrink-0 items-center justify-center rounded-2xl bg-[#EAD7C2] text-5xl sm:flex">
-                                            {SPORT_ICONS[match.sport] ?? "🏆"}
+                                <article key={match.id} className="overflow-hidden rounded-2xl border border-[#E8E3DE] bg-white shadow-sm">
+                                    <div className="p-4 sm:p-5">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="flex min-w-0 items-center gap-3">
+                                                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#EAD7C2] text-2xl sm:h-14 sm:w-14">
+                                                    <SportArtwork sport={match.sport} className="h-full w-full object-cover" />
+                                                </div>
+                                                <h2 className="min-w-0 text-lg font-extrabold leading-tight text-slate-950 sm:text-2xl">
+                                                    {match.sport} — {statusLabel}
+                                                </h2>
+                                            </div>
+                                            <span className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold sm:text-sm ${
+                                                displayStatus === "OPEN" || displayStatus === "READY" || displayStatus === "CONFIRMED"
+                                                    ? "bg-emerald-100 text-emerald-700"
+                                                    : displayStatus === "CANCELLED"
+                                                        ? "bg-rose-100 text-rose-700"
+                                                        : displayStatus === "COMPLETED"
+                                                            ? "bg-slate-100 text-slate-700"
+                                                            : "bg-amber-100 text-amber-800"
+                                            }`}>
+                                                <span className={`h-2 w-2 rounded-full ${
+                                                    displayStatus === "OPEN" || displayStatus === "READY" || displayStatus === "CONFIRMED"
+                                                        ? "bg-emerald-600"
+                                                        : displayStatus === "CANCELLED"
+                                                            ? "bg-rose-600"
+                                                            : displayStatus === "COMPLETED"
+                                                                ? "bg-slate-500"
+                                                                : "bg-amber-600"
+                                                }`} />
+                                                {statusBadgeLabel}
+                                            </span>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="mb-3 flex items-start justify-between gap-3">
-                                                <div className="flex min-w-0 items-center gap-3">
-                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EFE7DE] text-slate-500">
+
+                                        <div className="mt-5 grid grid-cols-1 gap-x-5 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <Home size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                <div className="flex min-w-0 items-center gap-2">
+                                                    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#EFE7DE] text-slate-500">
                                                         {profile?.avatar
                                                             ? <img src={profile.avatar} alt="" className="h-full w-full object-cover" />
-                                                            : <User size={19} />}
+                                                            : <User size={15} />}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="truncate font-semibold text-slate-900">{profile?.name ?? "You"}</p>
-                                                        <p className="text-sm text-slate-500">Host</p>
+                                                        <p className="text-xs text-slate-500">Host</p>
+                                                        <p className="truncate font-bold text-slate-900">{profile?.name ?? "You"}</p>
                                                     </div>
                                                 </div>
-                                                <div className="flex shrink-0 items-center gap-2">
-                                                    {gameStatusLabel(match.status) && (
-                                                        <span className={`rounded-full px-3 py-1.5 text-xs font-semibold ${match.status === "CANCELLED" ? "bg-rose-50 text-rose-700" : match.status === "COMPLETED" ? "bg-slate-100 text-slate-700" : "bg-amber-50 text-amber-700"}`}>
-                                                            {gameStatusLabel(match.status)}
-                                                        </span>
-                                                    )}
-                                                    <span className="rounded-full bg-[#FFF0E1] px-3 py-1.5 text-xs font-semibold text-[#B85D14]">
-                                                        {skill}
-                                                    </span>
+                                            </div>
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <CalendarDays size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-slate-500">Date</p>
+                                                    <p className="font-bold text-slate-900">{formatGameDate(match.date)}</p>
                                                 </div>
                                             </div>
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <Clock3 size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-slate-500">Time</p>
+                                                    <p className="font-bold text-slate-900">{match.time.slice(0, 5)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <MapPin size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-slate-500">Location</p>
+                                                    <p className="font-bold text-slate-900">{match.location}</p>
+                                                </div>
+                                            </div>
+                                            {match.court_id && (
+                                                <div className="flex min-w-0 items-start gap-2.5 lg:col-span-2">
+                                                    <Building2 size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                    <div className="min-w-0">
+                                                        <p className="text-xs text-slate-500">Court</p>
+                                                        <p className="font-bold text-slate-900">
+                                                            {match.venue_name} — {match.court_name}{" "}
+                                                            <span className={`text-xs font-semibold ${match.court_booking_status === "CONFIRMED" ? "text-emerald-700" : match.court_booking_status === "REJECTED" ? "text-rose-700" : "text-amber-700"}`}>
+                                                                ({match.court_booking_status === "CONFIRMED" ? "Confirmed" : match.court_booking_status === "PENDING" ? "Awaiting venue approval" : match.court_booking_status === "REJECTED" ? "Request declined" : "Booking not requested"})
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="flex min-w-0 items-start gap-2.5 lg:col-span-2">
+                                                <Clock3 size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-slate-500">Posted</p>
+                                                    <p className="font-bold text-slate-900">{formatPostedDateTime(match.created_at)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <Users size={20} className="mt-0.5 shrink-0 text-slate-500" aria-hidden="true" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-slate-500">Additional players needed</p>
+                                                    <p className="font-bold text-slate-900">{playerCapacity}</p>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                            <h2 className="mb-2 text-lg font-bold text-slate-950 sm:text-xl">
-                                                {match.sport}
-                                            </h2>
-                                            <div className="grid gap-x-8 gap-y-1.5 text-sm text-slate-700 sm:grid-cols-2">
-                                                <p><span className="font-semibold text-slate-950">Location:</span> {match.location}</p>
-                                                {match.court_id && (
-                                                    <p>
-                                                        <span className="font-semibold text-slate-950">Court:</span>{" "}
-                                                        {match.venue_name} — {match.court_name}{" "}
-                                                        <span className={`ml-1 text-xs font-semibold ${match.court_booking_status === "CONFIRMED" ? "text-emerald-700" : match.court_booking_status === "REJECTED" ? "text-rose-700" : "text-amber-700"}`}>
-                                                            ({match.court_booking_status === "CONFIRMED" ? "Confirmed" : match.court_booking_status === "PENDING" ? "Awaiting venue approval" : match.court_booking_status === "REJECTED" ? "Request declined" : "Booking not requested"})
-                                                        </span>
-                                                    </p>
+                                        <div
+                                            className="relative mt-5 flex min-h-11 items-center overflow-hidden rounded-full bg-[#EEF1F5] px-4"
+                                            role="progressbar"
+                                            aria-valuemin={0}
+                                            aria-valuemax={playerCapacity}
+                                            aria-valuenow={Math.min(joinedPlayers ?? 0, playerCapacity)}
+                                            aria-label={`${joinedPlayers ?? "—"} of ${playerCapacity} additional players joined`}
+                                        >
+                                            <div
+                                                className="absolute inset-y-0 left-0 rounded-full bg-[#DFE7F0] transition-[width]"
+                                                style={{ width: `${progressPercent}%` }}
+                                                aria-hidden="true"
+                                            />
+                                            <div className="relative flex min-w-0 items-center gap-3 text-sm font-semibold text-slate-700">
+                                                <Users size={20} className="shrink-0 text-slate-500" aria-hidden="true" />
+                                                <span>{joinedPlayers ?? "—"}/{playerCapacity} additional players joined</span>
+                                                {liveUpdatesActive && (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                                        Live
+                                                    </span>
                                                 )}
-                                                <p><span className="font-semibold text-slate-950">Date:</span> {formatGameDate(match.date)}</p>
-                                                <p><span className="font-semibold text-slate-950">Time:</span> {match.time.slice(0, 5)}</p>
-                                                <p><span className="font-semibold text-slate-950">Posted:</span> {formatPostedDateTime(match.created_at)}</p>
-                                                <p className="flex items-center gap-2">
-                                                    <span>
-                                                        <span className="font-semibold text-slate-950">Additional players joined:</span>{" "}
-                                                        {match.joined_count_excluding_host ?? "—"} / {match.players_needed}
-                                                    </span>
-                                                    {liveUpdatesActive && (
-                                                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                                            Live
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            </div>
-
-                                            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#EFEAE5] pt-4">
-                                                <span className="text-sm text-slate-500">{match.venue_name ?? match.location}</span>
-                                                <div className="flex items-center gap-2">
-                                                    {canEdit && (
-                                                        <button
-                                                            title="Edit game"
-                                                            disabled={busyId === match.id}
-                                                            onClick={() => openEdit(match)}
-                                                            className="inline-flex h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-                                                        >
-                                                            <Pencil size={15} />
-                                                            Edit game
-                                                        </button>
-                                                    )}
-                                                    {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && match.status === "FULL" && matchStarted && (
-                                                        <span className="text-xs font-semibold text-slate-500">
-                                                            Game time passed; booking unavailable
-                                                        </span>
-                                                    )}
-                                                    {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && match.status === "FULL" && !matchStarted && (
-                                                        <button
-                                                            disabled={busyId === match.id}
-                                                            onClick={() => handleBookCourt(match)}
-                                                            className="inline-flex h-10 items-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
-                                                        >
-                                                            {busyId === match.id
-                                                                ? <Loader2 size={15} className="animate-spin" />
-                                                                : null}
-                                                            {busyId === match.id
-                                                                ? bookingLoading ? "Checking courts…" : "Sending request…"
-                                                                : match.court_booking_status === "AVAILABLE" ? "Request court booking" : "Request again"}
-                                                        </button>
-                                                    )}
-                                                    {canCancel && (
-                                                        <button
-                                                            title="Cancel match"
-                                                            disabled={busyId === match.id}
-                                                            onClick={() => setCancelMatchConfirmation(match)}
-                                                            className="inline-flex h-10 items-center gap-2 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
-                                                        >
-                                                            {busyId === match.id
-                                                                ? <Loader2 size={15} className="animate-spin" />
-                                                                : <XCircle size={15} />}
-                                                            Cancel
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        onClick={() => setViewMatch(match)}
-                                                        className="h-10 rounded-full bg-[#201405] px-6 text-sm font-bold text-white transition-colors hover:bg-[#39260D]"
-                                                    >
-                                                        View game
-                                                    </button>
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+
+                                    <div className="flex flex-col gap-3 border-t border-[#E9EDF2] bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                                        <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-slate-700">
+                                            <Zap size={18} className="text-blue-600" aria-hidden="true" />
+                                            Skill level: <span className="font-extrabold text-blue-700">{skill}</span>
+                                        </span>
+                                        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                                            {canEdit && (
+                                                <button
+                                                    title="Edit game"
+                                                    disabled={busyId === match.id}
+                                                    onClick={() => openEdit(match)}
+                                                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                                                >
+                                                    <Pencil size={15} />
+                                                    Edit game
+                                                </button>
+                                            )}
+                                            {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && canRequestBooking && matchStarted && (
+                                                <span className="text-xs font-semibold text-slate-500">
+                                                    Game time passed; booking unavailable
+                                                </span>
+                                            )}
+                                            {match.court_id && ["AVAILABLE", "REJECTED", "CANCELLED"].includes(match.court_booking_status ?? "") && canRequestBooking && !matchStarted && (
+                                                <button
+                                                    disabled={busyId === match.id}
+                                                    onClick={() => handleBookCourt(match)}
+                                                    className="inline-flex min-h-10 items-center gap-2 rounded-full bg-emerald-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                                                >
+                                                    {busyId === match.id
+                                                        ? <Loader2 size={15} className="animate-spin" />
+                                                        : null}
+                                                    {busyId === match.id
+                                                        ? bookingLoading ? "Checking courts…" : "Sending request…"
+                                                        : match.court_booking_status === "AVAILABLE" ? "Request court booking" : "Request again"}
+                                                </button>
+                                            )}
+                                            {canCancel && (
+                                                <button
+                                                    title="Cancel match"
+                                                    disabled={busyId === match.id}
+                                                    onClick={() => setCancelMatchConfirmation(match)}
+                                                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-red-200 px-4 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:opacity-50"
+                                                >
+                                                    {busyId === match.id
+                                                        ? <Loader2 size={15} className="animate-spin" />
+                                                        : <XCircle size={15} />}
+                                                    Cancel
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setViewMatch(match)}
+                                                className="inline-flex min-h-10 items-center justify-center rounded-full bg-emerald-700 px-6 text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+                                            >
+                                                View game
+                                            </button>
+                                        </div>
+                                    </div>
+                                </article>
                             );
                         })}
                     </div>
@@ -831,7 +903,7 @@ export default function MyListingsPage() {
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="edit-game-title"
-                            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+                            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="mb-5 flex items-center justify-between">
@@ -1000,13 +1072,13 @@ export default function MyListingsPage() {
                             role="dialog"
                             aria-modal="true"
                             aria-labelledby="view-game-title"
-                            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+                            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6"
                             onClick={(event) => event.stopPropagation()}
                         >
                             <div className="mb-5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <h2 id="view-game-title" className="text-xl font-bold text-slate-950">{viewMatch.sport}</h2>
-                                    {gameStatusLabel(viewMatch.status) && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{gameStatusLabel(viewMatch.status)}</span>}
+                                    {gameStatusLabel(effectiveMatchStatus(viewMatch)) && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{gameStatusLabel(effectiveMatchStatus(viewMatch))}</span>}
                                 </div>
                                 <button
                                     onClick={() => setViewMatch(null)}

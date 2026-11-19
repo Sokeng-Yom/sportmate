@@ -106,17 +106,17 @@ function VenuesContent() {
                 description="Manage your sports facilities"
                 action={
                     <Link href="/venue-owner/add-venue"
-                        className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/25 transition-colors">
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/25 transition-colors min-h-[44px]">
                         <Plus size={16} /> Add Venue
                     </Link>
                 }
             />
 
             {/* Search */}
-            <div className="relative mb-6 max-w-sm">
+            <div className="relative mb-6 w-full sm:max-w-sm">
                 <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search venues…"
-                    className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all" />
+                    className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all min-h-[44px]" />
             </div>
 
             {filtered.length === 0 ? (
@@ -125,13 +125,13 @@ function VenuesContent() {
                     title={search ? "No venues match your search" : "No venues yet"}
                     description={search ? "Try a different search term." : "Add your first venue to start receiving bookings."}
                     action={!search ? (
-                        <Link href="/venue-owner/add-venue" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors inline-block">
+                        <Link href="/venue-owner/add-venue" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-5 py-2.5 rounded-xl transition-colors inline-block min-h-[44px] flex items-center justify-center">
                             + Add Venue
                         </Link>
                     ) : undefined}
                 />
             ) : (
-                <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     <AnimatePresence>
                         {filtered.map((v) => (
                             <VenueCard key={v.id} venue={v}

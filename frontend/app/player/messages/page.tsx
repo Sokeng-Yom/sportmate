@@ -252,10 +252,10 @@ export default function MessagesPage() {
     : selected?.conversation.conversation_id;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] min-h-[500px] bg-[#F2E8D9]">
+    <div className="flex h-[calc(100dvh-72px)] min-h-[500px] bg-[#F2E8D9]">
       <aside className={`${selectedId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r border-[#E5D5C0] bg-[#F2E8D9] md:w-80`}>
-        <div className="px-5 pb-4 pt-6">
-          <h1 className="mb-4 text-lg font-extrabold text-slate-900">Messages</h1>
+        <div className="px-5 pb-4 pt-5 sm:pt-6">
+          <h1 className="mb-3 sm:mb-4 text-lg font-extrabold text-slate-900">Messages</h1>
           <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm">
             <Search size={14} className="shrink-0 text-slate-400" />
             <input type="search" aria-label="Search conversations" placeholder="Search matches or venues…" value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent text-sm text-slate-700 outline-none" />
@@ -277,19 +277,47 @@ export default function MessagesPage() {
               {filtered.map((conversation) => {
                 const title = conversation.kind === "match"
                   ? matchTitle(conversation.match)
-                  : conversation.conversation.owner_name;
+                  : conversation.conversation.venue_names.join(", ") || conversation.conversation.owner_name;
                 const subtitle = conversation.kind === "match"
                   ? conversation.members.filter((member) => member.user_id !== profile?.id).map((member) => member.name).join(", ") || conversation.match.location
-                  : `${conversation.conversation.venue_names.join(", ")} · ${conversation.conversation.court_names.join(", ")}`;
-                const preview = conversation.lastMessage?.content ?? "No messages yet";
+                  : conversation.conversation.court_names.join(", ");
+                const lastMessage = conversation.lastMessage;
+                const venueSender = conversation.kind === "venue"
+                  ? lastMessage && lastMessage.sender_id === profile?.id
+                    ? "You"
+                    : lastMessage?.sender_id === conversation.conversation.owner_id
+                      ? conversation.conversation.owner_name || lastMessage.sender_name || "Venue owner"
+                      : lastMessage
+                        ? conversation.conversation.host_name || lastMessage.sender_name || "Player"
+                        : conversation.conversation.owner_name || "Venue owner"
+                  : null;
+                const previewSender = lastMessage
+                  ? lastMessage.sender_id === profile?.id
+                    ? "You"
+                    : conversation.kind === "match"
+                      ? conversation.members.find((member) => member.user_id === lastMessage.sender_id)?.name
+                        || lastMessage.sender_name
+                        || "Match participant"
+                      : ""
+                  : "";
+                const preview = lastMessage
+                  ? `${previewSender ? `${previewSender}: ` : ""}${lastMessage.content}`
+                  : "No messages yet";
                 return (
                   <li key={conversation.id}>
-                    <button onClick={() => setSelectedId(conversation.id)} className={`w-full rounded-2xl px-3 py-3 text-left transition-colors ${selectedId === conversation.id ? "bg-white shadow-sm" : "hover:bg-white/60"}`}>
+                    <button onClick={() => setSelectedId(conversation.id)} className={`w-full rounded-2xl px-3 py-3 text-left transition-colors min-h-[48px] ${selectedId === conversation.id ? "bg-white shadow-sm" : "hover:bg-white/60"}`}>
                       <div className="flex items-baseline justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-slate-800">{title}</p>
                         <span className="shrink-0 text-xs text-slate-400">{conversation.lastMessage ? formatTime(conversation.lastMessage.created_at) : ""}</span>
                       </div>
-                      <p className="mt-1 truncate text-xs text-slate-500">{conversation.kind === "venue" ? "Private venue message · " : ""}{subtitle}</p>
+                      {conversation.kind === "venue" && (
+                        <p className="mt-1 truncate text-xs font-semibold text-slate-600">
+                          {lastMessage
+                            ? lastMessage.sender_id === profile?.id ? profile?.name?.trim() || "You" : venueSender
+                            : venueSender}
+                        </p>
+                      )}
+                      {subtitle && <p className="mt-1 truncate text-xs text-slate-500">{subtitle}</p>}
                       <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
                     </button>
                   </li>
@@ -300,19 +328,23 @@ export default function MessagesPage() {
         </div>
       </aside>
 
-      <main className={`${selectedId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col rounded-l-3xl bg-white shadow-inner`}>
+      <main className={`${selectedId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col rounded-none md:rounded-l-3xl bg-white shadow-inner`}>
         {selected ? (
           <>
-            <header className="flex items-center gap-3 border-b border-gray-100 px-5 py-4">
-              <button aria-label="Back to conversations" onClick={() => setSelectedId(null)} className="text-slate-500 md:hidden"><ArrowLeft size={20} /></button>
+            <header className="flex items-center gap-3 border-b border-gray-100 px-4 sm:px-5 py-3.5 sm:py-4">
+              <button aria-label="Back to conversations" onClick={() => setSelectedId(null)} className="p-1.5 -ml-1.5 rounded-lg text-slate-500 hover:bg-slate-100 md:hidden"><ArrowLeft size={20} /></button>
               <div className="min-w-0">
                 <h2 className="truncate font-extrabold text-slate-900">
-                  {selected.kind === "match" ? matchTitle(selected.match) : selected.conversation.owner_name}
+                  {selected.kind === "match"
+                    ? matchTitle(selected.match)
+                    : selected.conversation.venue_names.join(", ") || selected.conversation.owner_name}
                 </h2>
                 <p className="truncate text-xs text-slate-500">
                   {selected.kind === "match"
                     ? `${selected.match.location} · ${otherMembers.map((member) => member.name).join(", ") || "Just you"}`
-                    : `Private venue conversation · ${selected.conversation.venue_names.join(", ")} · ${selected.conversation.court_names.join(", ")}`}
+                    : [selected.conversation.court_names.join(", "), selected.conversation.owner_name]
+                      .filter(Boolean)
+                      .join(" · ")}
                 </p>
               </div>
               <span className={`ml-auto inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold ${liveUpdatesActive ? "text-emerald-700" : "text-slate-500"}`}>
@@ -320,19 +352,24 @@ export default function MessagesPage() {
                 {liveUpdatesActive ? "Live" : liveUpdateError ? "Offline" : "Connecting"}
               </span>
             </header>
-            <div className="flex-1 space-y-3 overflow-y-auto p-5">
+            <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
               {messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-sm text-slate-400">Start the conversation.</div>
               ) : messages.map((message) => {
                 const mine = message.sender_id === profile?.id;
-                const senderName = selected.kind === "venue"
-                  && message.sender_id === selected.conversation.owner_id
-                  ? selected.conversation.owner_name
-                  : message.sender_name;
+                const senderName = mine
+                  ? profile?.name?.trim() || "You"
+                  : selected.kind === "venue"
+                    ? (message.sender_id === selected.conversation.owner_id
+                      ? `Venue owner · ${selected.conversation.owner_name || message.sender_name || "Unknown"}`
+                      : `Player · ${selected.conversation.host_name || message.sender_name || "Unknown"}`)
+                    : selected.members.find((member) => member.user_id === message.sender_id)?.name
+                      || message.sender_name
+                      || "Match participant";
                 return (
                   <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${mine ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-800"}`}>
-                      {!mine && <p className="mb-1 text-xs font-bold opacity-70">{senderName}</p>}
+                    <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-2.5 ${mine ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-800"}`}>
+                      <p className="mb-1 text-xs font-bold opacity-70">{senderName}</p>
                       <p className="whitespace-pre-wrap break-words text-sm">{message.content}</p>
                       <p className={`mt-1 text-right text-[10px] ${mine ? "text-white/70" : "text-slate-400"}`}>{formatTime(message.created_at)}</p>
                     </div>
@@ -340,12 +377,12 @@ export default function MessagesPage() {
                 );
               })}
             </div>
-            <form onSubmit={submitMessage} className="border-t border-gray-100 p-4">
+            <form onSubmit={submitMessage} className="border-t border-gray-100 p-3.5 sm:p-4">
               {liveUpdateError && <p role="status" className="mb-2 text-sm text-amber-700">{liveUpdateError}</p>}
               {sendError && <p role="alert" className="mb-2 text-sm text-red-600">{sendError}</p>}
-              <div className="flex gap-3">
-                <input maxLength={1000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Type a message…" aria-label="Message" className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
-                <button type="submit" disabled={sending || !draft.trim()} aria-label="Send message" className="inline-flex items-center gap-2 rounded-full bg-[#D97736] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#c26529] disabled:opacity-50"><Send size={15} /><span className="hidden sm:inline">Send</span></button>
+              <div className="flex gap-2 sm:gap-3">
+                <input maxLength={1000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Type a message…" aria-label="Message" className="min-w-0 flex-1 rounded-full border border-gray-200 bg-gray-50 px-4 py-2.5 sm:py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 min-h-[44px]" />
+                <button type="submit" disabled={sending || !draft.trim()} aria-label="Send message" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#D97736] px-4 sm:px-5 py-2.5 sm:py-3 text-sm font-bold text-white transition-colors hover:bg-[#c26529] disabled:opacity-50 min-h-[44px]"><Send size={15} /><span className="hidden sm:inline">Send</span></button>
               </div>
             </form>
           </>

@@ -49,6 +49,8 @@ import type {
   AdminUserRead,
   RestrictUserPayload,
   SecurityLogRead,
+  EligibleVenueReview,
+  VenueReviewRead,
 } from "./types";
 
 /** Builds a query string from an object, skipping undefined/null/empty-string values. */
@@ -250,6 +252,18 @@ export const listVenueBookings = (
   venueId: string,
   params?: { status?: string; date?: string; page?: number; page_size?: number },
 ) => apiClient.get<Paginated<BookingRead>>(`/api/v1/venues/${venueId}/bookings${qs(params)}`);
+
+export const listEligibleVenueReviews = () =>
+  apiClient.get<EligibleVenueReview[]>("/api/v1/reviews/eligible");
+
+export const createVenueReview = (payload: {
+  booking_transaction_id: string;
+  rating: number;
+  comment?: string;
+}) => apiClient.post<VenueReviewRead>("/api/v1/reviews", payload);
+
+export const listOwnerVenueReviews = (params?: { page?: number; page_size?: number }) =>
+  apiClient.get<Paginated<VenueReviewRead>>(`/api/v1/reviews/owner${qs(params)}`);
 
 // ---------------------------------------------------------------------------
 // Notifications

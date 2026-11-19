@@ -100,7 +100,7 @@ export default function VenueDetailPage({ params }: { params: { venueId: string 
     return (
         <div className="min-h-screen bg-[#F8F5F0] pb-20">
             <header className="border-b border-gray-100 bg-white shadow-sm">
-                <div className="mx-auto max-w-4xl px-6 py-5">
+                <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-5">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0 flex-1">
                             <Link href="/player/venues" className="mb-2 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-emerald-600">
@@ -109,17 +109,17 @@ export default function VenueDetailPage({ params }: { params: { venueId: string 
                             <h1 className="text-2xl font-extrabold leading-tight text-slate-900 md:text-3xl">{venue.name}</h1>
                             <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500"><MapPin size={13} className="shrink-0 text-emerald-500" />{venue.address}</p>
                         </div>
-                        <Link href={`/player/host?venueId=${venue.id}`} className="self-start rounded-full bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700">
+                        <Link href={`/player/host?venueId=${venue.id}`} className="w-full sm:w-auto text-center rounded-full bg-emerald-600 px-6 py-2.5 sm:py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-700 min-h-[44px] flex items-center justify-center">
                             Book here
                         </Link>
                     </div>
                 </div>
             </header>
 
-            <div className="mx-auto mt-6 max-w-4xl px-6">
-                <div role="tablist" aria-label="Venue sections" className="flex w-fit gap-1 rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
+            <div className="mx-auto mt-6 max-w-4xl px-4 sm:px-6">
+                <div role="tablist" aria-label="Venue sections" className="flex max-w-full overflow-x-auto gap-1 rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
                     {tabs.map((tab) => (
-                        <button key={tab.key} role="tab" aria-selected={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} className={`flex items-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold ${activeTab === tab.key ? "bg-emerald-600 text-white shadow" : "text-slate-600 hover:bg-gray-50"}`}>
+                        <button key={tab.key} role="tab" aria-selected={activeTab === tab.key} onClick={() => setActiveTab(tab.key)} className={`shrink-0 flex items-center gap-2 rounded-xl px-4 sm:px-5 py-2 text-xs sm:text-sm font-semibold min-h-[40px] ${activeTab === tab.key ? "bg-emerald-600 text-white shadow" : "text-slate-600 hover:bg-gray-50"}`}>
                             {tab.label}
                             {tab.count !== undefined && <span className={`rounded-full px-1.5 text-xs ${activeTab === tab.key ? "bg-white/20" : "bg-slate-100"}`}>{tab.count}</span>}
                         </button>
@@ -129,7 +129,7 @@ export default function VenueDetailPage({ params }: { params: { venueId: string 
                 <div className="mt-6">
                     {activeTab === "about" && (
                         <div className="grid gap-6 md:grid-cols-2">
-                            <section className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6">
+                            <section className="space-y-5 rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
                                 <h2 className="text-lg font-extrabold text-slate-900">Venue details</h2>
                                 <InfoRow icon={<MapPin size={16} className="text-emerald-500" />} label="Address" value={venue.address} />
                                 <InfoRow icon={<Clock size={16} className="text-emerald-500" />} label="Courts" value={`${courts.length} available court${courts.length === 1 ? "" : "s"}`} />

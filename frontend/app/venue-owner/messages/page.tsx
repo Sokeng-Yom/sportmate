@@ -95,7 +95,10 @@ export default function MessagesPage() {
                 page.items.forEach((message) => messageIdsRef.current.add(message.id));
                 if (markRead || hasNewIncoming) {
                     await markVenueOwnerMessagesRead(selected.conversation_id);
-                    if (!cancelled) void loadConversations();
+                    if (!cancelled) {
+                        window.dispatchEvent(new Event("sportmate:venue-owner-chat-read"));
+                        void loadConversations();
+                    }
                 }
             } catch (err) {
                 if (!cancelled) {
@@ -136,7 +139,7 @@ export default function MessagesPage() {
     };
 
     return (
-        <div className="flex h-[calc(100vh-160px)] min-h-[500px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="flex h-[calc(100dvh-150px)] min-h-[480px] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <aside className={`${selectedConversationId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r border-slate-100 md:w-80`}>
                 <div className="border-b border-slate-100 px-5 py-4">
                     <h1 className="font-bold text-slate-900">Booking messages</h1>
@@ -159,6 +162,11 @@ export default function MessagesPage() {
                         conversations.map((conversation) => {
                             const preview = conversation.last_message;
                             const personName = conversation.host_name;
+                            const previewSender = preview
+                                ? preview.sender_id === profile?.id
+                                    ? "You"
+                                    : preview.sender_name || personName || "Player"
+                                : "";
                             return (
                                 <button
                                     key={conversation.conversation_id}
@@ -187,7 +195,7 @@ export default function MessagesPage() {
                                         </span>
                                         <span className="mt-1 flex items-center justify-between gap-2">
                                             <span className="truncate text-xs text-slate-500">
-                                                {preview?.content ?? "Booking conversation"}
+                                                {preview ? `${previewSender}: ${preview.content}` : "Booking conversation"}
                                             </span>
                                             {conversation.unread_count > 0 && (
                                                 <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white">
@@ -206,11 +214,14 @@ export default function MessagesPage() {
             <main className={`${selectedConversationId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col`}>
                 {selected ? (
                     <>
-                        <header className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+                        <header className="flex items-center gap-3 border-b border-slate-100 px-4 sm:px-5 py-3.5 sm:py-4">
                             <button
                                 aria-label="Back to conversations"
-                                onClick={() => setMobileView("list")}
-                                className="text-slate-500 md:hidden"
+                                onClick={() => {
+                                    setSelectedConversationId(null);
+                                    setMobileView("list");
+                                }}
+                                className="p-1.5 -ml-1.5 rounded-lg text-slate-500 hover:bg-slate-100 md:hidden flex items-center justify-center min-h-[40px] min-w-[40px]"
                             >
                                 <ArrowLeft size={20} />
                             </button>
@@ -236,12 +247,15 @@ export default function MessagesPage() {
                                 </div>
                             ) : messages.map((message) => {
                                 const mine = message.sender_id === profile?.id;
+                                const senderName = mine
+                                    ? profile?.name?.trim() || "You"
+                                    : message.sender_name || selected.host_name || "Player";
                                 return (
                                     <div key={message.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                                         <div className={`max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-4 py-2.5 text-sm ${
                                             mine ? "rounded-br-sm bg-emerald-600 text-white" : "rounded-bl-sm border border-slate-100 bg-white text-slate-800 shadow-sm"
                                         }`}>
-                                            {!mine && <p className="mb-1 text-xs font-bold opacity-70">{message.sender_name}</p>}
+                                            <p className="mb-1 text-xs font-bold opacity-70">{senderName}</p>
                                             <p>{message.content}</p>
                                             <p className={`mt-1 text-right text-[10px] ${mine ? "text-emerald-100" : "text-slate-400"}`}>
                                                 {formatTime(message.created_at)}

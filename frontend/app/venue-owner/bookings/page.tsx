@@ -135,14 +135,14 @@ function BookingsContent() {
 
             {/* Filters Row */}
             <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                <div className="relative flex-1 max-w-xs">
+                <div className="relative flex-1 w-full sm:max-w-xs">
                     <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search player name…"
-                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all" />
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-4 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all min-h-[44px]" />
                 </div>
                 <div className="relative">
                     <select value={venueFilter} onChange={(e) => setVenueFilter(e.target.value)}
-                        className="appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-9 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all">
+                        className="w-full sm:w-auto appearance-none bg-white border border-slate-200 rounded-xl pl-4 pr-9 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 transition-all min-h-[44px]">
                         <option value="all">All Venues</option>
                         {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                     </select>
@@ -156,92 +156,94 @@ function BookingsContent() {
                 <>
                     {/* Desktop Table */}
                     <div className="hidden md:block bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-slate-100">
-                                    {["Player", "Type", "Venue / Court", "Date", "Time", "Price", "Status", "Actions"].map((h) => (
-                                        <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <AnimatePresence>
-                                    {filtered.map((b) => (
-                                        <motion.tr key={b.id} layout exit={{ opacity: 0 }}
-                                            className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
-                                            <td className="px-5 py-3.5">
-                                                <div className="flex items-center gap-3">
-                                                    <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-8 h-8 rounded-full bg-slate-100" />
-                                                    <span className="font-semibold text-slate-900 text-sm">{b.playerName || "—"}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-3.5">
-                                                <BookingTypeBadge type={b.bookingType} />
-                                            </td>
-                                            <td className="px-5 py-3.5 text-sm text-slate-600">
-                                                <p className="font-medium text-slate-800">{getVenueName(b.venueId)}</p>
-                                                <p className="text-xs text-slate-400">{getBookingCourtNames(b)}</p>
-                                            </td>
-                                            <td className="px-5 py-3.5 text-sm text-slate-600">{formatLocalDateString(b.date)}</td>
-                                            <td className="px-5 py-3.5 text-sm text-slate-600">{b.startTime} – {b.endTime}</td>
-                                            <td className="px-5 py-3.5 text-sm font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</td>
-                                            <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
-                                            <td className="px-5 py-3.5">
-                                                {b.status === "Pending" && (
-                                                    <div className="flex items-center gap-2">
-                                                        <button onClick={() => setReview({ id: b.id, action: "Confirmed" })}
-                                                            className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700">
-                                                            <Check size={13} /> Approve
-                                                        </button>
-                                                        <button onClick={() => { setRejectionReason(""); setReview({ id: b.id, action: "Rejected" }); }}
-                                                            className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50">
-                                                            <XCircle size={13} /> Reject
-                                                        </button>
+                        <div className="overflow-x-auto">
+                            <table className="w-full min-w-[700px]">
+                                <thead>
+                                    <tr className="border-b border-slate-100">
+                                        {["Player", "Type", "Venue / Court", "Date", "Time", "Price", "Status", "Actions"].map((h) => (
+                                            <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <AnimatePresence>
+                                        {filtered.map((b) => (
+                                            <motion.tr key={b.id} layout exit={{ opacity: 0 }}
+                                                className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                                                <td className="px-5 py-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-8 h-8 rounded-full bg-slate-100" />
+                                                        <span className="font-semibold text-slate-900 text-sm">{b.playerName || "—"}</span>
                                                     </div>
-                                                )}
-                                                {b.status === "Confirmed" && (
-                                                    <button onClick={() => handleCancel(b.id)}
-                                                        className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors">
-                                                        <X size={12} /> Cancel booking
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </motion.tr>
-                                    ))}
-                                </AnimatePresence>
-                            </tbody>
-                        </table>
+                                                </td>
+                                                <td className="px-5 py-3.5">
+                                                    <BookingTypeBadge type={b.bookingType} />
+                                                </td>
+                                                <td className="px-5 py-3.5 text-sm text-slate-600">
+                                                    <p className="font-medium text-slate-800">{getVenueName(b.venueId)}</p>
+                                                    <p className="text-xs text-slate-400">{getBookingCourtNames(b)}</p>
+                                                </td>
+                                                <td className="px-5 py-3.5 text-sm text-slate-600">{formatLocalDateString(b.date)}</td>
+                                                <td className="px-5 py-3.5 text-sm text-slate-600">{b.startTime} – {b.endTime}</td>
+                                                <td className="px-5 py-3.5 text-sm font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</td>
+                                                <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
+                                                <td className="px-5 py-3.5">
+                                                    {b.status === "Pending" && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button onClick={() => setReview({ id: b.id, action: "Confirmed" })}
+                                                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-700 min-h-[36px]">
+                                                                <Check size={13} /> Approve
+                                                            </button>
+                                                            <button onClick={() => { setRejectionReason(""); setReview({ id: b.id, action: "Rejected" }); }}
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 min-h-[36px]">
+                                                                <XCircle size={13} /> Reject
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {b.status === "Confirmed" && (
+                                                        <button onClick={() => handleCancel(b.id)}
+                                                            className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors min-h-[36px]">
+                                                            <X size={12} /> Cancel booking
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </motion.tr>
+                                        ))}
+                                    </AnimatePresence>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     {/* Mobile Cards */}
                     <div className="md:hidden space-y-3">
                         {filtered.map((b) => (
                             <div key={b.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-3">
-                                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-9 h-9 rounded-full bg-slate-100" />
-                                        <div>
-                                            <p className="font-bold text-slate-900 text-sm">{b.playerName || "—"}</p>
-                                            <p className="text-xs text-slate-500">{getBookingCourtNames(b)} @ {getVenueName(b.venueId)}</p>
+                                <div className="flex items-start justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${b.playerName || "player"}`} alt="" className="w-9 h-9 rounded-full bg-slate-100 shrink-0" />
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-slate-900 text-sm truncate">{b.playerName || "—"}</p>
+                                            <p className="text-xs text-slate-500 truncate">{getBookingCourtNames(b)} @ {getVenueName(b.venueId)}</p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-col items-end gap-1">
+                                    <div className="flex flex-col items-end gap-1 shrink-0">
                                         <StatusBadge status={b.status} />
                                         <BookingTypeBadge type={b.bookingType} />
                                     </div>
                                 </div>
-                                <div className="flex items-center justify-between text-xs text-slate-500">
+                                <div className="flex items-center justify-between text-xs text-slate-500 py-2 border-t border-slate-50">
                                     <span>{formatLocalDateString(b.date)} · {b.startTime}–{b.endTime}</span>
-                                    <span className="font-bold text-slate-900">{b.price > 0 ? `$${b.price}` : "—"}</span>
+                                    <span className="font-bold text-slate-900 text-sm">{b.price > 0 ? `$${b.price}` : "—"}</span>
                                 </div>
                                 {b.status === "Pending" && (
                                     <div className="mt-3 flex gap-2">
-                                        <button onClick={() => setReview({ id: b.id, action: "Confirmed" })} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-600 py-2 text-xs font-bold text-white hover:bg-emerald-700"><Check size={13} /> Approve</button>
-                                        <button onClick={() => { setRejectionReason(""); setReview({ id: b.id, action: "Rejected" }); }} className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-red-200 py-2 text-xs font-bold text-red-600 hover:bg-red-50"><XCircle size={13} /> Reject</button>
+                                        <button onClick={() => setReview({ id: b.id, action: "Confirmed" })} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 min-h-[44px]"><Check size={14} /> Approve</button>
+                                        <button onClick={() => { setRejectionReason(""); setReview({ id: b.id, action: "Rejected" }); }} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-200 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 min-h-[44px]"><XCircle size={14} /> Reject</button>
                                     </div>
                                 )}
                                 {b.status === "Confirmed" && (
-                                    <button onClick={() => handleCancel(b.id)} className="flex-1 bg-red-500 text-white text-xs font-bold py-2 rounded-xl hover:bg-red-600 transition-colors">Cancel booking</button>
+                                    <button onClick={() => handleCancel(b.id)} className="w-full mt-3 bg-red-500 text-white text-xs font-bold py-2.5 rounded-xl hover:bg-red-600 transition-colors min-h-[44px] flex items-center justify-center gap-1.5">Cancel booking</button>
                                 )}
                             </div>
                         ))}
